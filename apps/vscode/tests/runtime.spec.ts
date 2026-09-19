@@ -46,3 +46,16 @@ it('cancels startup before a child is created', async () => {
     await expect(starting).rejects.toThrow('startup was cancelled')
   } finally { await runtime.stop(); await rm(directory, { recursive: true, force: true }) }
 })
+
+it('passes an extension-stored key only to the owned child environment', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'dsh-vscode-secret-'))
+  const runtime = new AgentRuntime()
+  try {
+    await mkdir(join(directory, 'apps/cli/lib'), { recursive: true })
+    await writeFile(join(directory, 'apps/cli/lib/profile-boot.js'), '')
+    const ready = await runtime.start({ node: process.execPath, repository: directory,
+      entry: fileURLToPath(new URL('./fixtures/secret-runtime.mjs', import.meta.url)),
+      workspace: directory, home: join(directory, 'home'), apiKey: 'fixture-only-key' })
+    expect(JSON.stringify(ready)).not.toContain('fixture-only-key')
+  } finally { await runtime.stop(); await rm(directory, { recursive: true, force: true }) }
+})

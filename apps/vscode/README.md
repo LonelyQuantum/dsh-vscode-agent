@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-This source-checkout preview opens the existing DSH Web application inside a VS Code editor panel. It proves local process launch and the Webview transport for the [VS Code development plan](../../.agents/notes/proposed/architecture/2026-09-19-vscode-extension-development-plan.md); it is not an installable release or the final Codex-style sidebar.
+This source-checkout preview opens the existing DSH Web application inside the DSH Activity Bar view. It exercises local process launch and the Webview transport for the [VS Code development plan](../../.agents/notes/proposed/architecture/2026-09-19-vscode-extension-development-plan.md); it is not an installable release or the final Codex-style conversation layout.
 
 ## Start the preview
 
@@ -14,11 +14,11 @@ pnpm.cmd run build
 pnpm.cmd run dev:vscode
 ```
 
-`dev:vscode` builds the extension and opens an Extension Development Host through the `code` command on PATH. In that window, run `DSH: Open Agent Preview` from the Command Palette. Chinese VS Code displays `DSH: 打开 Agent 预览`. The build output is `apps/vscode/lib/extension/`; after a build, `pnpm.cmd run start:vscode` launches it without rebuilding.
+`dev:vscode` builds the extension and opens an Extension Development Host through the `code` command on PATH. In that window, open DSH in the Activity Bar or run `DSH: Open Agent` from the Command Palette. Chinese VS Code displays `DSH: 打开 Agent`. The build output is `apps/vscode/lib/extension/`; after a build, `pnpm.cmd run start:vscode` launches it without rebuilding.
 
 The preview reuses this checkout's built Host packages, installed dependencies, and copied Web assets. It does not download a second Node or pnpm distribution. Rebuild the shared application after upstream changes, then rebuild the extension; moving the checkout requires rebuilding the extension or setting `dsh.repositoryPath`. Set the machine-scoped `dsh.nodePath` to an absolute Node executable if the Extension Host cannot find a compatible `node` on PATH.
 
-Provider setup follows the existing DSH Web application. Environment credentials are inherited by the child, and the shared launcher reads the selected workspace's `.env`; the extension has no SecretStorage integration. Do not put credentials into VS Code settings or commit `.env` files.
+`DSH: Configure API Key` opens a password input and stores the DeepSeek key in VS Code SecretStorage. The next child launch receives it through its environment, not the Webview or settings. `DSH: Remove Saved API Key` removes this extension-owned key; inherited environment credentials and workspace `.env` credentials remain independent. Restart DSH after changing the key. Other provider settings use the existing DSH Web application; do not put credentials into VS Code settings or commit `.env` files.
 
 ## Runtime and transport
 
@@ -49,4 +49,4 @@ This smoke creates and removes its own temporary workspace and VS Code data dire
 
 Only a single trusted local folder is admitted. Remote SSH/WSL, virtual and multi-root workspaces are rejected. Concurrent windows on the same folder, operating systems other than Windows, crashes during active tools, and trust changes have not completed integration qualification. Do not open this preview twice on the same folder.
 
-The full Web layout is temporary. Activity Bar placement, a narrow conversation layout, editor context, native file/diff actions, SecretStorage, a standalone runtime, and VSIX packaging remain in the development plan. The smoke does not establish model turns, approvals, questions, steering, compaction, file/media downloads, plugin graph refresh, or reconnect behavior through this bridge. These upstream capabilities need extension-specific end-to-end coverage before the preview is considered usable for daily work.
+The full Web layout is temporary. A narrow conversation layout, editor context, native file/diff actions, a standalone runtime, and VSIX packaging remain in the development plan. The smoke does not establish model turns, approvals, questions, steering, compaction, file/media downloads, plugin graph refresh, or reconnect behavior through this bridge. These upstream capabilities need extension-specific end-to-end coverage before the preview is considered usable for daily work.

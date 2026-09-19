@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { AgentRuntime, type RuntimeReady } from './runtime.ts'
 import { CHANNEL, HostProxy } from './proxy.ts'
 import { webviewDocument } from './document.ts'
+import { extensionCopy } from './locale.ts'
 
 let stopExtension: (() => Promise<void>) | undefined
 
@@ -27,17 +28,11 @@ export interface PreviewDiagnostics {
  */
 export function activate(context: vscode.ExtensionContext): { diagnostics(): PreviewDiagnostics } {
   let diagnostics: PreviewDiagnostics = { boot: false, rpc: 0, assets: 0, socket: false, clientFailure: false }
-  const chinese = vscode.env.language.toLowerCase().startsWith('zh')
-  const text = {
-    title: chinese ? 'DSH Agent 开发预览' : 'DSH Agent Development Preview',
-    workspace: chinese ? '此预览需要一个已信任的本地文件夹，不支持多根工作区或远程窗口。'
-      : 'This preview requires one trusted local folder; multi-root and remote windows are not supported.',
-    starting: chinese ? '正在启动 DSH…' : 'Starting DSH…',
-    failed: chinese ? 'DSH 启动失败。请检查 Node 路径并构建 DSH 仓库。' : 'DSH failed to start. Check the Node path and build the DSH repository.',
-  }
+  const text = extensionCopy(vscode.env.language)
   let runtime: AgentRuntime | undefined
   let booting: Promise<RuntimeReady> | undefined
-  let panel: vscode.WebviewPanel | undefined
+  let panel: vscode.WebviewView | undefined
+  let closeActive: (() => void) | undefined
   let proxy: HostProxy | undefined
   let opening: Promise<void> | undefined
   let stopping: Promise<void> | undefined
@@ -51,7 +46,8 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
   const stop = (): Promise<void> => {
     const activeOpening = opening
     return stopping ??= (async () => {
-      panel?.dispose()
+      closeActive?.()
+      if (panel) panel.webview.html = `<html><body><p>${text.stopped}</p></body></html>`
       await runtime?.stop()
       await activeOpening?.catch(() => {})
       await Promise.allSettled(pendingDisposals)
@@ -62,33 +58,39 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
   }
   const open = async (): Promise<void> => {
     if (stopping) await stopping
-    if (panel) { panel.reveal(); return }
+    const current = panel
+    if (!current) return
+    current.show(true)
+    if (proxy) return
     const folders = vscode.workspace.workspaceFolders
     if (!vscode.workspace.isTrusted || vscode.env.remoteName || folders?.length !== 1 || folders[0]?.uri.scheme !== 'file') {
       await vscode.window.showWarningMessage(text.workspace); return
     }
     const workspace = folders[0].uri.fsPath
-    const current = vscode.window.createWebviewPanel('dsh.agent', text.title, vscode.ViewColumn.Beside, {
-      enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [context.extensionUri],
-    })
-    panel = current
+    current.webview.options = { enableScripts: true, localResourceRoots: [context.extensionUri] }
     diagnostics = { boot: false, rpc: 0, assets: 0, socket: false, clientFailure: false }
     const lifetime = { closed: false }
     const isClosed = (): boolean => lifetime.closed
-    current.onDidDispose(() => {
+    const bindings: vscode.Disposable[] = []
+    closeActive = () => {
       lifetime.closed = true
-      if (panel === current) { panel = undefined; disposeProxy(proxy); proxy = undefined }
-    })
+      disposeProxy(proxy)
+      proxy = undefined
+      for (const binding of bindings) binding.dispose()
+      closeActive = undefined
+    }
     current.webview.html = `<html><body><p>${text.starting}</p></body></html>`
     try {
       if (!booting) {
         const metadata = JSON.parse(await readFile(join(context.extensionPath, 'development.json'), 'utf8')) as { repository: string }
+        const apiKey = await context.secrets.get('deepseek.apiKey')
         if (isClosed()) return
         const config = vscode.workspace.getConfiguration('dsh')
         const repository = config.get<string>('repositoryPath') || metadata.repository
         runtime = new AgentRuntime()
         booting = runtime.start({ node: config.get<string>('nodePath') || 'node', repository,
           entry: join(context.extensionPath, 'host.mjs'), workspace,
+          ...(apiKey === undefined ? {} : { apiKey }),
           home: join(context.globalStorageUri.fsPath, 'homes', createHash('sha256').update(workspace).digest('hex').slice(0, 24)) })
       }
       const ready = await booting
@@ -119,7 +121,7 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
           diagnostics.boot = true
         } else activeProxy.receive(message)
       })
-      current.onDidDispose(() => { receive.dispose() })
+      bindings.push(receive)
       const index = await readFile(join(context.extensionPath, 'web/index.html'), 'utf8')
       if (!isClosed()) current.webview.html = webviewDocument(index,
         path => current.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, path)).toString(),
@@ -140,9 +142,30 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
     return opening
   }
   context.subscriptions.push(
-    vscode.commands.registerCommand('dsh.open', requestOpen),
+    vscode.window.registerWebviewViewProvider('dsh.agent', {
+      resolveWebviewView(view) {
+        panel = view
+        view.onDidDispose(() => { closeActive?.(); if (panel === view) panel = undefined })
+        void requestOpen()
+      },
+    }, { webviewOptions: { retainContextWhenHidden: true } }),
+    vscode.commands.registerCommand('dsh.open', async () => {
+      await vscode.commands.executeCommand('dsh.agent.focus')
+      await requestOpen()
+    }),
     vscode.commands.registerCommand('dsh.stop', stop),
     vscode.commands.registerCommand('dsh.restart', async () => { await stop(); await requestOpen() }),
+    vscode.commands.registerCommand('dsh.configure', async () => {
+      const key = await vscode.window.showInputBox({ title: text.apiKey, password: true, ignoreFocusOut: true })
+      if (key === undefined || key.trim() === '') return
+      await context.secrets.store('deepseek.apiKey', key.trim())
+      await vscode.window.showInformationMessage(text.configured)
+    }),
+    vscode.commands.registerCommand('dsh.clearApiKey', async () => {
+      await context.secrets.delete('deepseek.apiKey')
+      await vscode.window.showInformationMessage(text.removed)
+    }),
+    vscode.workspace.onDidChangeWorkspaceFolders(() => { void stop() }),
   )
   stopExtension = stop
   return { diagnostics: () => ({ ...diagnostics }) }

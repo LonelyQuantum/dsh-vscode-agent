@@ -6,7 +6,7 @@ import { join } from 'node:path'
 /** Child boot information, never forwarded verbatim to the Webview. */
 export interface RuntimeReady { url: string; injections: unknown[]; pid: number }
 /** Local development runtime locations and executable. */
-export interface RuntimeOptions { node: string; repository: string; entry: string; workspace: string; home: string }
+export interface RuntimeOptions { node: string; repository: string; entry: string; workspace: string; home: string; apiKey?: string }
 
 /** Owned process with a readiness handshake and awaited shutdown. */
 export class AgentRuntime {
@@ -25,6 +25,7 @@ export class AgentRuntime {
     await mkdir(options.home, { recursive: true })
     if (this.stopping) throw new Error('DSH startup was cancelled')
     const env: NodeJS.ProcessEnv = { ...process.env, DSH_HOME: options.home }
+    if (options.apiKey !== undefined) env.DEEPSEEK_API_KEY = options.apiKey
     delete env.NODE_OPTIONS
     delete env.ELECTRON_RUN_AS_NODE
     const child = spawn(options.node, [options.entry, options.repository], {

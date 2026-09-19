@@ -9,15 +9,24 @@
   "categories": ["AI", "Other"],
   "extensionKind": ["workspace"],
   "main": "./extension.cjs",
-  "activationEvents": ["onCommand:dsh.open"],
+  "activationEvents": ["onView:dsh.agent"],
   "capabilities": {
     "untrustedWorkspaces": { "supported": false, "description": "%trust%" },
     "virtualWorkspaces": { "supported": false, "description": "%virtual%" }
   },
   "contributes": {
+    "viewsContainers": { "activitybar": [{ "id": "dsh", "title": "DSH", "icon": "resources/agent.svg" }] },
+    "views": { "dsh": [{ "type": "webview", "id": "dsh.agent", "name": "DSH Agent" }] },
+    "menus": { "view/title": [
+      { "command": "dsh.restart", "when": "view == dsh.agent", "group": "navigation@2" },
+      { "command": "dsh.configure", "when": "view == dsh.agent", "group": "navigation@3" },
+      { "command": "dsh.stop", "when": "view == dsh.agent" }
+    ] },
     "commands": [
       { "command": "dsh.open", "title": "%open%", "category": "DSH" },
-      { "command": "dsh.restart", "title": "%restart%", "category": "DSH" },
+      { "command": "dsh.restart", "title": "%restart%", "category": "DSH", "icon": "$(refresh)" },
+      { "command": "dsh.configure", "title": "%configure%", "category": "DSH", "icon": "$(key)" },
+      { "command": "dsh.clearApiKey", "title": "%clearApiKey%", "category": "DSH" },
       { "command": "dsh.stop", "title": "%stop%", "category": "DSH" }
     ],
     "configuration": {

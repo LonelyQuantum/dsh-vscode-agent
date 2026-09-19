@@ -8,8 +8,10 @@ export async function run(): Promise<void> {
   const extension = vscode.extensions.getExtension<{ diagnostics(): PreviewDiagnostics }>('dsh-local.dsh-vscode-agent')
   assert.ok(extension)
   const api = await extension.activate()
-  try {
-    await vscode.commands.executeCommand('dsh.open')
+  const commands = await vscode.commands.getCommands(true)
+  assert.ok(commands.includes('dsh.configure'))
+  assert.ok(commands.includes('dsh.clearApiKey'))
+  const connected = async (): Promise<void> => {
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
         clearInterval(poll)
@@ -25,6 +27,15 @@ export async function run(): Promise<void> {
         }
       }, 100)
     })
+  }
+  try {
+    await vscode.commands.executeCommand('dsh.open')
+    await connected()
+    const previous = api.diagnostics().pid
+    assert.ok(previous)
+    await vscode.commands.executeCommand('dsh.restart')
+    assert.throws(() => process.kill(previous, 0))
+    await connected()
     console.log('VSCODE_WEBVIEW_SMOKE_OK ' + JSON.stringify(api.diagnostics()))
   } finally {
     const pid = api.diagnostics().pid

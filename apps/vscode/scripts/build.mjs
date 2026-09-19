@@ -20,6 +20,7 @@ await Promise.all([
   cp(resolve(app, 'extension.manifest.json'), resolve(output, 'package.json')),
   cp(resolve(app, 'package.nls.json'), resolve(output, 'package.nls.json')),
   cp(resolve(app, 'package.nls.zh-cn.json'), resolve(output, 'package.nls.zh-cn.json')),
+  cp(resolve(app, 'resources'), resolve(output, 'resources'), { recursive: true }),
 ])
 const version = JSON.parse(await readFile(resolve(repository, 'apps/cli/package.json'), 'utf8')).version
 await writeFile(resolve(output, 'development.json'), JSON.stringify({ repository, version }) + '\n')
