@@ -8,7 +8,7 @@ Status: proposed
 
 此 fork 需要一个以编辑器为中心、具有 Codex 风格交互的 VS Code 扩展，包含对话、显式文件和选区上下文、工具进度、审批及变更审查。ProleCoder 提供已有的交互参考。DSH 必须继续负责 agent（智能体）执行、会话及权限，让扩展可以跟随上游发展，无需维护平行实现。
 
-本提案在检查从 `dsh-v0.1.1-rc.2` 到 `dsh-v0.1.6-alpha.2` 的上游更新后，替代最初仅存在于对话中的开发计划。下列发现来自源码检查及上游决策记录；本提案尚未实现或验证任何 VS Code 运行时或 UI。
+本提案在检查从 `dsh-v0.1.1-rc.2` 到 `dsh-v0.1.6-alpha.2` 的上游更新后，替代最初仅存在于对话中的开发计划。下列发现来自源码检查及上游决策记录。[源码仓库开发预览](../../../../apps/vscode/README.zh.md)已实现部分 P0；发行流程及编辑器专用 UI 仍处于提案阶段。
 
 ## 提案
 
@@ -46,7 +46,13 @@ Webview 负责展示和临时编辑器 UI。Extension Host 负责 Workspace Trus
 | `packages/client/ui-vscode/` | 根布局和编辑器交互，复用现有对话 Factory、声明式 slot、主题 token 及语言字典。 |
 | Host 适配器，位置在验证阶段确定 | 仅针对必须调用编辑器操作的 Host 行为建立 Cordis 插件；通用 DSH 包不导入 `vscode`。 |
 
-这些是建议位置，并非现有包。Host/Client 编译面、依赖声明、slot 归属和本地化文案遵循当前[客户端规则](../../../../packages/client/AGENTS.md)。仅当两个产品都消费稳定职责时才从 Desktop 提取共享辅助代码；Electron 专用控件及更新器代码继续由 Desktop 持有。
+`apps/vscode/` 已包含开发预览；其他位置仍属提案。Host/Client 编译面、依赖声明、slot 归属和本地化文案遵循当前[客户端规则](../../../../packages/client/AGENTS.md)。仅当两个产品都消费稳定职责时才从 Desktop 提取共享辅助代码；Electron 专用控件及更新器代码继续由 Desktop 持有。
+
+### P0 进展与待定事项
+
+Windows 扩展开发宿主已启动真实的共享 profile 应用、加载 Web 客户端和插件资源、发出 API 请求、建立 Gateway WebSocket，并停止其管理的 Node 子进程。预览保留完整 Web 布局，以便在引入编辑器专用组合前验证现有客户端。它复用源码仓库依赖和外部兼容 Node，因此这些证据不代表已验证 VSIX 分发或独立运行时。
+
+Webview 桥接将认证保留在扩展宿主中，并保留 Gateway 分帧。Cordis 的浏览器配置 loader 需要 `unsafe-eval`；预览记录这一 CSP 例外，不在传输实验中修改仓库内的第三方行为。P0 必须决定是移除该例外还是验证其发行安全性，然后覆盖模型完成与取消、重连、文件传输、动态插件变更、信任状态切换和工具运行期间意外退出。尝试此部分实现时，以预览的[限制和启动步骤](../../../../apps/vscode/README.zh.md)为准。
 
 ### 交付顺序
 

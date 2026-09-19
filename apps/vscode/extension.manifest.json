@@ -1,0 +1,37 @@
+{
+  "name": "dsh-vscode-agent",
+  "displayName": "DSH Agent (Development)",
+  "description": "%description%",
+  "version": "0.0.1",
+  "publisher": "dsh-local",
+  "license": "MIT",
+  "engines": { "vscode": "^1.100.0" },
+  "categories": ["AI", "Other"],
+  "extensionKind": ["workspace"],
+  "main": "./extension.cjs",
+  "activationEvents": ["onCommand:dsh.open"],
+  "capabilities": {
+    "untrustedWorkspaces": { "supported": false, "description": "%trust%" },
+    "virtualWorkspaces": { "supported": false, "description": "%virtual%" }
+  },
+  "contributes": {
+    "commands": [
+      { "command": "dsh.open", "title": "%open%", "category": "DSH" },
+      { "command": "dsh.restart", "title": "%restart%", "category": "DSH" },
+      { "command": "dsh.stop", "title": "%stop%", "category": "DSH" }
+    ],
+    "configuration": {
+      "title": "DSH",
+      "properties": {
+        "dsh.nodePath": {
+          "type": "string", "default": "node", "scope": "machine",
+          "description": "%nodePath%"
+        },
+        "dsh.repositoryPath": {
+          "type": "string", "default": "", "scope": "machine",
+          "description": "%repositoryPath%"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "description": "在 VS Code 内运行 DSH Agent 的开发预览。",
+  "trust": "DSH 会执行工具并加载工作区指令，请先信任工作区。",
+  "virtual": "此预览需要本地文件系统工作区。",
+  "open": "打开 Agent 预览",
+  "restart": "重启 Agent 运行时",
+  "stop": "停止 Agent 运行时",
+  "nodePath": "Node 可执行文件（Node 22.19+ 或 Node 24+），不支持附加 shell 参数。",
+  "repositoryPath": "已构建的 DSH 源码仓库；留空使用开发构建记录的仓库路径。"
+}

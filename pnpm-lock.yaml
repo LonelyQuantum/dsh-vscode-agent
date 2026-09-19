@@ -727,6 +727,28 @@ importers:
         specifier: ^0.1.1
         version: 0.1.1
 
+  apps/vscode:
+    dependencies:
+      ws:
+        specifier: 8.21.0
+        version: 8.21.0
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.3
+      '@types/vscode':
+        specifier: 1.100.0
+        version: 1.100.0
+      '@types/ws':
+        specifier: 8.18.1
+        version: 8.18.1
+      esbuild:
+        specifier: 0.28.1
+        version: 0.28.1
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
   apps/web:
     devDependencies:
       '@deepseek-ai/cordis-plugin-group':
@@ -17349,6 +17371,9 @@ packages:
   '@types/use-sync-external-store@1.7.0':
     resolution: {integrity: sha512-v8435kzWm3FuxyUa4r8o4sG6b0D+r+uOrzF5MXHxZKW4Haoo6txu/lq56Vio45e2i1nkmFPA+R7myWcmV7Z7Bg==}
 
+  '@types/vscode@1.100.0':
+    resolution: {integrity: sha512-4uNyvzHoraXEeCamR3+fzcBlh7Afs4Ifjs4epINyUX/jvdk0uzLnwiDY35UKDKnkCHP5Nu3dljl2H8lR6s+rQw==}
+
   '@types/web-bluetooth@0.0.21':
     resolution: {integrity: sha512-oIQLCGWtcFZy2JW77j9k8nHzAOpqMHLQejDA48XXMWH6tjCQHz5RCFz1bzsmROyL6PUm+LLnUiI4BCn221inxA==}
 
@@ -24461,6 +24486,8 @@ snapshots:
   '@types/unist@3.0.3': {}
 
   '@types/use-sync-external-store@1.7.0': {}
+
+  '@types/vscode@1.100.0': {}
 
   '@types/web-bluetooth@0.0.21': {}
 

@@ -8,7 +8,7 @@ English | [中文](2026-09-19-vscode-extension-development-plan.zh.md)
 
 The fork needs a VS Code extension with an editor-centered, Codex-style conversation, explicit file and selection context, tool progress, approvals, and change review. ProleCoder supplies an existing interaction reference. DSH must remain the owner of agent execution, sessions, and permissions so the extension can follow upstream without maintaining parallel implementations.
 
-This proposal replaces the initial conversation-only development plan after examining the upstream update from `dsh-v0.1.1-rc.2` to `dsh-v0.1.6-alpha.2`. Findings below describe inspected source and recorded upstream decisions; no VS Code runtime or UI has been implemented or qualified by this proposal.
+This proposal replaces the initial conversation-only development plan after examining the upstream update from `dsh-v0.1.1-rc.2` to `dsh-v0.1.6-alpha.2`. Findings below describe inspected source and recorded upstream decisions. The [source-checkout preview](../../../../apps/vscode/README.md) implements part of P0; the release workflow and editor-specific UI remain proposed.
 
 ## Proposal
 
@@ -46,7 +46,13 @@ Develop with an isolated Harness home. Give each window an explicit runtime/prof
 | `packages/client/ui-vscode/` | Root layout and editor affordances composed with the existing conversation Factory, declared slots, theme tokens, and locale dictionaries. |
 | Host adapter, placement decided in the spike | A Cordis plugin only for Host behavior that must call editor-owned operations; no `vscode` imports in general DSH packages. |
 
-These are proposed locations, not existing packages. Follow the current [Client rules](../../../../packages/client/AGENTS.md) for Host/Client faces, dependency declarations, slot ownership, and localized copy. Extract shared helpers from Desktop only when both products consume a stable responsibility; Electron-specific controls and updater code stay with Desktop.
+`apps/vscode/` contains the development preview; the other locations remain proposed. Follow the current [Client rules](../../../../packages/client/AGENTS.md) for Host/Client faces, dependency declarations, slot ownership, and localized copy. Extract shared helpers from Desktop only when both products consume a stable responsibility; Electron-specific controls and updater code stay with Desktop.
+
+### P0 progress and open decisions
+
+The Windows Extension Development Host boots the real shared-profile application, loads Web client and plugin assets, issues API requests, establishes the Gateway WebSocket, and stops its owned Node child. The preview retains the complete Web layout to exercise existing clients before introducing editor-specific composition. It reuses source-checkout dependencies and an external compatible Node, so this evidence does not qualify VSIX distribution or a standalone runtime.
+
+The Webview bridge keeps authentication in the Extension Host and preserves Gateway framing. Cordis's browser configuration loader requires `unsafe-eval`; the preview records that CSP exception rather than changing vendored behavior during the transport experiment. P0 must decide whether to remove or qualify it for distribution, then cover model completion/cancellation, reconnect, file transfers, live plugin changes, trust transitions, and abrupt shutdown during tools. The preview's [limits and launch procedure](../../../../apps/vscode/README.md) are authoritative for trying this partial implementation.
 
 ### Delivery sequence
 

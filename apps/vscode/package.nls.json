@@ -1,0 +1,10 @@
+{
+  "description": "Development preview of the DSH agent inside VS Code.",
+  "trust": "DSH executes tools and loads workspace instructions. Trust the workspace before starting it.",
+  "virtual": "This preview requires a local filesystem workspace.",
+  "open": "Open Agent Preview",
+  "restart": "Restart Agent Runtime",
+  "stop": "Stop Agent Runtime",
+  "nodePath": "Node executable (22.19+ on Node 22, or Node 24+). No shell arguments.",
+  "repositoryPath": "Built DSH source checkout. Empty uses the checkout recorded by the development build."
+}

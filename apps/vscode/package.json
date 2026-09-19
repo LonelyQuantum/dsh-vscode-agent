@@ -1,0 +1,22 @@
+{
+  "name": "@deepseek-ai/dsh-vscode",
+  "version": "0.1.6-alpha.2",
+  "private": true,
+  "description": "VS Code development host for the shared DSH Web application",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "ws": "8.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/vscode": "1.100.0",
+    "@types/ws": "8.18.1",
+    "esbuild": "0.28.1",
+    "typescript": "6.0.3"
+  }
+}
