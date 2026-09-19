@@ -19,7 +19,7 @@ export async function run(): Promise<void> {
       }, 60_000)
       const poll = setInterval(() => {
         const state = api.diagnostics()
-        if (state.clientFailure || (state.boot && state.assets > 0 && state.rpc > 0 && state.socket)) {
+        if (state.clientFailure || (state.boot && state.editorUI && state.assets > 0 && state.rpc > 0 && state.socket)) {
           clearInterval(poll)
           clearTimeout(timeout)
           if (state.clientFailure) reject(new Error(`Webview failed: ${JSON.stringify(state)}`))

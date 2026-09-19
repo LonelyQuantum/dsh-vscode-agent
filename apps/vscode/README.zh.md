@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-此源码仓库开发预览在 DSH Activity Bar 视图中打开现有 DSH Web 应用。它用于验证 [VS Code 开发计划](../../.agents/notes/proposed/architecture/2026-09-19-vscode-extension-development-plan.zh.md)中的本地进程启动和 Webview 传输链路；它不是可安装的发行版，也不是最终的 Codex 风格对话布局。
+此源码仓库开发预览在 DSH Activity Bar 视图中打开单栏 DSH 对话。它使用现有 DSH Web 运行时和 Conversation 工厂来实现 [VS Code 开发计划](../../.agents/notes/proposed/architecture/2026-09-19-vscode-extension-development-plan.zh.md)；它不是可安装的发行版。
 
 ## 启动预览
 
@@ -49,4 +49,4 @@ node apps/vscode/scripts/test-extension.mjs "C:/path/to/Microsoft VS Code/Code.e
 
 仅允许单个已信任的本地文件夹，拒绝 Remote SSH/WSL、虚拟工作区和多根工作区。同一文件夹的并发窗口、Windows 以外的操作系统、工具运行期间崩溃及信任状态变化尚未完成集成验证。不要对同一文件夹同时打开两个此预览。
 
-完整 Web 布局仅用于临时验证。窄版对话布局、编辑器上下文、原生文件和差异操作、独立运行时和 VSIX 打包仍在开发计划中。冒烟测试不代表已验证模型轮次、审批、反问、steering（中途引导）、压缩（compaction）、文件和媒体下载、插件图刷新或此桥接下的重连行为。这些上游能力需要扩展专属的端到端覆盖，才能将预览视为适合日常工作的工具。
+工具栏提供新建对话、当前工作区历史和原生 API 密钥配置。上次选中的会话保留在 Webview 状态中，仅当它仍属于此工作区且未归档时恢复。真实扩展宿主冒烟测试要求运行时重启前后均挂载此编辑器专用布局。编辑器上下文、原生文件和差异操作、独立运行时和 VSIX 打包仍在开发计划中。冒烟测试不代表已验证模型轮次、审批、反问、steering（中途引导）、压缩（compaction）、文件和媒体下载、插件图刷新或此桥接下的重连行为。这些上游能力需要扩展专属的端到端覆盖，才能将预览视为适合日常工作的工具。

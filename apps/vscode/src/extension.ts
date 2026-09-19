@@ -19,6 +19,7 @@ export interface PreviewDiagnostics {
   clientFailure: boolean
   pid?: number
   reason?: string
+  editorUI?: boolean
 }
 
 /**
@@ -105,6 +106,14 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
       const receive = current.webview.onDidReceiveMessage((message: unknown) => {
         if (lifetime.closed || !vscode.workspace.isTrusted) return
         if (typeof message === 'object' && message !== null && 'channel' in message && message.channel === CHANNEL) {
+          if ('kind' in message && message.kind === 'native-configure') {
+            void vscode.commands.executeCommand('dsh.configure')
+            return
+          }
+          if ('kind' in message && message.kind === 'ui-ready' && 'mounted' in message) {
+            diagnostics.editorUI = message.mounted === true
+            return
+          }
           if ('kind' in message && message.kind === 'client-failure') {
             diagnostics.clientFailure = true
             if ('reason' in message && typeof message.reason === 'string') diagnostics.reason = message.reason.slice(0, 400)
@@ -117,7 +126,7 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
         }
         if (typeof message === 'object' && message !== null && 'channel' in message && message.channel === CHANNEL
           && 'kind' in message && message.kind === 'boot' && 'id' in message && Number.isSafeInteger(message.id)) {
-          void current.webview.postMessage({ channel: CHANNEL, kind: 'boot', id: message.id, injections: ready.injections })
+          void current.webview.postMessage({ channel: CHANNEL, kind: 'boot', id: message.id, injections: ready.injections, workspace })
           diagnostics.boot = true
         } else activeProxy.receive(message)
       })

@@ -46,11 +46,11 @@ Webview 负责展示和临时编辑器 UI。Extension Host 负责 Workspace Trus
 | `packages/client/ui-vscode/` | 根布局和编辑器交互，复用现有对话 Factory、声明式 slot、主题 token 及语言字典。 |
 | Host 适配器，位置在验证阶段确定 | 仅针对必须调用编辑器操作的 Host 行为建立 Cordis 插件；通用 DSH 包不导入 `vscode`。 |
 
-`apps/vscode/` 已包含开发预览；其他位置仍属提案。Host/Client 编译面、依赖声明、slot 归属和本地化文案遵循当前[客户端规则](../../../../packages/client/AGENTS.md)。仅当两个产品都消费稳定职责时才从 Desktop 提取共享辅助代码；Electron 专用控件及更新器代码继续由 Desktop 持有。
+`apps/vscode/`、`packages/bundle/vscode-app/` 和 `packages/client/ui-vscode/` 包含源码仓库开发预览。组合包选择编辑器专用根布局，同时保留共享 Conversation 工厂和服务。扩展宿主通过私有启动握手提供工作区；客户端 Loader 配置项不会继承 Host 插件配置。Host/Client 编译面、依赖声明、slot 归属和本地化文案遵循当前[客户端规则](../../../../packages/client/AGENTS.md)。仅当两个产品都消费稳定职责时才从 Desktop 提取共享辅助代码；Electron 专用控件及更新器代码继续由 Desktop 持有。
 
 ### P0 进展与待定事项
 
-Windows 扩展开发宿主已启动真实的共享 profile 应用、加载 Web 客户端和插件资源、发出 API 请求、建立 Gateway WebSocket，并停止其管理的 Node 子进程。预览保留完整 Web 布局，以便在引入编辑器专用组合前验证现有客户端。它复用源码仓库依赖和外部兼容 Node，因此这些证据不代表已验证 VSIX 分发或独立运行时。
+Windows 扩展开发宿主已启动真实的共享 profile 应用、加载 Web 客户端和插件资源、发出 API 请求、建立 Gateway WebSocket、挂载编辑器专用单栏对话，并停止其管理的 Node 子进程。重启冒烟测试检查重新挂载及旧进程退出。工具栏提供新建对话、工作区历史、原生 SecretStorage 配置和符合条件的上次会话恢复；针对性测试覆盖导航及延迟启动结果的资源释放。预览复用源码仓库依赖和外部兼容 Node，因此这些证据不代表已验证 VSIX 分发、模型工作流或独立运行时。P0 和 P1 验收仍未完成。
 
 Webview 桥接将认证保留在扩展宿主中，并保留 Gateway 分帧。Cordis 的浏览器配置 loader 需要 `unsafe-eval`；预览记录这一 CSP 例外，不在传输实验中修改仓库内的第三方行为。P0 必须决定是移除该例外还是验证其发行安全性，然后覆盖模型完成与取消、重连、文件传输、动态插件变更、信任状态切换和工具运行期间意外退出。尝试此部分实现时，以预览的[限制和启动步骤](../../../../apps/vscode/README.zh.md)为准。
 

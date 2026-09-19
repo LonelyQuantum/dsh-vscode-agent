@@ -1,8 +1,9 @@
 /** Webview carrier for the unmodified DSH Web entry and Gateway wire frames. */
-declare function acquireVsCodeApi(): { postMessage(message: object): void }
+declare function acquireVsCodeApi(): { postMessage(message: object): void; getState(): unknown; setState(state: object): void }
 const editor = acquireVsCodeApi()
 const channel = 'dsh-vscode'
 let nextId = 0
+let workspace: string | undefined
 const listeners = new Map<number, (message: Record<string, unknown>) => void>()
 const nonce = document.currentScript?.nonce ?? ''
 const nativeFetch = globalThis.fetch.bind(globalThis)
@@ -125,7 +126,10 @@ async function boot(): Promise<void> {
   const injections = await new Promise<unknown[]>((resolve, reject) => {
     listeners.set(id, (message) => {
       listeners.delete(id)
-      if (message.kind === 'boot' && Array.isArray(message.injections)) resolve(message.injections)
+      if (message.kind === 'boot' && Array.isArray(message.injections) && typeof message.workspace === 'string' && message.workspace !== '') {
+        workspace = message.workspace
+        resolve(message.injections)
+      }
       else reject(new Error('DSH bootstrap failed'))
     })
     send(id, 'boot')
@@ -159,6 +163,19 @@ globalThis.fetch = proxyFetch
 globalThis.WebSocket = GatewaySocket as unknown as typeof WebSocket
 Reflect.set(globalThis, '__DSH_TRANSPORT__', { fetch: proxyFetch, loadBundle, ownsHost: true, streamBaseUrl: 'http://dsh.internal' })
 Reflect.set(globalThis, '__DSH_FILE_UPLOAD__', { fetch: proxyFetch })
+Reflect.set(globalThis, '__DSH_VSCODE__', {
+  workspace: () => {
+    if (workspace === undefined) throw new Error('Editor workspace is not ready')
+    return workspace
+  },
+  configure: () => { send(++nextId, 'native-configure') },
+  selected: (id: string) => { editor.setState({ sessionId: id }) },
+  lastSession: () => {
+    const state = editor.getState()
+    return typeof state === 'object' && state !== null && 'sessionId' in state && typeof state.sessionId === 'string' ? state.sessionId : undefined
+  },
+  ready: () => { send(++nextId, 'ui-ready', { mounted: document.querySelector('[data-vscode-conversation]') !== null }) },
+})
 const ready = boot()
 // The static entry observes this rejection and renders its existing boot failure UI.
 void ready.catch((error: unknown) => {

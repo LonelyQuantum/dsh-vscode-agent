@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-This source-checkout preview opens the existing DSH Web application inside the DSH Activity Bar view. It exercises local process launch and the Webview transport for the [VS Code development plan](../../.agents/notes/proposed/architecture/2026-09-19-vscode-extension-development-plan.md); it is not an installable release or the final Codex-style conversation layout.
+This source-checkout preview opens a single-column DSH conversation inside the DSH Activity Bar view. It uses the existing DSH Web runtime and Conversation factory for the [VS Code development plan](../../.agents/notes/proposed/architecture/2026-09-19-vscode-extension-development-plan.md); it is not an installable release.
 
 ## Start the preview
 
@@ -49,4 +49,4 @@ This smoke creates and removes its own temporary workspace and VS Code data dire
 
 Only a single trusted local folder is admitted. Remote SSH/WSL, virtual and multi-root workspaces are rejected. Concurrent windows on the same folder, operating systems other than Windows, crashes during active tools, and trust changes have not completed integration qualification. Do not open this preview twice on the same folder.
 
-The full Web layout is temporary. A narrow conversation layout, editor context, native file/diff actions, a standalone runtime, and VSIX packaging remain in the development plan. The smoke does not establish model turns, approvals, questions, steering, compaction, file/media downloads, plugin graph refresh, or reconnect behavior through this bridge. These upstream capabilities need extension-specific end-to-end coverage before the preview is considered usable for daily work.
+The toolbar provides new conversation, current-workspace history, and native API key setup. The last selected Session is retained in Webview state and restored only if it still belongs to this workspace and is not archived. The real Extension Host smoke requires this editor-specific layout to mount before and after runtime restart. Editor context, native file/diff actions, a standalone runtime, and VSIX packaging remain in the development plan. The smoke does not establish model turns, approvals, questions, steering, compaction, file/media downloads, plugin graph refresh, or reconnect behavior through this bridge. These upstream capabilities need extension-specific end-to-end coverage before the preview is considered usable for daily work.

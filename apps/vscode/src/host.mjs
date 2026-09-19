@@ -1,7 +1,7 @@
 /** Private VS Code child: all application behavior starts through the shared dsh profile runner. */
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 
 async function main() {
   const [major, minor] = process.versions.node.split('.').map(Number)
@@ -13,6 +13,12 @@ async function main() {
   const { runProfile, initializeProfileFromDefault } = await import(pathToFileURL(join(repository, 'apps/cli/lib/profile-boot.js')).href)
   const { loadLayeredEnv } = await import(pathToFileURL(join(repository, 'packages/boot/app-boot/lib/index.js')).href)
   if (!existsSync(join(home, 'profiles/vscode'))) initializeProfileFromDefault('vscode', 'web', home)
+  const profilePath = join(home, 'profiles/vscode/package.json')
+  const profile = JSON.parse(readFileSync(profilePath, 'utf8'))
+  if (!profile.dsh.profile.bundles.includes('@deepseek-ai/dsh-vscode-app')) {
+    profile.dsh.profile.bundles.push('@deepseek-ai/dsh-vscode-app')
+    writeFileSync(profilePath, JSON.stringify(profile, null, 2) + '\n')
+  }
   const overlay = join(home, 'vscode-launch.patch.yml')
   mkdirSync(home, { recursive: true })
   // The launch credential travels only over IPC; the Web runtime must not print it.
