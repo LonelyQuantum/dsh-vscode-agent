@@ -114,6 +114,8 @@ Recovery waits for Host shutdown before changing plugin activation. The native r
 
 The development application menu offers Reload Page (Cmd+R on macOS, Ctrl+R elsewhere) and Restart App and Host. Restart waits for Host shutdown before relaunching Electron and starting a new Host; neither action rebuilds source files.
 
+Use the repository-pinned pnpm version; root `packageManager` and the Desktop `pnpm` dependency must match. Development preparation and `load_workspace_dependencies` share the workspace pnpm through directory links (junctions on Windows), while release preparation copies pnpm into a standalone payload. Keep the workspace dependency installed while using a development runtime. Runtime replacement removes links without deleting their targets; Corepack's own cache remains separate.
+
 `dev:desktop` builds the current Host, client bundles, Web frontend, and Electron shell, projects the built CLI and private Desktop Host packages with their workspace dependencies into a disposable desktop npm project, and launches Electron without resolving dsh from npm:
 
 ```sh

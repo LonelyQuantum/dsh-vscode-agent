@@ -1,5 +1,5 @@
 import * as fs from 'node:fs/promises'
-import { mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, mkdtemp, readFile, realpath, rename, rm, symlink, unlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -13,7 +13,7 @@ import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import * as workspaceDependencies from '../src/index.ts'
-import { installPrimaryRuntime, parsePrimaryRuntime, readPrimaryRuntime, resolvePrimaryRuntime, workspaceDependencyPaths, type PrimaryRuntimeManifest } from '../src/index.ts'
+import { copyPrimaryRuntime, removePrimaryRuntime, installPrimaryRuntime, parsePrimaryRuntime, readPrimaryRuntime, resolvePrimaryRuntime, workspaceDependencyPaths, type PrimaryRuntimeManifest } from '../src/index.ts'
 
 vi.mock('node:fs/promises', async (importOriginal) => {
   const actual = await importOriginal<typeof fs>()
@@ -65,6 +65,70 @@ it('installs offline, reuses the same release, and leaves environment and user p
   expect(installed.pythonDistributions).toEqual(manifest.pythonPackages)
   expect(await readFile(join(installed.pythonPackages, 'user-package.py'), 'utf8')).toBe('user content')
   expect(process.env).toEqual(environment)
+})
+
+it('shares development pnpm through preparation, installation and replacement without deleting its target', async () => {
+  const { source, root, manifest, directory } = await fixture()
+  const workspacePnpm = join(directory, 'workspace-pnpm')
+  const prepared = join(directory, 'prepared')
+  await installPrimaryRuntime(source, root)
+  await mkdir(join(workspacePnpm, 'bin'), { recursive: true })
+  await writeFile(join(workspacePnpm, 'bin', 'pnpm.mjs'), 'workspace package manager')
+  await rm(join(source, 'dependencies', 'pnpm'), { recursive: true })
+  await symlink(workspacePnpm, join(source, 'dependencies', 'pnpm'), process.platform === 'win32' ? 'junction' : 'dir')
+  try {
+    await writeFile(join(source, 'runtime.json'), JSON.stringify({ ...manifest, payloadDigest: 'd'.repeat(64) }))
+    await copyPrimaryRuntime(source, prepared)
+    expect(await realpath(join(prepared, 'dependencies', 'pnpm'))).toBe(await realpath(workspacePnpm))
+    const installed = await installPrimaryRuntime(prepared, root)
+    expect(await realpath(installed.pnpm!)).toBe(await realpath(join(workspacePnpm, 'bin', 'pnpm.mjs')))
+    expect(await installPrimaryRuntime(prepared, root)).toEqual(installed)
+    await writeFile(join(prepared, 'runtime.json'), JSON.stringify({ ...manifest, payloadDigest: 'a'.repeat(64) }))
+    await installPrimaryRuntime(prepared, root)
+    await removePrimaryRuntime(root)
+    await removePrimaryRuntime(prepared)
+    await removePrimaryRuntime(source)
+    expect(await readFile(join(workspacePnpm, 'bin', 'pnpm.mjs'), 'utf8')).toBe('workspace package manager')
+  } finally {
+    await removePrimaryRuntime(root)
+    await removePrimaryRuntime(prepared)
+    await removePrimaryRuntime(source)
+  }
+})
+
+it('rejects cleanup of a linked runtime root without removing its target', async () => {
+  const { directory, source } = await fixture()
+  const linked = join(directory, 'linked-runtime')
+  await symlink(source, linked, process.platform === 'win32' ? 'junction' : 'dir')
+  try {
+    await expect(removePrimaryRuntime(linked)).rejects.toThrow('filesystem link')
+    expect(await readFile(join(source, 'runtime.json'), 'utf8')).toContain('desktopVersion')
+  } finally { await unlink(linked) }
+})
+
+it('replaces a development link with an independent packaged pnpm copy', async () => {
+  const { source, root, manifest, directory } = await fixture()
+  const workspacePnpm = join(directory, 'workspace-pnpm')
+  await mkdir(join(workspacePnpm, 'bin'), { recursive: true })
+  await writeFile(join(workspacePnpm, 'bin', 'pnpm.mjs'), 'development')
+  const sourcePnpm = join(source, 'dependencies', 'pnpm')
+  await rm(sourcePnpm, { recursive: true })
+  await symlink(workspacePnpm, sourcePnpm, process.platform === 'win32' ? 'junction' : 'dir')
+  try {
+    await installPrimaryRuntime(source, root)
+    await unlink(sourcePnpm)
+    await mkdir(join(sourcePnpm, 'bin'), { recursive: true })
+    await writeFile(join(sourcePnpm, 'bin', 'pnpm.mjs'), 'packaged')
+    await writeFile(join(source, 'runtime.json'), JSON.stringify({ ...manifest, payloadDigest: 'b'.repeat(64) }))
+    const installed = await installPrimaryRuntime(source, root)
+    expect((await lstat(join(root, 'dependencies', 'pnpm'))).isSymbolicLink()).toBe(false)
+    await removePrimaryRuntime(source)
+    expect(await readFile(installed.pnpm!, 'utf8')).toBe('packaged')
+    expect(await readFile(join(workspacePnpm, 'bin', 'pnpm.mjs'), 'utf8')).toBe('development')
+  } finally {
+    await removePrimaryRuntime(root)
+    await removePrimaryRuntime(source)
+  }
 })
 
 it('replaces release components and recovers an interrupted directory swap', async () => {
