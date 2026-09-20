@@ -11,7 +11,12 @@ export interface ConversationEditor {
    * @returns Completion after dispatch.
    */
   openFile(sessionId: SessionId, path: string, line?: number): Promise<void>
-  /** Open recorded changes. @param sessionId Capture owner. @param seq Announcing event. @param index Original summary index. */
+  /**
+   * Open recorded changes.
+   * @param sessionId Capture owner.
+   * @param seq Announcing event.
+   * @param index Original summary index.
+   */
   openChanges(sessionId: SessionId, seq: number, index: number): void
 }
 

@@ -1281,7 +1281,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
 'workspace/changes': { turn: number }
 ```
 
-来源：[`packages/deliverables/workspace-changes/src/types.ts:106`](../packages/deliverables/workspace-changes/src/types.ts)
+来源：[`packages/deliverables/workspace-changes/src/types.ts:120`](../packages/deliverables/workspace-changes/src/types.ts)
 
 ## 已解析的持久化类型
 

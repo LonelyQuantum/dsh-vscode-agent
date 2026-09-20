@@ -3479,6 +3479,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     description: 'Serves the summaries and file comparisons the recorder keeps for live Sessions.',
     methods: [
       {
+        signature: 'contents(sessionId: SessionId, seq: number, index: number, signal: AbortSignal): Promise<WorkspaceFileContents | undefined>',
+        description: 'Read both complete captured versions without consulting the current workspace.',
+        parameters: [{ name: 'sessionId', description: 'Session that owns the capture.' }, { name: 'seq', description: 'announcing event sequence.' }, { name: 'index', description: 'original file index in the summary.' }, { name: 'signal', description: 'cancels the reads.' }],
+        returns: 'bounded text (null means absent), a refusal, or undefined when unavailable.',
+      },
+      {
         signature: 'summary(sessionId: SessionId, seq: number): WorkspaceChangesSummary | undefined',
         description: 'The summary announced by one `workspace/changes` event.',
         parameters: [{ name: 'sessionId', description: 'the Session that appended the event.' }, { name: 'seq', description: 'the event\'s sequence number.' }],
@@ -7964,6 +7970,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'WorkspaceFileChange',
     declaration: 'export type WorkspaceFileChange = {\n    readonly absolutePath: string;\n    readonly version: string;\n} | {\n    readonly absolutePath: string;\n    readonly absent: true;\n};',
+  },
+  {
+    name: 'WorkspaceFileContents',
+    declaration: 'export type WorkspaceFileContents = {\n    kind: \'text\';\n    path: string;\n    display: string;\n    before: string | null;\n    after: string | null;\n} | Exclude<WorkspaceFileDiff, {\n    kind: \'text\';\n}>;',
   },
   {
     name: 'WorkspaceFileDiff',
