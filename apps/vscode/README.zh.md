@@ -23,7 +23,7 @@ pnpm.cmd run dev:vscode
 <a id="windows-vsix"></a>
 ## Windows VSIX 预览
 
-构建共享应用后，运行 `pnpm.cmd run package:vscode`。本地产物为 `apps/vscode/lib/dsh-vscode-agent-0.0.1-win32-x64.vsix`；通过 VS Code 的 **扩展: 从 VSIX 安装** 命令安装。打包使用本地 npm tarball 和隔离的生产依赖安装，包含必需的 peer 和 Client 注入包。包内包含共享 Web 组合及其 Office 转换依赖，不包含 Desktop 的 Electron 外壳、Python/Office skills 载荷、Node 或 pnpm 分发。首个产物约 188 MiB；仍需兼容的外部 Node。不执行 Marketplace 发布或签名。
+构建共享应用后，运行 `pnpm.cmd run package:vscode`。本地产物为 `apps/vscode/lib/dsh-vscode-agent-0.0.1-win32-x64.vsix`；通过 VS Code 的 **扩展: 从 VSIX 安装** 命令安装。打包使用本地 npm tarball 和隔离的生产依赖安装，包含必需的 peer 和 Client 注入包。包内包含共享 Web 组合及其 Office 转换依赖，不包含 Desktop 的 Electron 外壳、Python/Office skills 载荷、Node 或 pnpm 分发。产物约 175 MiB；仍需兼容的外部 Node。不执行 Marketplace 发布或签名。
 
 打包的客户端资源与 DSH 包记录匹配版本。`runtime.json` 记录平台、架构、包版本和生产锁文件摘要。启动器拒绝版本或平台不匹配，打包元数据无效时不会回退到源码仓库。`dsh.repositoryPath` 仅适用于源码开发。构建只替换自己生成的扩展暂存目录；重新构建前请停止开发窗口。
 
@@ -43,6 +43,8 @@ pnpm.cmd run dev:vscode
 扩展宿主管理一个 Node 子进程，使用从共享 Web 配置派生的 `vscode` profile。每个工作区路径在扩展的 VS Code 全局存储中拥有独立的 Harness 主目录，不与桌面版共享会话。关闭面板会释放其 HTTP 请求和 socket，但保留子进程；`DSH: Stop Agent Runtime`、`DSH: Restart Agent Runtime` 和扩展退出会等待进程退出。扩展宿主意外退出时，通过 IPC 断开请求子进程关闭。
 
 子进程监听临时 IPv4 回环端口。启动 token 仅通过私有 IPC 传输；扩展宿主用它交换 HTTP-only cookie。Webview 使用限制路由的 `postMessage` HTTP 和 WebSocket 适配器，不接收启动 URL 或 cookie。Gateway 保留业务协议及流分帧。HTTP 响应按需逐步读取；上传请求经过缓冲，单次超过 8 MiB 时会在转发前被拒绝。
+
+插件图事件使用 `eventsource` 库经同一带认证的 Fetch 桥接传输，仅允许 `/plugins/events`。适配器在流错误或 EOF 后重连；关闭时中止请求并取消待执行的重试。认证保留在 Extension Host。SSE 解析和重试语义由该库负责，扩展不维护第二套事件解析器。
 
 静态资源使用 VS Code 资源 URL。开发 CSP 允许 `unsafe-eval`，因为仓库内的 Cordis 配置 loader 在客户端启动时构造函数。它不允许任意内联脚本或直接连接回环地址。移除此例外或验证其发行安全性仍属于 P0 安全决策，并非绕过认证的手段。
 
@@ -69,8 +71,12 @@ node apps/vscode/scripts/test-extension.mjs "C:/path/to/Microsoft VS Code/Code.e
 
 在真实模型检查中再追加 `--interactions`，会上传二进制字节、将排队消息转为 steering、在只读权限下请求写文件、授予“允许一次”、打开原生 diff、核对捕获文档和下载文件字节，并回答 `ask_user_question` 选项。随后重启运行时，要求同一批已提交消息各恢复一次。所有写入均限定在临时工作区。
 
+将 `--faults` 与 `--live-home` 一起使用，会选择故障验证而非普通真实模型流程。测试检查插件事件通道、停用并恢复临时 profile 的布局插件、断开已建立的 Gateway 连接，并在真实 shell 工具子进程报告就绪后终止所属运行时。模型检查使用所选 DeepSeek 凭据。结果写入已忽略的 `apps/vscode/lib/fault-results*.json`；任何用例失败都会在清理后使命令失败。`--fault-case plugins`、`--fault-case reconnect` 或 `--fault-case crash` 可选择单个领域。`--faults --fault-case plugins` 不需要 `--live-home` 或模型请求，并将实际 Host 启用状态与 UI 挂载数量和 `tests/expected/plugin-lifecycle.json` 比对。
+
 ## 已知限制
 
-仅允许单个已信任的本地文件夹，拒绝 Remote SSH/WSL、虚拟工作区和多根工作区。同一文件夹的并发窗口、Windows 以外的操作系统、工具运行期间崩溃及信任状态变化尚未完成集成验证。不要对同一文件夹同时打开两个此预览。
+仅允许单个已信任的本地文件夹，拒绝 Remote SSH/WSL、虚拟工作区和多根工作区。同一文件夹的并发窗口、Windows 以外的操作系统及信任状态变化尚未完成集成验证。不要对同一文件夹同时打开两个此预览。
 
-工具栏提供新建对话、当前工作区历史和原生 API 密钥配置。上次选中的会话保留在 Webview 状态中，仅当它仍属于此工作区且未归档时恢复。真实扩展宿主冒烟测试要求运行时重启前后均挂载此编辑器专用布局。上述真实模型检查与无密钥上下文录制回放互为补充；它们尚未验证压缩（compaction）、媒体下载 UI、插件图刷新或瞬时网络重连。这些剩余路径需要扩展专属的端到端覆盖，才能将预览视为适合日常工作的工具。
+工具栏提供新建对话、当前工作区历史和原生 API 密钥配置。上次选中的会话保留在 Webview 状态中，仅当它仍属于此工作区且未归档时恢复。Windows 源码预览故障测试验证了空闲 Gateway 重连后保留草稿和历史且下一轮模型请求正常，以及 shell 工具运行中终止运行时后子进程退出、显式重启、消息恢复且工具不重复执行。这些检查不代表长期断网、活动流期间重连、所有工具类别或打包 VSIX 的模型故障路径已通过验收。压缩（compaction）和媒体下载 UI 仍未验证。
+
+Windows 源码预览和隔离安装 VSIX 的无密钥检查均验证了停用和启用布局插件会移除并重新挂载恰好一个 UI，而不替换 Webview。适配器测试覆盖分块 UTF-8 事件、流错误及 EOF 后重连、路由拒绝和关闭取消。模型轮次运行中重新构建插件源码仍未验证。

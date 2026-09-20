@@ -1,4 +1,6 @@
 /** Webview carrier for the unmodified DSH Web entry and Gateway wire frames. */
+import { pluginEventSource } from './plugin-events.ts'
+
 declare function acquireVsCodeApi(): { postMessage(message: object): void; getState(): unknown; setState(state: object): void }
 const editor = acquireVsCodeApi()
 const channel = 'dsh-vscode'
@@ -180,6 +182,7 @@ async function capture(kind: 'file' | 'selection' | 'problems', signal: AbortSig
 
 globalThis.fetch = proxyFetch
 globalThis.WebSocket = GatewaySocket as unknown as typeof WebSocket
+globalThis.EventSource = pluginEventSource(proxyFetch)
 Reflect.set(globalThis, '__DSH_TRANSPORT__', { fetch: proxyFetch, loadBundle, ownsHost: true, streamBaseUrl: 'http://dsh.internal' })
 Reflect.set(globalThis, '__DSH_FILE_UPLOAD__', { fetch: proxyFetch })
 Reflect.set(globalThis, '__DSH_VSCODE__', {

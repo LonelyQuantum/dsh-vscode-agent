@@ -10,10 +10,15 @@ import { chromium } from 'playwright'
 import * as yaml from 'js-yaml'
 
 const { positionals: [executable], values } = parseArgs({ allowPositionals: true,
-  options: { vsix: { type: 'string' }, 'live-home': { type: 'string' }, interactions: { type: 'boolean' } } })
+  options: { vsix: { type: 'string' }, 'live-home': { type: 'string' }, interactions: { type: 'boolean' }, faults: { type: 'boolean' }, 'fault-case': { type: 'string' } } })
 if (!executable) throw new Error('Pass the absolute VS Code executable path, not its shell wrapper')
 if (values.interactions && !values['live-home']) throw new Error('--interactions requires --live-home')
+if (values.faults && values['fault-case'] !== 'plugins' && !values['live-home']) throw new Error('Model fault probes require --live-home')
+if (values['fault-case'] && (!values.faults || !['plugins', 'reconnect', 'crash'].includes(values['fault-case']))) {
+  throw new Error('--fault-case requires --faults and one of plugins, reconnect, crash')
+}
 const app = fileURLToPath(new URL('..', import.meta.url))
+const ui = !!values['live-home'] || values['fault-case'] === 'plugins'
 const root = await mkdtemp(join(tmpdir(), 'dsh-vscode-editor-test-'))
 const userData = join(root, 'user')
 const extensions = join(root, 'extensions')
@@ -22,6 +27,7 @@ delete environment.ELECTRON_RUN_AS_NODE
 let child
 let browser
 let completion
+let faultFailures = false
 const stop = async () => {
   if (!child || child.exitCode !== null || child.signalCode !== null) return
   if (process.platform === 'win32' && child.pid) {
@@ -75,18 +81,19 @@ try {
     catch { throw new Error('Cannot read the selected Desktop DeepSeek credential') }
     if (typeof credential !== 'string' || !credential) throw new Error('Selected Desktop home has no DeepSeek API key reference')
     environment.DEEPSEEK_API_KEY = credential
-    environment.DSH_VSCODE_TEST_UI = root
   }
+  if (ui) environment.DSH_VSCODE_TEST_UI = root
+  if (values.faults) environment.DSH_VSCODE_TEST_FAULTS = '1'
   child = spawn(executable, [workspace, '--new-window', '--disable-extensions', '--disable-workspace-trust',
     '--skip-welcome', '--skip-release-notes', '--locale=en', '--user-data-dir', userData, '--extensions-dir', extensions,
-    ...values['live-home'] ? ['--remote-debugging-port=0', '--remote-debugging-address=127.0.0.1'] : [],
+    ...ui ? ['--remote-debugging-port=0', '--remote-debugging-address=127.0.0.1'] : [],
     '--extensionDevelopmentPath=' + extensionPath, '--extensionTestsPath=' + resolve(app, 'lib/extension-host.cjs')],
   { cwd: workspace, stdio: 'inherit', windowsHide: true, env: environment })
   completion = new Promise((resolve, reject) => { child.once('error', reject); child.once('close', resolve) })
   let timedOut = false
   const timer = setTimeout(() => { timedOut = true; void stop() }, 300_000)
   try {
-    if (values['live-home']) {
+    if (ui) {
       await waitFor(() => readIfPresent(join(root, 'ready')), 120_000)
       const devtools = await waitFor(() => readIfPresent(join(userData, 'DevToolsActivePort')))
       const [port, socketPath] = devtools.trim().split('\n')
@@ -121,6 +128,28 @@ try {
         return result.result.value
       }
       await waitFor(() => evaluate('return !!root'))
+      if (values.faults) {
+        const contexts = []
+        const observeContext = event => {
+          if (event.sessionId !== sessionId) return
+          const message = JSON.parse(event.message)
+          if (message.method === 'Runtime.executionContextCreated') contexts.push(message.params.context)
+        }
+        cdp.on('Target.receivedMessageFromTarget', observeContext)
+        await request('Runtime.enable')
+        let contextId
+        for (const context of contexts) {
+          const result = await request('Runtime.evaluate', { contextId: context.id,
+            expression: 'typeof __DSH_VSCODE__ !== "undefined"', returnByValue: true })
+          if (result.result.value) contextId = context.id
+        }
+        cdp.off('Target.receivedMessageFromTarget', observeContext)
+        if (contextId === undefined) throw new Error('DSH Webview execution context was not found')
+        const { runFaultChecks } = await import('./test-faults.mjs')
+        const results = await runFaultChecks({ root, workspace, evaluate, request, contextId, waitFor, readIfPresent, selected: values['fault-case'] })
+        await writeFile(join(app, `lib/fault-results${values['fault-case'] ? '-' + values['fault-case'] : ''}.json`), JSON.stringify(results, null, 2) + '\n')
+        faultFailures = results.some(result => !result.passed)
+      } else {
       await waitFor(() => evaluate("const button = [...root.querySelectorAll('button')].find(button => /Attach selection|附加选区/.test(button.textContent)); return button && !button.disabled && !!root.querySelector('[data-composer-input]')"))
       await evaluate("[...root.querySelectorAll('button')].find(button => /Attach selection|附加选区/.test(button.textContent)).click()")
       await waitFor(() => evaluate("return !!root.querySelector('[data-composer-chip=\"editor-context\"]')"))
@@ -208,12 +237,14 @@ try {
         await waitFor(() => evaluate(`return root?.innerText.includes('QUESTION_DONE') && JSON.stringify([...root.querySelectorAll('[data-user-message]')].map(element => element.textContent)) === ${JSON.stringify(JSON.stringify(previousMessages))}`))
         console.log('VSCODE_LIVE_RESUME_OK: prior messages restored once after runtime restart')
       }
+      }
       await writeFile(join(root, 'done'), 'passed')
       await browser.close()
       browser = undefined
     }
     const code = await completion
     if (timedOut || code !== 0) throw new Error(`VS Code smoke failed: timeout=${timedOut}, exit=${code}`)
+    if (faultFailures) throw new Error('VS Code fault qualification failed; see lib/fault-results*.json')
   } finally { clearTimeout(timer) }
 } finally {
   await browser?.close()

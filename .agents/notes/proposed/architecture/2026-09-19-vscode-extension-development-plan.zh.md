@@ -54,11 +54,11 @@ VS Code 组合包通过共享 system-prompt 注册表拥有模型可见的界面
 
 Windows 扩展开发宿主已启动真实的共享 profile 应用、加载 Web 客户端和插件资源、发出 API 请求、建立 Gateway WebSocket、挂载编辑器专用单栏对话，并停止其管理的 Node 子进程。重启冒烟测试检查重新挂载及旧进程退出。工具栏提供新建对话、工作区历史、原生 SecretStorage 配置和符合条件的上次会话恢复；针对性测试覆盖导航及延迟启动结果的资源释放。源码开发和 Windows x64 VSIX 都使用外部兼容 Node。VSIX 安装到仓库外的隔离目录，并通过相同的原生编辑器及生命周期冒烟测试。P0 和 P1 验收仍未完成。
 
-Webview 桥接将认证保留在 Extension Host，保持 Gateway 分帧。真实 Webview 检查覆盖模型完成和取消、二进制上传、文件下载字节、排队消息转 steering，以及运行时重启后的对话恢复。Cordis 的浏览器配置 loader 需要 `unsafe-eval`；分发验证仍需要 CSP 决策、瞬时重连、动态插件变化、信任状态切换及工具运行期间意外退出。尝试此部分实现时，以预览的[限制和启动步骤](../../../../apps/vscode/README.zh.md)为准。
+Webview 桥接将认证保留在 Extension Host，保持 Gateway 分帧。真实 Webview 检查覆盖模型完成和取消、二进制上传、文件下载字节、排队消息转 steering，以及运行时重启后的对话恢复。Windows 源码预览故障检查还覆盖空闲 Gateway 重连及 shell 工具运行期间终止运行时。插件事件通过 `eventsource` 库和带认证的 Fetch 传输，不使用指向 Webview 来源的原生连接；该库的解析和重试处理避免维护另一套 SSE 实现。无密钥编辑器检查验证了 Host 停用和启用会移除并重新挂载布局，而不替换 Webview。适配器测试覆盖流断开后重连与取消；活动轮次中的插件重建及流式输出期间的 Gateway 重连仍待验证。Cordis 的浏览器配置 loader 需要 `unsafe-eval`；分发验证仍需要 CSP 决策及信任状态切换。尝试此部分实现时，以预览的[限制和启动步骤](../../../../apps/vscode/README.zh.md)为准。
 
 ### 交付顺序
 
-P4 预览检查覆盖历史记录键盘焦点、明暗和高对比度模式的宿主颜色、Windows 运行时终止后的显式重启，以及已安装 VSIX 的启动。诊断排除页面原始异常。打包将工作区依赖、必需的 peer 和 Client 注入依赖选入生产运行时，记录确切版本及锁文件摘要，并拒绝平台或版本不匹配。共享 Web 组合包含 Office 转换依赖，但不包含 Desktop 的 Electron/Python/skills 载荷，也不附带额外的 Node/pnpm 分发。工具运行期间崩溃、完整交互验收、CSP 发行审查及 macOS/Linux 验证仍待完成。
+P4 预览检查覆盖历史记录键盘焦点、明暗和高对比度模式的宿主颜色、Windows 运行时终止后的显式重启，以及已安装 VSIX 的启动。源码预览的 shell 工具崩溃检查观察到子进程退出、消息恢复且不重复运行工具，以及后续真实模型回复。诊断排除页面原始异常。打包将工作区依赖、必需的 peer 和 Client 注入依赖选入生产运行时，记录确切版本及锁文件摘要，并拒绝平台或版本不匹配。共享 Web 组合包含 Office 转换依赖，但不包含 Desktop 的 Electron/Python/skills 载荷，也不附带额外的 Node/pnpm 分发。其他工具类别、打包后的故障路径、完整交互验收、CSP 发行审查及 macOS/Linux 验证仍待完成。
 
 P3 使用由 `ui-conversation` 定义、`ui-vscode` 提供、Chat 和交付视图消费的可选 `ConversationEditor` 服务。原生宿主校验文件准入；捕获 review 读取基于 `workspaceChanges.contents` 的固定认证路由，共用 recorder 的上限和生命周期。未挂载编辑器服务时，Web 和 Desktop 保留原有 Sidebar 导航。这是只读 review，不持久化历史捕获，也不提供回退。Windows 原生编辑器及后端测试覆盖确切版本、后续磁盘编辑、新建和删除、重命名、二进制和大小拒绝及过期。真实模型在只读权限下请求写入，“允许一次”放行后，改动卡片打开原生 diff，其中只读文档与捕获版本一致。同一流程回答 `ask_user_question` 选项，并等待模型完成。
 

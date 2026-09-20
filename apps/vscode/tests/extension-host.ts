@@ -106,7 +106,7 @@ export async function run(): Promise<void> {
       assert.ok(await editor.edit((edit) => { edit.insert(new vscode.Position(1, 0), 'const editorOnly = "VSCODE_UNSAVED_42";\n') }))
       editor.selection = new vscode.Selection(1, 0, 1, 100)
       await writeFile(join(coordination, 'ready'), 'ready')
-      const deadline = Date.now() + 180_000
+      const deadline = Date.now() + (process.env.DSH_VSCODE_TEST_FAULTS ? 270_000 : 180_000)
       let result: string | undefined
       let reviewed = false
       while (Date.now() < deadline) {
@@ -120,6 +120,22 @@ export async function run(): Promise<void> {
           await writeFile(join(coordination, 'review-ok'), 'passed')
         }
         let reload: string | undefined
+        if (process.env.DSH_VSCODE_TEST_FAULTS) {
+          let crash: string | undefined
+          try { crash = await readFile(join(coordination, 'crash'), 'utf8') }
+          catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
+          if (crash === 'requested') {
+            await unlink(join(coordination, 'crash'))
+            const pid = api.diagnostics().pid
+            assert.ok(pid)
+            process.kill(pid)
+            const crashDeadline = Date.now() + 10_000
+            while (!api.diagnostics().clientFailure && Date.now() < crashDeadline) await delay(50)
+            assert.ok(api.diagnostics().clientFailure, 'Active runtime exit was not observed')
+            assert.throws(() => process.kill(pid, 0))
+            await writeFile(join(coordination, 'crashed'), 'passed')
+          }
+        }
         try { reload = await readFile(join(coordination, 'reload'), 'utf8') }
         catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
         if (reload === 'requested') {
