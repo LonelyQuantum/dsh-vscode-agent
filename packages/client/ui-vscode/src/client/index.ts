@@ -16,9 +16,10 @@ import type { EditorInjected, WorkspaceBoot } from './contract.ts'
 import { Conversation } from './Conversation.tsx'
 import { en, zh } from './locales.ts'
 import { captureSource, insertCapture } from './capture.ts'
+import { installEditorTheme } from './theme.ts'
 
 /** Shared Client services required by this presentation. */
-export const inject = ['slots', 'locale', 'sessions', 'workspaces', 'uiWorkspace', 'uiConversation', 'conversation', 'inputTriggers']
+export const inject = ['slots', 'locale', 'sessions', 'workspaces', 'uiWorkspace', 'uiConversation', 'conversation', 'inputTriggers', 'theme']
 
 function Root({ renderSlot }: PropsRenderSlots<'vscode.conversation'>) {
   return renderSlot('vscode.conversation', {})
@@ -31,6 +32,7 @@ function Root({ renderSlot }: PropsRenderSlots<'vscode.conversation'>) {
 export function apply(ctx: Context): void {
   const editor = globalThis.__DSH_VSCODE__
   if (editor === undefined) throw new Error('ui-vscode requires the VS Code editor carrier')
+  installEditorTheme(ctx)
   const boot = createSnapshotStore<WorkspaceBoot>({ state: 'loading' })
   const lifetime = { closed: false }
   const closed = (): boolean => lifetime.closed

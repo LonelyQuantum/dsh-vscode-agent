@@ -1,4 +1,4 @@
-body.vscode-light, body.vscode-dark, body.vscode-high-contrast, body.vscode-high-contrast-light {
+body[class].vscode-light, body[class].vscode-dark, body[class].vscode-high-contrast, body[class].vscode-high-contrast-light {
   padding: 0;
   background: var(--vscode-sideBar-background);
   color: var(--vscode-foreground);

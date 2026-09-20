@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /** Startup waits for remote baselines and ignores results after plugin disposal. */
 import { Context, type Fiber } from '@deepseek-ai/cordis'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
@@ -35,6 +36,7 @@ async function fixture(saved?: string, delayed = false) {
   ctx.provide('uiConversation', {} as never)
   ctx.provide('conversation', {} as never)
   ctx.provide('inputTriggers', { registerSource: () => () => {} } as never)
+  ctx.provide('theme', { register: () => () => {} } as never)
   vi.stubGlobal('__DSH_VSCODE__', { workspace: () => '/workspace', lastSession: () => saved, configure: vi.fn(), selected: vi.fn(), ready: vi.fn() })
   const slots = ctx.get('slots') as SlotRegistry
   const original = slots.register({ name: 'root' }, () => null)

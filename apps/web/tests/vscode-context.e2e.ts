@@ -57,6 +57,7 @@ it('renders explicit editor references and native previews in a narrow conversat
           document.body.style.setProperty('--vscode-foreground', foreground!)
           document.body.style.setProperty('--vscode-input-background', background!)
         }, { theme, background, foreground })
+        await expect.poll(() => page.evaluate(() => document.body.hasAttribute('data-ds-dark-theme'))).toBe(theme !== 'vscode-light')
         expect(await root.evaluate(element => getComputedStyle(element).backgroundColor)).toBe(background)
         expect(await root.evaluate(element => getComputedStyle(element).color)).toBe(foreground)
         expect(await root.locator('[data-composer-card]').evaluate(element => getComputedStyle(element).backgroundColor)).toBe(background)

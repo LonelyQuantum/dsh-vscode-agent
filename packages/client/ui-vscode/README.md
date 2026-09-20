@@ -27,7 +27,7 @@ Open a conversation in a narrow editor sidebar, start another conversation, or r
 
 Opening History moves keyboard focus to its return control. Escape closes History and restores focus to the toolbar toggle without editing the draft.
 
-Messages can use the full transcript width with 12 px side clearance in narrow editor columns. The native carrier supplies VS Code colors for messages, input, menus, code, and scrollbars; the browser composition retains its own theme.
+Messages can use the full transcript width with 12 px side clearance in narrow editor columns. The native carrier supplies VS Code colors for messages, input, menus, code, and scrollbars. Editor theme classes select non-persistent light/dark registry entries, including high-contrast variants, so shared cards use the matching palette without changing saved DSH theme preferences. Ordinary browser compositions retain their own theme.
 
 The [VS Code preview](../../../apps/vscode/README.md) adds the [editor bundle](../../bundle/vscode-app/README.md) after the Web bundle. It mounts this row without plugin configuration:
 
