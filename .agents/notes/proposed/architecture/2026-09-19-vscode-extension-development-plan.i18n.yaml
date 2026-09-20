@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/proposed/architecture/2026-09-19-vscode-extension-development-plan.md
-2026-09-19-vscode-extension-development-plan.md: 52d51663160b008b5a09ff79b439050512d390cb
-2026-09-19-vscode-extension-development-plan.zh.md: 25463193e349b9a112c444fb062b3b6179444ac8
+2026-09-19-vscode-extension-development-plan.md: 0d05036ffe6b97e6c8cb05e51a01dd3af0b029f6
+2026-09-19-vscode-extension-development-plan.zh.md: 5e4ebc93833c3f161aa49637e9a542595ff0898d
