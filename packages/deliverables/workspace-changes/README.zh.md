@@ -25,6 +25,8 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
+`ctx.workspaceChanges.contents(sessionId, seq, index, signal)` 返回完整捕获字符串，保留原始换行和末尾换行；不存在的一侧为 `null`。它与 `diff` 共用字节上限、二进制和超大文件拒绝、取消及会话生命周期。重命名读取旧路径的前版本和新路径的后版本。之后的工作区编辑不会影响任一侧。
+
 正式提供的 Web bundle 挂载本插件。任何具备 `subprocess` 能力且 Host 上有 git 可执行文件的组合都可以挂载它：
 
 ```yaml

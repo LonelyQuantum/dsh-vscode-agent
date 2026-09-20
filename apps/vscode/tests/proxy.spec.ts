@@ -21,6 +21,11 @@ it('keeps credentials private, streams bytes on demand, rejects redirects and dr
       response.writeHead(303, { 'set-cookie': 'dsh=test-cookie; HttpOnly', location: '/' }).end(); return
     }
     seen.push(request.headers.cookie ?? '')
+    if (request.url?.startsWith('/api/changes.contents?')) {
+      if (request.url.includes('seq=404')) { response.writeHead(404).end(); return }
+      response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ kind: 'text', before: 'old', after: 'new' }))
+      return
+    }
     if (request.url === '/api/redirect') { response.writeHead(302, { location: 'https://outside.test/' }).end(); return }
     if (request.url === '/api/stalled') {
       response.once('close', () => { closeStalled?.() })
@@ -54,6 +59,8 @@ it('keeps credentials private, streams bytes on demand, rejects redirects and dr
   })
   const send = (id: number, kind: string, fields: object = {}): void => { proxy.receive({ channel: CHANNEL, id, kind, ...fields }) }
   try {
+    expect(await proxy.readCaptured('session /?', 9, 0)).toEqual({ kind: 'text', before: 'old', after: 'new' })
+    await expect(proxy.readCaptured('session', 404, 0)).rejects.toThrow('expired')
     send(1, 'fetch', { path: '/api/test', method: 'GET' })
     expect((await receive(1, 'headers')).status).toBe(200)
     expect(replies.some(message => message.kind === 'chunk')).toBe(false)

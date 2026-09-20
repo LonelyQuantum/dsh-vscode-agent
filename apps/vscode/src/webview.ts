@@ -184,6 +184,8 @@ Reflect.set(globalThis, '__DSH_TRANSPORT__', { fetch: proxyFetch, loadBundle, ow
 Reflect.set(globalThis, '__DSH_FILE_UPLOAD__', { fetch: proxyFetch })
 Reflect.set(globalThis, '__DSH_VSCODE__', {
   capture,
+  openFile: (cwd: string, path: string, line?: number) => { send(++nextId, 'native-file', { cwd, path, line }) },
+  openChanges: (sessionId: string, seq: number, index: number) => { send(++nextId, 'native-diff', { sessionId, seq, index }) },
   preview: (text: string) => { send(++nextId, 'native-preview', { text }) },
   workspace: () => {
     if (workspace === undefined) throw new Error('Editor workspace is not ready')

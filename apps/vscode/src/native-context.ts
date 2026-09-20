@@ -1,6 +1,10 @@
 /** Explicit VS Code document and Problems capture; never scans source files in the background. */
 import * as vscode from 'vscode'
 import { randomUUID } from 'node:crypto'
+import { realpath } from 'node:fs/promises'
+import { resolve } from 'node:path'
+import type { CapturedPair } from './review.ts'
+import { extensionCopy } from './locale.ts'
 import { boundedCapture, documentCapture, workspaceFile, type EditorCapture } from './editor-context.ts'
 
 /**
@@ -43,12 +47,13 @@ export async function captureEditor(kind: 'file' | 'selection' | 'problems', wor
 
 /** Read-only captured documents retained only while their editor tabs remain open. */
 export class SnapshotDocuments implements vscode.Disposable {
+  private readonly text = extensionCopy(vscode.env.language)
   private readonly values = new Map<string, string>()
   private readonly registrations: vscode.Disposable[]
 
   constructor() {
     this.registrations = [vscode.workspace.registerTextDocumentContentProvider('dsh-snapshot', {
-      provideTextDocumentContent: uri => this.values.get(uri.toString()) ?? 'This captured document is no longer available.',
+      provideTextDocumentContent: uri => this.values.get(uri.toString()) ?? this.text.expired,
     }), vscode.workspace.onDidCloseTextDocument((document) => { this.values.delete(document.uri.toString()) })]
   }
 
@@ -65,6 +70,40 @@ export class SnapshotDocuments implements vscode.Disposable {
     catch (error) { this.values.delete(uri.toString()); throw error }
   }
 
+  /**
+   * Open complete captured sides in VS Code's read-only diff editor.
+   * @param pair Validated immutable contents; absent sides render empty with an explicit title.
+   * @returns Completion after the diff opens.
+   */
+  async diff(pair: CapturedPair): Promise<void> {
+    if (this.values.size > 30) throw new Error('snapshot-limit')
+    const id = randomUUID()
+    const before = vscode.Uri.from({ scheme: 'dsh-snapshot', path: `/${id}/Before.txt` })
+    const after = vscode.Uri.from({ scheme: 'dsh-snapshot', path: `/${id}/After.txt` })
+    this.values.set(before.toString(), pair.before ?? '')
+    this.values.set(after.toString(), pair.after ?? '')
+    const status = this.text[pair.before === null ? 'created' : pair.after === null ? 'deleted' : 'captured']
+    try { await vscode.commands.executeCommand('vscode.diff', before, after, `${pair.display} (${status})`, { preview: true }) }
+    catch (error) { this.values.delete(before.toString()); this.values.delete(after.toString()); throw error }
+  }
+
   /** Drop provider registrations and owned text. */
   dispose(): void { for (const registration of this.registrations) registration.dispose(); this.values.clear() }
+}
+
+/**
+ * Open a real file inside the owned workspace, never a command or external URI.
+ * @param workspace Trusted local execution directory.
+ * @param path Session-relative or absolute file path.
+ * @param line Optional one-based line; positions beyond the document are clamped by VS Code.
+ * @param cwd Viewed Session directory, required to identify the same canonical workspace.
+ * @returns Completion after native navigation.
+ */
+export async function openWorkspaceFile(workspace: string, path: string, line?: number, cwd = workspace): Promise<void> {
+  if (await realpath(cwd) !== await realpath(workspace)) throw new Error('workspace-mismatch')
+  const canonical = await realpath(resolve(workspace, path))
+  await workspaceFile(workspace, canonical)
+  const document = await vscode.workspace.openTextDocument(vscode.Uri.file(canonical))
+  const selection = line === undefined ? undefined : document.validateRange(new vscode.Range(line - 1, 0, line - 1, 0))
+  await vscode.window.showTextDocument(document, { preview: true, ...(selection === undefined ? {} : { selection }) })
 }

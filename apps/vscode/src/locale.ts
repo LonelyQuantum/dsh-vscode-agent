@@ -8,6 +8,13 @@ const en = {
   configured: 'API key saved. Restart DSH to use it.',
   removed: 'The extension-stored API key was removed. Restart DSH to apply the change.',
   previewFailed: 'The captured text could not be opened. Close unused snapshot tabs and try again.',
+  fileFailed: 'This file cannot be opened inside the current workspace.',
+  diffExpired: 'These captured versions have expired. Historical captures are not retained after runtime restart.',
+  diffUnsupported: 'Native comparison is unavailable for binary or oversized files.',
+  captured: 'captured versions',
+  created: 'created file',
+  deleted: 'deleted file',
+  expired: 'This captured document is no longer available.',
 } as const
 type Copy = { [K in keyof typeof en]: string }
 const zh: Copy = {
@@ -19,6 +26,13 @@ const zh: Copy = {
   configured: 'API 密钥已保存，重启 DSH 后生效。',
   removed: '已删除扩展保存的 API 密钥，重启 DSH 后生效。',
   previewFailed: '无法打开捕获的文本。请关闭不再使用的快照标签页，然后重试。',
+  fileFailed: '无法在当前工作区中打开此文件。',
+  diffExpired: '这些捕获版本已过期。运行时重启后不会保留历史捕获。',
+  diffUnsupported: '二进制或超大文件不支持原生对比。',
+  captured: '捕获版本',
+  created: '新建文件',
+  deleted: '已删除文件',
+  expired: '此捕获文档已不可用。',
 }
 
 /** Select extension copy without changing upstream locale ownership. @param language VS Code language. @returns Complete labels. */

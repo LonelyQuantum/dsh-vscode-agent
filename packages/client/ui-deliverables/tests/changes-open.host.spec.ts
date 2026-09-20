@@ -59,7 +59,8 @@ async function fixture() {
   }
   const diff = vi.fn(async (sessionId: SessionId, seq: number, index: number, _signal: AbortSignal) =>
     sessionId === 'owner' && seq === 9 && index === 0 ? comparison : undefined)
-  ctx.provide('workspaceChanges', { summary, diff })
+  const contents = vi.fn(async () => ({ kind: 'text' as const, path: 'a.ts', display: 'a.ts', before: 'old\n', after: 'new\n' }))
+  ctx.provide('workspaceChanges', { summary, diff, contents })
   const opener = vi.fn(async (_request: { path: string; action?: 'reveal' }, _signal: AbortSignal) => ({ opened: true as const }))
   const applications = vi.fn(async () => [{ id: 'player', name: 'Player', default: true, icon: null }])
   ctx.provide('sessionController', { workspacePathApplications: applications, openWorkspacePath: opener, workspaceDesktop: () => ({ name: 'desktop', available: true, fileManager: 'finder' }) } as never)
@@ -72,8 +73,17 @@ async function fixture() {
   const open = (query = '?sessionId=owner&seq=9&index=0') => handler.fetch(new Request(`http://localhost${CHANGES_OPEN_PATH}${query}`, { method: 'POST' }))
   const read = (query = '?sessionId=owner&seq=9') => handler.fetch(new Request(`http://localhost${CHANGED_FILES_PATH}${query}`))
   const compare = (query = '?sessionId=owner&seq=9&index=0') => handler.fetch(new Request(`http://localhost${CHANGES_DIFF_PATH}${query}`))
-  return { handler, applications, root, cwd, ctx, data, readEvent, open, read, compare, comparison, diff, opener, outside, summary }
+  return { handler, applications, root, cwd, ctx, data, readEvent, open, read, compare, comparison, diff, opener, outside, summary, contents }
 }
+
+it('serves complete captured contents through the authenticated route with validated coordinates', async () => {
+  const { handler, contents } = await fixture()
+  const response = await handler.fetch(new Request('http://localhost/api/changes.contents?sessionId=owner&seq=9&index=0'))
+  expect(await response.json()).toEqual({ kind: 'text', path: 'a.ts', display: 'a.ts', before: 'old\n', after: 'new\n' })
+  expect(contents).toHaveBeenCalledWith('owner', 9, 0, expect.any(AbortSignal))
+  expect(response.headers.get('cache-control')).toBe('no-store')
+  expect((await handler.fetch(new Request('http://localhost/api/changes.contents?sessionId=owner&seq=9&index=-1'))).status).toBe(400)
+})
 
 describe('change summary route', () => {
   it('serves the Host-held summary without its working directory, and 404 once it is gone', async () => {

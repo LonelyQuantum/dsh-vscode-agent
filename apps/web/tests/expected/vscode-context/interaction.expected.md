@@ -1,0 +1,5 @@
+- Editor layout: single column at 420 px
+- Selection reference: context.ts · v7*
+- Preview: exact immutable snapshot
+- Credential gesture: native carrier
+- History return: draft retained

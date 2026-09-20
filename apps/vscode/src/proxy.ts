@@ -27,6 +27,7 @@ export class HostProxy {
   private readonly sockets = new Map<number, WebSocket>()
   private readonly tasks = new Set<Promise<void>>()
   private disposed = false
+  private readonly nativeLifetime = new AbortController()
   private constructor(private readonly origin: string, private readonly cookie: string, private readonly send: Send) {}
 
   /**
@@ -43,6 +44,44 @@ export class HostProxy {
     await response.body?.cancel()
     if (response.status !== 303 || !cookie) throw new Error('DSH authentication failed')
     return new HostProxy(url.origin, cookie, send)
+  }
+
+  /**
+   * Read complete versions from the fixed captured-content route for native review.
+   * @param sessionId Capture owner.
+   * @param seq Announcing event sequence.
+   * @param index Original summary index.
+   * @returns Bounded JSON; disposal aborts and awaits the request.
+   */
+  readCaptured(sessionId: string, seq: number, index: number): Promise<unknown> {
+    const work = (async (): Promise<unknown> => {
+      const signal = AbortSignal.any([this.nativeLifetime.signal, AbortSignal.timeout(15_000)])
+      signal.throwIfAborted()
+      const query = new URLSearchParams({ sessionId, seq: String(seq), index: String(index) })
+      const response = await fetch(new URL(`/api/changes.contents?${query}`, this.origin), {
+        headers: { cookie: this.cookie }, redirect: 'manual', signal,
+      })
+      if (!response.ok || response.body === null) {
+        await response.body?.cancel()
+        throw new Error(response.status === 404 ? 'expired' : 'capture-unavailable')
+      }
+      const reader = response.body.getReader()
+      const chunks: Uint8Array[] = []
+      let bytes = 0
+      try {
+        for (;;) {
+          const next = await reader.read()
+          if (next.done) return JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown
+          bytes += next.value.byteLength
+          if (bytes > 24 * 1024 * 1024) throw new Error('oversized')
+          chunks.push(next.value)
+        }
+      } finally { await reader.cancel().catch(() => {}) }
+    })()
+    const settled = work.then(() => {}, () => {})
+    this.tasks.add(settled)
+    void settled.then(() => { this.tasks.delete(settled) })
+    return work
   }
 
   /** Validate and dispatch a Webview wire message. @param raw Untrusted message from the panel. */
@@ -152,6 +191,7 @@ export class HostProxy {
   /** Abort requests and await socket closure and in-flight dispatches. @returns Quiescent transport disposal. */
   async dispose(): Promise<void> {
     this.disposed = true
+    this.nativeLifetime.abort()
     for (const transfer of this.transfers.values()) transfer.controller.abort()
     this.transfers.clear()
     await Promise.all([...this.sockets.values()].map(socket => new Promise<void>((resolve) => {

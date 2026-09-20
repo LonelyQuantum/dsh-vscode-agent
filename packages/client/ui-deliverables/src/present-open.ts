@@ -8,7 +8,7 @@ import { remoteErrorOf } from '@deepseek-ai/dsh-typert-protocol'
 import type {} from '@deepseek-ai/dsh-client-connection'
 import type {} from '@deepseek-ai/dsh-session-query'
 import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
-import { CHANGES_DIFF_PATH, CHANGES_OPEN_PATH, CHANGED_FILES_PATH, type ChangesSummary } from './changes.ts'
+import { CHANGES_CONTENTS_PATH, CHANGES_DIFF_PATH, CHANGES_OPEN_PATH, CHANGED_FILES_PATH, type ChangesSummary } from './changes.ts'
 import { isPresentedData, isPresentedFile, PRESENT_OPEN_PATH, PRESENT_HOST_PATH, type PresentedHost } from './presented.ts'
 
 /**
@@ -35,6 +35,7 @@ export function registerPresentOpen(ctx: Context): void {
   })
   const routes = [
     [PRESENT_OPEN_PATH, ['GET', 'POST'], handlePresentOpen], [CHANGES_OPEN_PATH, ['GET', 'POST'], handleChangesOpen], [CHANGES_DIFF_PATH, ['GET'], handleChangesDiff],
+    [CHANGES_CONTENTS_PATH, ['GET'], (ctx: Context, request: Request) => handleChangesDiff(ctx, request, true)],
   ] as const
   for (const [path, methods, handler] of routes) {
     ctx.connection.fetch.register({
@@ -150,12 +151,13 @@ function changedFileCoordinates(request: Request): { id: SessionId; seq: number;
 }
 
 /** One listed file's comparison; 404 once the Host no longer serves the summary or the index names no file. */
-async function handleChangesDiff(ctx: Context, request: Request): Promise<Response> {
+async function handleChangesDiff(ctx: Context, request: Request, complete = false): Promise<Response> {
   const coordinates = changedFileCoordinates(request)
   if (coordinates instanceof Response) return coordinates
   const { id, seq, index } = coordinates
   try {
-    const diff = await ctx.workspaceChanges.diff(id, seq, index, request.signal)
+    const diff = complete ? await ctx.workspaceChanges.contents(id, seq, index, request.signal)
+      : await ctx.workspaceChanges.diff(id, seq, index, request.signal)
     if (diff === undefined) return new Response('Change comparison unavailable.', { status: 404 })
     return Response.json(diff, { headers: { 'cache-control': 'no-store' } })
   } catch (error: unknown) {

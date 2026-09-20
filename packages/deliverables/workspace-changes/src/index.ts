@@ -20,7 +20,7 @@ import { TurnRecorder } from './recorder.ts'
 import type { WorkspaceChanges } from './types.ts'
 
 export type {
-  WorkspaceChangedFile, WorkspaceChanges, WorkspaceChangesSummary, WorkspaceDiffHunk, WorkspaceFileDiff,
+  WorkspaceChangedFile, WorkspaceChanges, WorkspaceChangesSummary, WorkspaceDiffHunk, WorkspaceFileContents, WorkspaceFileDiff,
 } from './types.ts'
 
 /** Stable Loader identity. */
@@ -112,6 +112,7 @@ export function apply(ctx: Context, config: Config): void {
     await Promise.all([...recorders.keys()].map(forget))
   })
   const service: WorkspaceChanges = {
+    contents: (sessionId, seq, index, signal) => byId.get(sessionId)?.contents(seq, index, signal) ?? Promise.resolve(undefined),
     summary: (sessionId, seq) => byId.get(sessionId)?.summary(seq),
     diff: (sessionId, seq, index, signal) => byId.get(sessionId)?.diff(seq, index, signal) ?? Promise.resolve(undefined),
   }

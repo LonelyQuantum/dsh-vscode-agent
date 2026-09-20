@@ -56,6 +56,8 @@ Webview 桥接将认证保留在扩展宿主中，并保留 Gateway 分帧。Cor
 
 ### 交付顺序
 
+P3 使用由 `ui-conversation` 定义、`ui-vscode` 提供、Chat 和交付视图消费的可选 `ConversationEditor` 服务。原生宿主校验文件准入；捕获 review 读取基于 `workspaceChanges.contents` 的固定认证路由，共用 recorder 的上限和生命周期。未挂载编辑器服务时，Web 和 Desktop 保留原有 Sidebar 导航。这是只读 review，不持久化历史捕获，也不提供回退。Windows 原生编辑器及后端测试覆盖确切版本、后续磁盘编辑、新建和删除、重命名、二进制和大小拒绝及过期；真实模型编辑到 review 的验收仍待完成。
+
 P2 预览仅在显式请求时捕获文件、选区和 Problems，以草稿版本校验插入不可变引用 chip，并打开确切文本的只读预览。单元测试覆盖 UTF-8 上限、工作区和符号链接准入、取消及序列化；真实 Windows 扩展宿主检查未保存编辑器文本、版本、诊断和预览。模型提交录制场景仍是验收缺口；这些证据不代表 P2 完成。
 
 | 阶段 | 交付内容 | 完成证据 |

@@ -7,7 +7,8 @@ import { AgentRuntime, type RuntimeReady } from './runtime.ts'
 import { CHANNEL, HostProxy } from './proxy.ts'
 import { webviewDocument } from './document.ts'
 import { extensionCopy } from './locale.ts'
-import { captureEditor, SnapshotDocuments } from './native-context.ts'
+import { captureEditor, openWorkspaceFile, SnapshotDocuments } from './native-context.ts'
+import { capturedPair } from './review.ts'
 
 let stopExtension: (() => Promise<void>) | undefined
 
@@ -107,9 +108,33 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
       if (isClosed()) { await activeProxy.dispose(); return }
       proxy = activeProxy
       let capturing = false
+      let reviewing = false
       const receive = current.webview.onDidReceiveMessage((message: unknown) => {
         if (lifetime.closed || !vscode.workspace.isTrusted) return
         if (typeof message === 'object' && message !== null && 'channel' in message && message.channel === CHANNEL) {
+          if ('kind' in message && message.kind === 'native-file' && 'path' in message && typeof message.path === 'string'
+            && 'cwd' in message && typeof message.cwd === 'string' && message.cwd.length <= 4096
+            && message.path.length <= 4096 && (!('line' in message) || message.line === undefined
+              || typeof message.line === 'number' && Number.isSafeInteger(message.line) && message.line > 0)) {
+            void openWorkspaceFile(workspace, message.path, 'line' in message ? message.line as number | undefined : undefined, message.cwd)
+              .catch(() => { if (!isClosed()) void vscode.window.showWarningMessage(text.fileFailed) })
+            return
+          }
+          if ('kind' in message && message.kind === 'native-diff' && 'sessionId' in message && typeof message.sessionId === 'string'
+            && message.sessionId.length > 0 && message.sessionId.length <= 256 && 'seq' in message && 'index' in message
+            && Number.isSafeInteger(message.seq) && Number(message.seq) >= 0
+            && Number.isSafeInteger(message.index) && Number(message.index) >= 0) {
+            if (reviewing) return
+            reviewing = true
+            void activeProxy.readCaptured(message.sessionId, Number(message.seq), Number(message.index)).then(async (value) => {
+              if (!isClosed() && vscode.workspace.isTrusted) await snapshots.diff(capturedPair(value))
+            }).catch((error: unknown) => {
+              if (!isClosed()) void vscode.window.showWarningMessage(error instanceof Error && error.message === 'expired'
+                ? text.diffExpired : error instanceof Error && (error.message === 'binary' || error.message === 'oversized')
+                  ? text.diffUnsupported : text.previewFailed)
+            }).finally(() => { reviewing = false })
+            return
+          }
           if ('kind' in message && message.kind === 'native-capture' && 'id' in message && Number.isSafeInteger(message.id)
             && 'capture' in message && (message.capture === 'file' || message.capture === 'selection' || message.capture === 'problems')) {
             const id = message.id

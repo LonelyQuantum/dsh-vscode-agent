@@ -75,7 +75,7 @@ Only submitted snapshots add user-input tokens; capture and preview alone send n
 
 The editor carrier defines the supported workspace types.
 
-- No native file or captured-diff navigation is provided by this package.
+- Native files are admitted only inside the carrier's workspace; captured diffs require the original live Host Session.
 - No independent settings panel is rendered; credential setup uses the carrier's native command.
 
 <a id="dev-note"></a>

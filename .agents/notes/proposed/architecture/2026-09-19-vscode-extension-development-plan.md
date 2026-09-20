@@ -56,6 +56,8 @@ The Webview bridge keeps authentication in the Extension Host and preserves Gate
 
 ### Delivery sequence
 
+P3 uses the optional `ConversationEditor` service defined by `ui-conversation`, supplied by `ui-vscode`, and consumed by Chat and deliverables. The native carrier validates file admission; captured review reads a fixed authenticated route backed by `workspaceChanges.contents`, sharing the recorder's limits and lifetime. Web and Desktop keep their Sidebar navigation when no editor service is mounted. This is read-only review, without durable historical captures or revert. Windows native-editor and backend tests cover exact versions, later disk edits, creation/deletion, rename, binary/size refusal, and expiration; real-model edit-to-review acceptance remains pending.
+
 The P2 preview captures file, selection, and Problems only on explicit request, inserts immutable reference chips with draft-revision admission, and opens exact-text read-only previews. Unit tests cover UTF-8 limits, workspace/symlink admission, cancellation, and serialization; the real Windows Extension Host checks unsaved editor text, version, diagnostics, and preview. The recorded model-submission scenario remains an acceptance gap; this evidence does not mark P2 complete.
 
 | Stage | Deliverable | Exit evidence |

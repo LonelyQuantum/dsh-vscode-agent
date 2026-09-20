@@ -34,6 +34,15 @@ export function apply(ctx: Context): void {
   const boot = createSnapshotStore<WorkspaceBoot>({ state: 'loading' })
   const lifetime = { closed: false }
   const closed = (): boolean => lifetime.closed
+  ctx.provide('conversationEditor', {
+    openFile: (sessionId, path, line) => {
+      const cwd = ctx.sessions.list.getSnapshot().byId[sessionId]?.cwd
+      if (cwd === undefined) return Promise.reject(new Error('Viewed Session has no working directory'))
+      editor.openFile(cwd, path, line)
+      return Promise.resolve()
+    },
+    openChanges: (sessionId, seq, index) => { editor.openChanges(sessionId, seq, index) },
+  })
   let started = false
   const initialize = (): void => {
     if (lifetime.closed || started || ctx.workspaces.list.getSnapshot().phase !== 'ready' || ctx.sessions.list.getSnapshot().phase !== 'ready') return

@@ -9,6 +9,7 @@ function fixture() {
   const pending = new Promise<{ label: string; text: string }>((resolve) => { complete = resolve })
   const preview = vi.fn()
   const editor: EditorBridge = { capture: () => pending, preview, workspace: () => '/workspace',
+    openFile: vi.fn(), openChanges: vi.fn(),
     lastSession: () => undefined, configure: vi.fn(), selected: vi.fn(), ready: vi.fn() }
   const insertReference = vi.fn(() => true)
   // This function only reads the revision and invokes the guarded insertion.

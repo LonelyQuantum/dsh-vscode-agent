@@ -2,7 +2,7 @@
 import * as vscode from 'vscode'
 import { strict as assert } from 'node:assert'
 import type { PreviewDiagnostics } from '../src/extension.ts'
-import { captureEditor, SnapshotDocuments } from '../src/native-context.ts'
+import { captureEditor, openWorkspaceFile, SnapshotDocuments } from '../src/native-context.ts'
 
 async function verifyEditorContext(): Promise<void> {
   const workspace = vscode.workspace.workspaceFolders![0].uri
@@ -31,6 +31,19 @@ async function verifyEditorContext(): Promise<void> {
     assert.equal(preview.uri.scheme, 'dsh-snapshot')
     assert.equal(preview.getText(), selected.text)
     await vscode.commands.executeCommand('workbench.action.closeActiveEditor')
+    for (const [before, after] of [['before\n', 'after\n'], [null, 'created'], ['deleted', null]] as const) {
+      await snapshots.diff({ display: 'context.ts', before, after })
+      const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input
+      assert.ok(input instanceof vscode.TabInputTextDiff)
+      assert.equal((await vscode.workspace.openTextDocument(input.original)).getText(), before ?? '')
+      assert.equal((await vscode.workspace.openTextDocument(input.modified)).getText(), after ?? '')
+      assert.equal(input.original.scheme, 'dsh-snapshot')
+      assert.equal(input.modified.scheme, 'dsh-snapshot')
+      await vscode.commands.executeCommand('workbench.action.closeActiveEditor')
+    }
+    await openWorkspaceFile(workspace.fsPath, 'context.ts', 2)
+    assert.equal(vscode.window.activeTextEditor!.selection.start.line, 1)
+    await assert.rejects(openWorkspaceFile(workspace.fsPath, '../outside.txt'))
     await vscode.window.showTextDocument(document)
     await vscode.commands.executeCommand('workbench.action.files.revert')
   } finally { diagnostics.dispose(); snapshots.dispose() }

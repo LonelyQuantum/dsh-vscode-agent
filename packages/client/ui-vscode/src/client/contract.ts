@@ -9,6 +9,10 @@ export type CaptureKind = 'file' | 'selection' | 'problems'
 
 /** Editor carrier installed before Client boot. */
 export interface EditorBridge {
+  /** Open a workspace file. @param cwd Viewed Session directory. @param path File path. @param line One-based location. */
+  openFile(cwd: string, path: string, line?: number): void
+  /** Review captured versions. @param sessionId Capture owner. @param seq Announcing event. @param index Summary file index. */
+  openChanges(sessionId: string, seq: number, index: number): void
   /** Capture current editor state. @param kind Explicit action. @param signal View lifetime. @returns Immutable text and chip label. */
   capture(kind: CaptureKind, signal: AbortSignal): Promise<{ label: string; text: string }>
   /** Open read-only captured text. @param text Exact snapshot, not a path to read. */
