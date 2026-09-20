@@ -116,7 +116,7 @@ try {
           const doc = document.querySelector('iframe')?.contentDocument ?? document;
           const root = doc.querySelector('[data-vscode-conversation]');
           ${body}
-        })()`, returnByValue: true })
+        })()`, returnByValue: true, awaitPromise: true })
         if (result.exceptionDetails) throw new Error('Webview test DOM action failed')
         return result.result.value
       }
@@ -145,10 +145,31 @@ try {
       }
       if (!logged) throw new Error(`Submitted editor snapshot was not found in the durable Session log (${logsRead} logs read)`)
       console.log('VSCODE_LIVE_CONTEXT_OK: model completed through the real Webview bridge')
+      if (values.interactions) {
+        const uploaded = await evaluate(`return (async () => {
+          const win = doc.defaultView;
+          const sessionId = win.__DSH_VSCODE__.lastSession();
+          const response = await win.fetch('/api/session/uploadFileBinary?' + new URLSearchParams({ sessionId, name: 'bridge-bytes.bin' }),
+            { method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body: new Uint8Array([0, 1, 127, 128, 255]) });
+          const receipt = await response.json();
+          return response.status === 200 && receipt.ok && receipt.value.file.bytes === 5;
+        })()`)
+        if (!uploaded) throw new Error('Webview binary upload did not return the expected receipt')
+        console.log('VSCODE_BINARY_UPLOAD_OK')
+      }
       await evaluate("root.querySelector('[data-composer-input]').focus()")
       await request('Input.insertText', { text: 'Write a very long, detailed explanation of TypeScript generics. Do not call tools.' })
       await key('Enter', 'Enter', 13)
       await waitFor(() => evaluate("return [...root.querySelectorAll('button')].some(button => /Stop generat|停止生成/.test(button.getAttribute('aria-label') ?? ''))"))
+      if (values.interactions) {
+        await evaluate("root.querySelector('[data-composer-input]').focus()")
+        await request('Input.insertText', { text: 'Instead, finish with QUEUE_STEER_ACCEPTED.' })
+        await key('Enter', 'Enter', 13)
+        await waitFor(() => evaluate("return !!root.querySelector('[data-queue-dock] [aria-label=\"Steer queued message\"]:not(:disabled)')"))
+        await evaluate("root.querySelector('[data-queue-dock] [aria-label=\"Steer queued message\"]').click()")
+        await waitFor(() => evaluate("return !root.querySelector('[data-queue-dock] [aria-label=\"Steer queued message\"]') && root.innerText.includes('QUEUE_STEER_ACCEPTED')"))
+        console.log('VSCODE_LIVE_QUEUE_STEER_OK')
+      }
       await evaluate("[...root.querySelectorAll('button')].find(button => /Stop generat|停止生成/.test(button.getAttribute('aria-label') ?? '')).click()")
       await waitFor(() => evaluate("return ![...root.querySelectorAll('button')].some(button => /Stop generat|停止生成/.test(button.getAttribute('aria-label') ?? ''))"))
       console.log('VSCODE_LIVE_CANCEL_OK')
@@ -166,15 +187,26 @@ try {
         await evaluate("[...root.querySelector('[data-changed-files]').querySelectorAll('button')].find(button => (button.getAttribute('aria-label') ?? '').includes('reviewed.txt')).click()")
         await waitFor(() => readIfPresent(join(root, 'review-ok')))
         console.log('VSCODE_LIVE_APPROVAL_DIFF_OK')
+        const downloaded = await evaluate(`return (async () => {
+          const response = await doc.defaultView.fetch('/api/file?' + new URLSearchParams({ path: ${JSON.stringify(join(workspace, 'reviewed.txt'))} }));
+          return response.ok && await response.text() === 'REVIEWED_FROM_VSCODE\\n';
+        })()`)
+        if (!downloaded) throw new Error('Webview file download changed the captured test bytes')
+        console.log('VSCODE_FILE_DOWNLOAD_OK')
         await evaluate("root.querySelector('[data-composer-input]').focus()")
         await request('Input.insertText', { text: 'Use ask_user_question to ask which label to use, with exactly two options: Alpha and Beta. Wait for my answer, then reply exactly QUESTION_DONE. Do not call other tools.' })
         await key('Enter', 'Enter', 13)
         await waitFor(() => evaluate("return !!root.querySelector('[data-question-key] [role=radio][aria-label=Alpha]')"), 90_000)
         await evaluate("const option = root.querySelector('[data-question-key] [role=radio][aria-label=Alpha]'); option.focus(); option.click()")
         await key('Enter', 'Enter', 13)
-        await waitFor(() => evaluate("return !root.querySelector('[data-question-key]') && root.innerText.split('QUESTION_DONE').length >= 3"), 90_000)
+        await waitFor(() => evaluate("return !root.querySelector('[data-question-key]') && root.innerText.split('QUESTION_DONE').length >= 3 && ![...root.querySelectorAll('button')].some(button => /Stop generat|停止生成/.test(button.getAttribute('aria-label') ?? ''))"), 90_000)
         console.log('VSCODE_LIVE_QUESTION_OK')
         await browser.contexts()[0].pages()[0].screenshot({ path: join(app, 'lib/live-interactions.png') })
+        const previousMessages = await evaluate("return [...root.querySelectorAll('[data-user-message]')].map(element => element.textContent)")
+        await writeFile(join(root, 'reload'), 'requested')
+        await waitFor(() => readIfPresent(join(root, 'reloaded')))
+        await waitFor(() => evaluate(`return root?.innerText.includes('QUESTION_DONE') && JSON.stringify([...root.querySelectorAll('[data-user-message]')].map(element => element.textContent)) === ${JSON.stringify(JSON.stringify(previousMessages))}`))
+        console.log('VSCODE_LIVE_RESUME_OK: prior messages restored once after runtime restart')
       }
       await writeFile(join(root, 'done'), 'passed')
       await browser.close()

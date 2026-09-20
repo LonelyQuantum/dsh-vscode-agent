@@ -54,13 +54,13 @@ VS Code 组合包通过共享 system-prompt 注册表拥有模型可见的界面
 
 Windows 扩展开发宿主已启动真实的共享 profile 应用、加载 Web 客户端和插件资源、发出 API 请求、建立 Gateway WebSocket、挂载编辑器专用单栏对话，并停止其管理的 Node 子进程。重启冒烟测试检查重新挂载及旧进程退出。工具栏提供新建对话、工作区历史、原生 SecretStorage 配置和符合条件的上次会话恢复；针对性测试覆盖导航及延迟启动结果的资源释放。源码开发和 Windows x64 VSIX 都使用外部兼容 Node。VSIX 安装到仓库外的隔离目录，并通过相同的原生编辑器及生命周期冒烟测试。P0 和 P1 验收仍未完成。
 
-Webview 桥接将认证保留在扩展宿主中，并保留 Gateway 分帧。Cordis 的浏览器配置 loader 需要 `unsafe-eval`；预览记录这一 CSP 例外，不在传输实验中修改仓库内的第三方行为。P0 必须决定是移除该例外还是验证其发行安全性，然后覆盖模型完成与取消、重连、文件传输、动态插件变更、信任状态切换和工具运行期间意外退出。尝试此部分实现时，以预览的[限制和启动步骤](../../../../apps/vscode/README.zh.md)为准。
+Webview 桥接将认证保留在 Extension Host，保持 Gateway 分帧。真实 Webview 检查覆盖模型完成和取消、二进制上传、文件下载字节、排队消息转 steering，以及运行时重启后的对话恢复。Cordis 的浏览器配置 loader 需要 `unsafe-eval`；分发验证仍需要 CSP 决策、瞬时重连、动态插件变化、信任状态切换及工具运行期间意外退出。尝试此部分实现时，以预览的[限制和启动步骤](../../../../apps/vscode/README.zh.md)为准。
 
 ### 交付顺序
 
 P4 预览检查覆盖历史记录键盘焦点、明暗和高对比度模式的宿主颜色、Windows 运行时终止后的显式重启，以及已安装 VSIX 的启动。诊断排除页面原始异常。打包将工作区依赖、必需的 peer 和 Client 注入依赖选入生产运行时，记录确切版本及锁文件摘要，并拒绝平台或版本不匹配。共享 Web 组合包含 Office 转换依赖，但不包含 Desktop 的 Electron/Python/skills 载荷，也不附带额外的 Node/pnpm 分发。工具运行期间崩溃、完整交互验收、CSP 发行审查及 macOS/Linux 验证仍待完成。
 
-P3 使用由 `ui-conversation` 定义、`ui-vscode` 提供、Chat 和交付视图消费的可选 `ConversationEditor` 服务。原生宿主校验文件准入；捕获 review 读取基于 `workspaceChanges.contents` 的固定认证路由，共用 recorder 的上限和生命周期。未挂载编辑器服务时，Web 和 Desktop 保留原有 Sidebar 导航。这是只读 review，不持久化历史捕获，也不提供回退。Windows 原生编辑器及后端测试覆盖确切版本、后续磁盘编辑、新建和删除、重命名、二进制和大小拒绝及过期；真实模型编辑到 review 的验收仍待完成。
+P3 使用由 `ui-conversation` 定义、`ui-vscode` 提供、Chat 和交付视图消费的可选 `ConversationEditor` 服务。原生宿主校验文件准入；捕获 review 读取基于 `workspaceChanges.contents` 的固定认证路由，共用 recorder 的上限和生命周期。未挂载编辑器服务时，Web 和 Desktop 保留原有 Sidebar 导航。这是只读 review，不持久化历史捕获，也不提供回退。Windows 原生编辑器及后端测试覆盖确切版本、后续磁盘编辑、新建和删除、重命名、二进制和大小拒绝及过期。真实模型在只读权限下请求写入，“允许一次”放行后，改动卡片打开原生 diff，其中只读文档与捕获版本一致。同一流程回答 `ask_user_question` 选项，并等待模型完成。
 
 P2 预览仅在显式请求时捕获文件、选区和 Problems，以草稿版本校验插入不可变引用 chip，并打开确切文本的只读预览。单元测试覆盖 UTF-8 上限、工作区和符号链接准入、取消及序列化；真实 Windows 扩展宿主检查未保存编辑器文本、版本、诊断和预览。真实 Webview 检查提交未保存选区、验证模型回复及持久化会话文本，并取消另一轮。已录制的 `vscode-editor-context` 场景无密钥回放共享输入框、不可变上下文提交、模型回复及持久化会话。文件和 Problems 捕获及取消继续由针对性的原生和 Client 测试覆盖。
 
@@ -76,6 +76,8 @@ P2 预览仅在显式请求时捕获文件、选区和 Problems，以草稿版�
 P0 包含分发可行性验证，因为 VS Code 内嵌的 Node 版本并不是 DSH 的运行时约定。将扩展、客户端资源和运行时固定为经过测试的版本组合。根据仓库 engines 和原生依赖验证所选独立 Node 或打包 DSH 路径；不能假定 Desktop 的 Electron RunAsNode 实现可直接用于 VS Code。可选的浏览器及计算机操作和 Office 能力按产品组合显式选择，避免意外继承整个 Desktop 依赖包。
 
 ### 复用与上游维护
+
+Windows 预览已为 P0–P4 的各个开发领域提交实现，但不代表发行验收全部完成。不持久化的主题注册跟随编辑器配色；浏览器回放检查共享控件及 320/420 px 下的消息宽度。交付预览时保留上述待验证项目。
 
 参考 ProleCoder 的 Workspace Trust、编辑器选区及诊断、进程恢复、原生 diff 导航和 VSIX 测试。agent 执行、RPC 业务方法、历史、压缩（compaction）和工具展示继续由 DSH 负责。直接复用代码前需要确定来源和许可；行为参考不依赖导入 ProleCoder 的实现。
 

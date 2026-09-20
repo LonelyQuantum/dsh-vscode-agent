@@ -1,7 +1,7 @@
 /** Actual VS Code smoke: requires a built extension and an isolated trusted test workspace. */
 import * as vscode from 'vscode'
 import { strict as assert } from 'node:assert'
-import { readFile, writeFile } from 'node:fs/promises'
+import { readFile, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import type { PreviewDiagnostics } from '../src/extension.ts'
@@ -118,6 +118,15 @@ export async function run(): Promise<void> {
           assert.equal(input.modified.scheme, 'dsh-snapshot')
           reviewed = true
           await writeFile(join(coordination, 'review-ok'), 'passed')
+        }
+        let reload: string | undefined
+        try { reload = await readFile(join(coordination, 'reload'), 'utf8') }
+        catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
+        if (reload === 'requested') {
+          await unlink(join(coordination, 'reload'))
+          await vscode.commands.executeCommand('dsh.restart')
+          await connected()
+          await writeFile(join(coordination, 'reloaded'), 'passed')
         }
         try { result = await readFile(join(coordination, 'done'), 'utf8') }
         catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
