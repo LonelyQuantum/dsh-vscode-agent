@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-This source-checkout preview opens a single-column DSH conversation inside the DSH Activity Bar view. It uses the existing DSH Web runtime and Conversation factory for the [VS Code development plan](../../.agents/notes/proposed/architecture/2026-09-19-vscode-extension-development-plan.md); it is not an installable release.
+This development preview opens a single-column DSH conversation inside the DSH Activity Bar view. It uses the existing DSH Web runtime and Conversation factory for the [VS Code development plan](../../.agents/notes/proposed/architecture/2026-09-19-vscode-extension-development-plan.md). Windows x64 supports a local VSIX preview; release acceptance remains incomplete.
 
 ## Start the preview
 
@@ -19,6 +19,15 @@ pnpm.cmd run dev:vscode
 The preview reuses this checkout's built Host packages, installed dependencies, and copied Web assets. It does not download a second Node or pnpm distribution. Rebuild the shared application after upstream changes, then rebuild the extension; moving the checkout requires rebuilding the extension or setting `dsh.repositoryPath`. Set the machine-scoped `dsh.nodePath` to an absolute Node executable if the Extension Host cannot find a compatible `node` on PATH.
 
 `DSH: Configure API Key` opens a password input and stores the DeepSeek key in VS Code SecretStorage. The next child launch receives it through its environment, not the Webview or settings. `DSH: Remove Saved API Key` removes this extension-owned key; inherited environment credentials and workspace `.env` credentials remain independent. Restart DSH after changing the key. Other provider settings use the existing DSH Web application; do not put credentials into VS Code settings or commit `.env` files.
+
+<a id="windows-vsix"></a>
+## Windows VSIX preview
+
+After building the shared application, run `pnpm.cmd run package:vscode`. The local artifact is `apps/vscode/lib/dsh-vscode-agent-0.0.1-win32-x64.vsix`; install it with VS Code's **Extensions: Install from VSIX** command. Packaging uses local npm tarballs plus an isolated production installation, including required peers and Client injection packages. It includes the shared Web composition and its Office conversion dependencies, without Desktop's Electron shell, Python/Office skills payload, Node, or pnpm distributions. The initial artifact is approximately 188 MiB; a compatible external Node is still required. No Marketplace publication or signing is performed.
+
+Packaged client assets and DSH packages have matching recorded versions. `runtime.json` records the platform, architecture, package versions, and production lockfile digest. The launcher rejects version/platform mismatches and never falls back to a checkout when packaged metadata is invalid. `dsh.repositoryPath` applies only to source development. The build replaces only its generated extension staging directory; stop development windows before rebuilding.
+
+The artifact smoke installs the VSIX into a temporary extension directory outside this checkout and exercises the installed files: `node apps/vscode/scripts/test-extension.mjs "C:/path/to/Microsoft VS Code/Code.exe" --vsix apps/vscode/lib/dsh-vscode-agent-0.0.1-win32-x64.vsix`. It does not change the user's normal VS Code installation.
 
 <a id="editor-context"></a>
 ## Editor context
@@ -60,4 +69,4 @@ This smoke creates and removes its own temporary workspace and VS Code data dire
 
 Only a single trusted local folder is admitted. Remote SSH/WSL, virtual and multi-root workspaces are rejected. Concurrent windows on the same folder, operating systems other than Windows, crashes during active tools, and trust changes have not completed integration qualification. Do not open this preview twice on the same folder.
 
-The toolbar provides new conversation, current-workspace history, and native API key setup. The last selected Session is retained in Webview state and restored only if it still belongs to this workspace and is not archived. The real Extension Host smoke requires this editor-specific layout to mount before and after runtime restart. A standalone runtime and VSIX packaging remain in the development plan. The smoke does not establish context submission replay, model turns, approvals, questions, steering, compaction, file/media downloads, plugin graph refresh, or reconnect behavior through this bridge. These upstream capabilities need extension-specific end-to-end coverage before the preview is considered usable for daily work.
+The toolbar provides new conversation, current-workspace history, and native API key setup. The last selected Session is retained in Webview state and restored only if it still belongs to this workspace and is not archived. The real Extension Host smoke requires this editor-specific layout to mount before and after runtime restart. The keyless smoke does not establish context submission replay, model turns, approvals, questions, steering, compaction, file/media downloads, plugin graph refresh, or reconnect behavior through this bridge. These upstream capabilities need extension-specific end-to-end coverage before the preview is considered usable for daily work.

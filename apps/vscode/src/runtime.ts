@@ -5,8 +5,16 @@ import { join } from 'node:path'
 
 /** Child boot information, never forwarded verbatim to the Webview. */
 export interface RuntimeReady { url: string; injections: unknown[]; pid: number }
-/** Local development runtime locations and executable. */
-export interface RuntimeOptions { node: string; repository: string; entry: string; workspace: string; home: string; apiKey?: string }
+/** Explicit CLI installation, version, private data directory, and external Node executable. */
+export interface RuntimeOptions {
+  node: string
+  installation: string
+  version: string
+  entry: string
+  workspace: string
+  home: string
+  apiKey?: string
+}
 
 /** Owned process with a readiness handshake and awaited shutdown. */
 export class AgentRuntime {
@@ -28,14 +36,14 @@ export class AgentRuntime {
    */
   async start(options: RuntimeOptions): Promise<RuntimeReady> {
     if (this.child) throw new Error('DSH runtime is already started')
-    await readFile(join(options.repository, 'apps/cli/lib/profile-boot.js'))
+    await readFile(join(options.installation, 'lib/profile-boot.js'))
     await mkdir(options.home, { recursive: true })
     if (this.stopping) throw new Error('DSH startup was cancelled')
     const env: NodeJS.ProcessEnv = { ...process.env, DSH_HOME: options.home }
     if (options.apiKey !== undefined) env.DEEPSEEK_API_KEY = options.apiKey
     delete env.NODE_OPTIONS
     delete env.ELECTRON_RUN_AS_NODE
-    const child = spawn(options.node, [options.entry, options.repository], {
+    const child = spawn(options.node, [options.entry, options.installation, options.version], {
       cwd: options.workspace, env, windowsHide: true, stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
     })
     this.child = child

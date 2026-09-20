@@ -2,16 +2,21 @@
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 
 async function main() {
   const [major, minor] = process.versions.node.split('.').map(Number)
   if (!(major >= 24 || (major === 22 && minor >= 19))) throw new Error('DSH requires Node 22.19+ or Node 24+. Configure dsh.nodePath.')
   if (!process.connected) throw new Error('VS Code runtime requires its owning IPC channel')
-  const repository = process.argv[2]
+  const installation = process.argv[2]
+  const version = process.argv[3]
   const home = process.env.DSH_HOME
-  if (!repository || !home) throw new Error('VS Code runtime requires a repository and isolated DSH_HOME')
-  const { runProfile, initializeProfileFromDefault } = await import(pathToFileURL(join(repository, 'apps/cli/lib/profile-boot.js')).href)
-  const { loadLayeredEnv } = await import(pathToFileURL(join(repository, 'packages/boot/app-boot/lib/index.js')).href)
+  if (!installation || !home) throw new Error('VS Code runtime requires an installation and isolated DSH_HOME')
+  const manifest = JSON.parse(readFileSync(join(installation, 'package.json'), 'utf8'))
+  if (manifest.name !== '@deepseek-ai/dsh' || manifest.version !== version) throw new Error('DSH runtime version mismatch')
+  const require = createRequire(join(installation, 'package.json'))
+  const { runProfile, initializeProfileFromDefault } = await import(pathToFileURL(join(installation, 'lib/profile-boot.js')).href)
+  const { loadLayeredEnv } = await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-app-boot')).href)
   if (!existsSync(join(home, 'profiles/vscode'))) initializeProfileFromDefault('vscode', 'web', home)
   const profilePath = join(home, 'profiles/vscode/package.json')
   const profile = JSON.parse(readFileSync(profilePath, 'utf8'))

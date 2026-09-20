@@ -9,6 +9,7 @@ import { webviewDocument } from './document.ts'
 import { extensionCopy } from './locale.ts'
 import { captureEditor, openWorkspaceFile, SnapshotDocuments } from './native-context.ts'
 import { capturedPair } from './review.ts'
+import { resolveInstallation } from './installation.ts'
 
 let stopExtension: (() => Promise<void>) | undefined
 
@@ -88,11 +89,11 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
     current.webview.html = `<html><body><p>${text.starting}</p></body></html>`
     try {
       if (!booting) {
-        const metadata = JSON.parse(await readFile(join(context.extensionPath, 'development.json'), 'utf8')) as { repository: string }
         const apiKey = await context.secrets.get('deepseek.apiKey')
         if (isClosed()) return
         const config = vscode.workspace.getConfiguration('dsh')
-        const repository = config.get<string>('repositoryPath') || metadata.repository
+        const installation = await resolveInstallation(context.extensionPath, config.get<string>('repositoryPath'))
+        if (isClosed()) return
         runtime = new AgentRuntime()
         const owner = runtime
         owner.onExit(() => {
@@ -104,7 +105,8 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
           delete diagnostics.pid
           if (panel) panel.webview.html = `<html><body><p>${text.crashed}</p></body></html>`
         })
-        booting = runtime.start({ node: config.get<string>('nodePath') || 'node', repository,
+        booting = runtime.start({ node: config.get<string>('nodePath') || 'node', installation: installation.directory,
+          version: installation.version,
           entry: join(context.extensionPath, 'host.mjs'), workspace,
           ...(apiKey === undefined ? {} : { apiKey }),
           home: join(context.globalStorageUri.fsPath, 'homes', createHash('sha256').update(workspace).digest('hex').slice(0, 24)) })

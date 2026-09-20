@@ -11,7 +11,7 @@ it('starts a child with spaces in paths and joins repeated shutdowns', async () 
   try {
     await mkdir(join(directory, 'apps/cli/lib'), { recursive: true })
     await writeFile(join(directory, 'apps/cli/lib/profile-boot.js'), '')
-    const ready = await runtime.start({ node: process.execPath, repository: directory,
+    const ready = await runtime.start({ node: process.execPath, installation: join(directory, 'apps/cli'), version: 'fixture',
       entry: fileURLToPath(new URL('./fixtures/runtime.mjs', import.meta.url)),
       workspace: directory, home: join(directory, 'home') })
     expect(ready.injections).toEqual([])
@@ -32,7 +32,7 @@ it('reports missing executables without leaving startup pending', async () => {
   try {
     await mkdir(join(directory, 'apps/cli/lib'), { recursive: true })
     await writeFile(join(directory, 'apps/cli/lib/profile-boot.js'), '')
-    await expect(runtime.start({ node: join(directory, 'missing-node.exe'), repository: directory,
+    await expect(runtime.start({ node: join(directory, 'missing-node.exe'), installation: join(directory, 'apps/cli'), version: 'fixture',
       entry: 'unused.mjs', workspace: directory, home: join(directory, 'home') })).rejects.toThrow()
   } finally { await runtime.stop(); await rm(directory, { recursive: true, force: true }) }
 })
@@ -43,7 +43,7 @@ it('cancels startup before a child is created', async () => {
   try {
     await mkdir(join(directory, 'apps/cli/lib'), { recursive: true })
     await writeFile(join(directory, 'apps/cli/lib/profile-boot.js'), '')
-    const starting = runtime.start({ node: process.execPath, repository: directory,
+    const starting = runtime.start({ node: process.execPath, installation: join(directory, 'apps/cli'), version: 'fixture',
       entry: fileURLToPath(new URL('./fixtures/runtime.mjs', import.meta.url)),
       workspace: directory, home: join(directory, 'home') })
     await runtime.stop()
@@ -57,7 +57,7 @@ it('passes an extension-stored key only to the owned child environment', async (
   try {
     await mkdir(join(directory, 'apps/cli/lib'), { recursive: true })
     await writeFile(join(directory, 'apps/cli/lib/profile-boot.js'), '')
-    const ready = await runtime.start({ node: process.execPath, repository: directory,
+    const ready = await runtime.start({ node: process.execPath, installation: join(directory, 'apps/cli'), version: 'fixture',
       entry: fileURLToPath(new URL('./fixtures/secret-runtime.mjs', import.meta.url)),
       workspace: directory, home: join(directory, 'home'), apiKey: 'fixture-only-key' })
     expect(JSON.stringify(ready)).not.toContain('fixture-only-key')

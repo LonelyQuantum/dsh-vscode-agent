@@ -1,6 +1,9 @@
 /** Actual VS Code smoke: requires a built extension and an isolated trusted test workspace. */
 import * as vscode from 'vscode'
 import { strict as assert } from 'node:assert'
+import { readFile, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 import type { PreviewDiagnostics } from '../src/extension.ts'
 import { captureEditor, openWorkspaceFile, SnapshotDocuments } from '../src/native-context.ts'
 
@@ -96,6 +99,25 @@ export async function run(): Promise<void> {
     await vscode.commands.executeCommand('dsh.restart')
     await connected()
     assert.notEqual(api.diagnostics().pid, crashed)
+    const coordination = process.env.DSH_VSCODE_TEST_UI
+    if (coordination) {
+      const document = await vscode.workspace.openTextDocument(vscode.Uri.joinPath(vscode.workspace.workspaceFolders![0].uri, 'context.ts'))
+      const editor = await vscode.window.showTextDocument(document)
+      assert.ok(await editor.edit((edit) => { edit.insert(new vscode.Position(1, 0), 'const editorOnly = "VSCODE_UNSAVED_42";\n') }))
+      editor.selection = new vscode.Selection(1, 0, 1, 100)
+      await writeFile(join(coordination, 'ready'), 'ready')
+      const deadline = Date.now() + 180_000
+      let result: string | undefined
+      while (Date.now() < deadline) {
+        try { result = await readFile(join(coordination, 'done'), 'utf8') }
+        catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
+        if (result !== undefined) break
+        await delay(100)
+      }
+      assert.equal(result, 'passed', 'Live Webview interaction did not pass')
+      await vscode.window.showTextDocument(document)
+      await vscode.commands.executeCommand('workbench.action.files.revert')
+    }
   } finally {
     const pid = api.diagnostics().pid
     await vscode.commands.executeCommand('dsh.stop')

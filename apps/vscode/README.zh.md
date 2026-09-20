@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-此源码仓库开发预览在 DSH Activity Bar 视图中打开单栏 DSH 对话。它使用现有 DSH Web 运行时和 Conversation 工厂来实现 [VS Code 开发计划](../../.agents/notes/proposed/architecture/2026-09-19-vscode-extension-development-plan.zh.md)；它不是可安装的发行版。
+此开发预览在 DSH Activity Bar 视图中打开单栏 DSH 对话。它使用现有 DSH Web 运行时和 Conversation 工厂来实现 [VS Code 开发计划](../../.agents/notes/proposed/architecture/2026-09-19-vscode-extension-development-plan.zh.md)。Windows x64 支持本地 VSIX 预览；发行验收仍未完成。
 
 ## 启动预览
 
@@ -19,6 +19,15 @@ pnpm.cmd run dev:vscode
 此预览复用当前仓库已构建的 Host 包、已安装的依赖及复制的 Web 资源，不会另行下载一份 Node 或 pnpm。上游更新后需重新构建共享应用和扩展；移动仓库目录后需重新构建扩展或设置 `dsh.repositoryPath`。如果扩展宿主无法在 PATH 中找到兼容的 `node`，请将机器级设置 `dsh.nodePath` 指向 Node 可执行文件的绝对路径。
 
 `DSH: 配置 API 密钥` 打开密码输入框，并将 DeepSeek 密钥保存到 VS Code SecretStorage。下次启动子进程时通过环境传入密钥，不经过 Webview 或设置。`DSH: 删除已保存的 API 密钥` 删除扩展保存的密钥；继承的环境凭据和工作区 `.env` 凭据相互独立，不受影响。更换密钥后需重启 DSH。其他模型提供方设置沿用现有 DSH Web 应用；不要把凭据写入 VS Code 设置，也不要提交 `.env` 文件。
+
+<a id="windows-vsix"></a>
+## Windows VSIX 预览
+
+构建共享应用后，运行 `pnpm.cmd run package:vscode`。本地产物为 `apps/vscode/lib/dsh-vscode-agent-0.0.1-win32-x64.vsix`；通过 VS Code 的 **扩展: 从 VSIX 安装** 命令安装。打包使用本地 npm tarball 和隔离的生产依赖安装，包含必需的 peer 和 Client 注入包。包内包含共享 Web 组合及其 Office 转换依赖，不包含 Desktop 的 Electron 外壳、Python/Office skills 载荷、Node 或 pnpm 分发。首个产物约 188 MiB；仍需兼容的外部 Node。不执行 Marketplace 发布或签名。
+
+打包的客户端资源与 DSH 包记录匹配版本。`runtime.json` 记录平台、架构、包版本和生产锁文件摘要。启动器拒绝版本或平台不匹配，打包元数据无效时不会回退到源码仓库。`dsh.repositoryPath` 仅适用于源码开发。构建只替换自己生成的扩展暂存目录；重新构建前请停止开发窗口。
+
+产物冒烟测试将 VSIX 安装到仓库外的临时扩展目录并检查已安装文件：`node apps/vscode/scripts/test-extension.mjs "C:/path/to/Microsoft VS Code/Code.exe" --vsix apps/vscode/lib/dsh-vscode-agent-0.0.1-win32-x64.vsix`。它不会修改用户日常使用的 VS Code 安装。
 
 <a id="editor-context"></a>
 ## 编辑器上下文
@@ -60,4 +69,4 @@ node apps/vscode/scripts/test-extension.mjs "C:/path/to/Microsoft VS Code/Code.e
 
 仅允许单个已信任的本地文件夹，拒绝 Remote SSH/WSL、虚拟工作区和多根工作区。同一文件夹的并发窗口、Windows 以外的操作系统、工具运行期间崩溃及信任状态变化尚未完成集成验证。不要对同一文件夹同时打开两个此预览。
 
-工具栏提供新建对话、当前工作区历史和原生 API 密钥配置。上次选中的会话保留在 Webview 状态中，仅当它仍属于此工作区且未归档时恢复。真实扩展宿主冒烟测试要求运行时重启前后均挂载此编辑器专用布局。独立运行时和 VSIX 打包仍在开发计划中。冒烟测试不代表已验证上下文提交回放、模型轮次、审批、反问、steering（中途引导）、压缩（compaction）、文件和媒体下载、插件图刷新或此桥接下的重连行为。这些上游能力需要扩展专属的端到端覆盖，才能将预览视为适合日常工作的工具。
+工具栏提供新建对话、当前工作区历史和原生 API 密钥配置。上次选中的会话保留在 Webview 状态中，仅当它仍属于此工作区且未归档时恢复。真实扩展宿主冒烟测试要求运行时重启前后均挂载此编辑器专用布局。无密钥冒烟测试不代表已验证上下文提交回放、模型轮次、审批、反问、steering（中途引导）、压缩（compaction）、文件和媒体下载、插件图刷新或此桥接下的重连行为。这些上游能力需要扩展专属的端到端覆盖，才能将预览视为适合日常工作的工具。
