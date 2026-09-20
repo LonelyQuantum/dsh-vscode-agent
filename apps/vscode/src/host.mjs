@@ -1,7 +1,7 @@
 /** Private VS Code child: all application behavior starts through the shared dsh profile runner. */
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 
 async function main() {
@@ -24,12 +24,8 @@ async function main() {
     profile.dsh.profile.bundles.push('@deepseek-ai/dsh-vscode-app')
     writeFileSync(profilePath, JSON.stringify(profile, null, 2) + '\n')
   }
-  const overlay = join(home, 'vscode-launch.patch.yml')
-  mkdirSync(home, { recursive: true })
-  // The launch credential travels only over IPC; the Web runtime must not print it.
-  writeFileSync(overlay, '- id: web-runtime\n  config:\n    openBrowser: false\n    printUrl: false\n    surfaceContext: true\n    trustedHosts: []\n')
   const application = runProfile({ environment: loadLayeredEnv('dsh'), profile: 'vscode',
-    patchFiles: [overlay], args: ['--no-open', '--host', '127.0.0.1', '--port', '0'], resolutionMode: 'runtime' })
+    patchFiles: [], args: ['--no-open', '--host', '127.0.0.1', '--port', '0'], resolutionMode: 'runtime' })
   let stopping
   const stop = () => stopping ??= (async () => {
     const running = await application.catch(() => undefined)

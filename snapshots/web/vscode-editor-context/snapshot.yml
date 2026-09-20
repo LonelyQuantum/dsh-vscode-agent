@@ -4,4 +4,5 @@ profile: web
 composition: web-default
 recording: live
 header:
-  class: web-default
+  class: vscode-editor
+  pin: true

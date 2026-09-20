@@ -35,7 +35,7 @@ Start the [VS Code development preview](../../../apps/vscode/README.md). Its lau
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-The [patch](cordis.patch.yml) inserts `ui-vscode`. The manifest declares that plugin as a dependency so the shared profile resolver can resolve its Host entry and Client bundle. The package entry has no additional runtime effect.
+The [patch](cordis.patch.yml) inserts the editor layout and a Host prompt contribution. It disables browser opening, URL printing, and the Web-specific model orientation. The Host entry contributes the VS Code surface description through the shared system-prompt registry; disposal removes that section. Runtime and Client dependencies resolve through the shared profile installation.
 
 </details>
 
@@ -53,11 +53,25 @@ The [patch](cordis.patch.yml) inserts `ui-vscode`. The manifest declares that pl
 <a id="model-experience"></a>
 ## Model Experience
 
-Indirectly, through [editor context references](../../client/ui-vscode/README.md#model-experience) submitted as ordinary user input.
+### Editor surface orientation
+
+#### What the model sees
+
+The `app:vscode-surface` system section identifies the editor interface, states that editor buffers and Problems are not implicitly visible, and describes explicit snapshots and read-only native review. No loopback URL or credential is included. [Editor context references](../../client/ui-vscode/README.md#model-experience) enter separately as ordinary user input. The recorded `vscode-editor-context` scenario pins the assembled prompt and replays context submission.
+
+##### VS Code surface section
+
+```markdown
+You are interacting with the user through the DeepSeek Harness VS Code extension in a trusted local workspace. The conversation runs inside the editor, not in a standalone browser page. You have no implicit access to the active editor, selections, unsaved buffers, or Problems. Explicitly attached editor snapshots are user-provided context captured at the stated document version; they can differ from the current file on disk. Do not claim to see later editor changes without new evidence. File links and captured change comparisons can open in the native editor. Change comparisons are read-only and their captures expire when the Host session or runtime ends. Native review does not apply or revert edits. Use the existing conversation for approvals and questions. Do not start a replacement web server to update this interface.
+```
+
+#### Token effect
+
+One static system section is included in model requests. Editor snapshots add separate user-input tokens only when submitted.
 
 #### KV Cache effect
 
-Submitted context adds user-input tokens; model composition remains with the underlying profile.
+The static surface section remains identical across workspaces and turns. Explicit context adds user-input tokens; model selection remains with the underlying profile.
 
 ## Known Limitations and Deferred Work
 
@@ -66,7 +80,7 @@ Submitted context adds user-input tokens; model composition remains with the und
 This bundle is not an independent application.
 
 - It requires both the Web composition and the VS Code carrier.
-- The development preview still resolves runtime packages from its source checkout.
+- The development launcher uses the checkout; the Windows VSIX carries a version-matched runtime.
 
 <a id="dev-note"></a>
 ### Dev Note

@@ -37,6 +37,8 @@ Keep the launch token, authentication cookie, and provider secrets out of page U
 
 Develop with an isolated Harness home. Give each window an explicit runtime/profile ownership policy before enabling multiple windows; product data sharing and executable/plugin installation sharing are separate decisions. Reuse upstream credential ownership, adding a SecretStorage provider only where its scope and lifecycle fit; the Webview never receives raw secrets.
 
+The VS Code bundle owns its model-visible surface section through the shared system-prompt registry. It disables the standalone Web orientation, browser handoff, and URL printing. The section describes explicit editor snapshots and read-only native review without exposing the private runtime URL; its assembled prompt and tool schemas have a recorded-scenario pin.
+
 ### Proposed code placement
 
 | Location | Responsibility |
