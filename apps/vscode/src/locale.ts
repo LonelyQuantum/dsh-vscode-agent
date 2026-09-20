@@ -15,6 +15,7 @@ const en = {
   created: 'created file',
   deleted: 'deleted file',
   expired: 'This captured document is no longer available.',
+  crashed: 'DSH exited unexpectedly. Run DSH: Restart Agent Runtime to reconnect. No input is automatically resent.',
 } as const
 type Copy = { [K in keyof typeof en]: string }
 const zh: Copy = {
@@ -33,6 +34,7 @@ const zh: Copy = {
   created: '新建文件',
   deleted: '已删除文件',
   expired: '此捕获文档已不可用。',
+  crashed: 'DSH 意外退出。请运行“DSH: 重启 Agent 运行时”重新连接。不会自动重发输入。',
 }
 
 /** Select extension copy without changing upstream locale ownership. @param language VS Code language. @returns Complete labels. */

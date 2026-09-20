@@ -10,9 +10,16 @@ export interface RuntimeOptions { node: string; repository: string; entry: strin
 
 /** Owned process with a readiness handshake and awaited shutdown. */
 export class AgentRuntime {
+  private readonly exitListeners = new Set<() => void>()
   private child: ChildProcess | undefined
   private exited: Promise<void> = Promise.resolve()
   private stopping: Promise<void> | undefined
+
+  /** Observe post-readiness exit. @param listener Receives no raw process output. @returns Listener disposer. */
+  onExit(listener: () => void): () => void {
+    this.exitListeners.add(listener)
+    return () => { this.exitListeners.delete(listener) }
+  }
 
   /**
    * Start once; failed startup drains the child before rejecting.
@@ -32,7 +39,11 @@ export class AgentRuntime {
       cwd: options.workspace, env, windowsHide: true, stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
     })
     this.child = child
-    this.exited = new Promise((resolve) => { child.once('close', () => { resolve() }) })
+    let ready = false
+    this.exited = new Promise((resolve) => { child.once('close', () => {
+      resolve()
+      if (ready) for (const listener of this.exitListeners) listener()
+    }) })
     try {
       return await new Promise<RuntimeReady>((resolve, reject) => {
         const timeout = setTimeout(() => { fail(new Error('DSH startup timed out after 120 seconds')) }, 120_000)
@@ -57,6 +68,7 @@ export class AgentRuntime {
           }
           cleanup()
           if (child.pid === undefined) { fail(new Error('DSH process identity is missing')); return }
+          ready = true
           resolve({ url: url.href, injections: value.injections, pid: child.pid })
         }
         child.on('message', message)

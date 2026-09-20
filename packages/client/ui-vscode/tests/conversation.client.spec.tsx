@@ -63,3 +63,13 @@ it('disables new sessions before startup and exposes an explicit retry after fai
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
   expect(props.retry).toHaveBeenCalledOnce()
 })
+
+it('moves keyboard focus into history and returns it on Escape', () => {
+  fixture()
+  const history = screen.getByRole('button', { name: 'History' })
+  fireEvent.click(history)
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Back to conversation' }))
+  fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+  expect(screen.queryByRole('navigation')).toBeNull()
+  expect(document.activeElement).toBe(history)
+})

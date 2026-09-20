@@ -1,0 +1,27 @@
+body.vscode-light, body.vscode-dark, body.vscode-high-contrast, body.vscode-high-contrast-light {
+  padding: 0;
+  background: var(--vscode-sideBar-background);
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-font-family);
+  --dsw-font-family: var(--vscode-font-family);
+  --dsw-alias-bg-base: var(--vscode-sideBar-background);
+  --dsw-alias-bg-layer-1: var(--vscode-editor-background);
+  --dsw-alias-bg-layer-2: var(--vscode-input-background);
+  --dsw-alias-label-primary: var(--vscode-foreground);
+  --dsw-alias-label-secondary: var(--vscode-descriptionForeground);
+  --dsw-alias-label-tertiary: var(--vscode-descriptionForeground);
+  --dsw-alias-border-l1: var(--vscode-widget-border, var(--vscode-contrastBorder, transparent));
+  --dsw-alias-border-l2: var(--vscode-widget-border, var(--vscode-contrastBorder, transparent));
+  --dsw-alias-border-l3: var(--vscode-widget-border, var(--vscode-contrastBorder, transparent));
+  --dsw-alias-interactive-bg-hover: var(--vscode-list-hoverBackground);
+}
+body[class*='vscode-'] :focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }
+body[class*='vscode-high-contrast'] button { border: 1px solid var(--vscode-contrastBorder); }
+body[class*='vscode-'] code, body[class*='vscode-'] pre { font-family: var(--vscode-editor-font-family); }
+@media (prefers-reduced-motion: reduce) {
+  body[class*='vscode-'] *, body[class*='vscode-'] *::before, body[class*='vscode-'] *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

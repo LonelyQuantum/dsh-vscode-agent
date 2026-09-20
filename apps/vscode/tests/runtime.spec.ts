@@ -15,9 +15,13 @@ it('starts a child with spaces in paths and joins repeated shutdowns', async () 
       entry: fileURLToPath(new URL('./fixtures/runtime.mjs', import.meta.url)),
       workspace: directory, home: join(directory, 'home') })
     expect(ready.injections).toEqual([])
+    let exits = 0
+    const off = runtime.onExit(() => { exits++ })
     const first = runtime.stop()
     expect(runtime.stop()).toBe(first)
     await first
+    expect(exits).toBe(1)
+    off()
     expect(() => process.kill(ready.pid, 0)).toThrow()
   } finally { await runtime.stop(); await rm(directory, { recursive: true, force: true }) }
 })

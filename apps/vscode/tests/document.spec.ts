@@ -6,6 +6,7 @@ it('maps static assets and installs a non-inline carrier before the Web entry', 
     path => `https://local.example/${path}`, 'https://local.example', 'nonce123')
   expect(html).toContain('src="https://local.example/web/assets/main.js"')
   expect(html).toContain('href="https://local.example/web/assets/main.css"')
+  expect(html).toContain('href="https://local.example/resources/editor.css"')
   expect(html.indexOf('/bridge.js')).toBeLessThan(html.indexOf('/web/assets/main.js'))
   expect(html).toContain("default-src 'none'")
   expect(html).not.toContain("script-src 'unsafe-inline'")

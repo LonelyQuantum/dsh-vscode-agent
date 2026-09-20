@@ -25,6 +25,8 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用此包
 
+打开历史记录会将键盘焦点移到返回控件。Escape 关闭历史记录并将焦点恢复到工具栏按钮，不修改草稿。
+
 [VS Code 预览](../../../apps/vscode/README.zh.md)在 Web 组合包之后加入[编辑器组合包](../../bundle/vscode-app/README.zh.md)。它挂载以下配置行，无需插件配置：
 
 ```yaml

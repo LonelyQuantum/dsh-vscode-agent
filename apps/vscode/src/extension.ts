@@ -20,7 +20,6 @@ export interface PreviewDiagnostics {
   socket: boolean
   clientFailure: boolean
   pid?: number
-  reason?: string
   editorUI?: boolean
 }
 
@@ -75,10 +74,12 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
     current.webview.options = { enableScripts: true, localResourceRoots: [context.extensionUri] }
     diagnostics = { boot: false, rpc: 0, assets: 0, socket: false, clientFailure: false }
     const lifetime = { closed: false }
+    const nativeLifetime = new AbortController()
     const isClosed = (): boolean => lifetime.closed
     const bindings: vscode.Disposable[] = []
     closeActive = () => {
       lifetime.closed = true
+      nativeLifetime.abort()
       disposeProxy(proxy)
       proxy = undefined
       for (const binding of bindings) binding.dispose()
@@ -93,6 +94,16 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
         const config = vscode.workspace.getConfiguration('dsh')
         const repository = config.get<string>('repositoryPath') || metadata.repository
         runtime = new AgentRuntime()
+        const owner = runtime
+        owner.onExit(() => {
+          if (stopping || runtime !== owner) return
+          closeActive?.()
+          runtime = undefined
+          booting = undefined
+          diagnostics.clientFailure = true
+          delete diagnostics.pid
+          if (panel) panel.webview.html = `<html><body><p>${text.crashed}</p></body></html>`
+        })
         booting = runtime.start({ node: config.get<string>('nodePath') || 'node', repository,
           entry: join(context.extensionPath, 'host.mjs'), workspace,
           ...(apiKey === undefined ? {} : { apiKey }),
@@ -116,7 +127,8 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
             && 'cwd' in message && typeof message.cwd === 'string' && message.cwd.length <= 4096
             && message.path.length <= 4096 && (!('line' in message) || message.line === undefined
               || typeof message.line === 'number' && Number.isSafeInteger(message.line) && message.line > 0)) {
-            void openWorkspaceFile(workspace, message.path, 'line' in message ? message.line as number | undefined : undefined, message.cwd)
+            void openWorkspaceFile(workspace, message.path,
+              'line' in message ? message.line as number | undefined : undefined, message.cwd, nativeLifetime.signal)
               .catch(() => { if (!isClosed()) void vscode.window.showWarningMessage(text.fileFailed) })
             return
           }
@@ -164,7 +176,6 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
           }
           if ('kind' in message && message.kind === 'client-failure') {
             diagnostics.clientFailure = true
-            if ('reason' in message && typeof message.reason === 'string') diagnostics.reason = message.reason.slice(0, 400)
             return
           }
           if ('kind' in message && message.kind === 'fetch' && 'path' in message && typeof message.path === 'string') {

@@ -84,6 +84,18 @@ export async function run(): Promise<void> {
     assert.throws(() => process.kill(previous, 0))
     await connected()
     console.log('VSCODE_WEBVIEW_SMOKE_OK ' + JSON.stringify(api.diagnostics()))
+    const crashed = api.diagnostics().pid
+    assert.ok(crashed)
+    process.kill(crashed)
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => { clearInterval(poll); reject(new Error('Runtime exit was not observed')) }, 10_000)
+      const poll = setInterval(() => {
+        if (api.diagnostics().clientFailure) { clearTimeout(timeout); clearInterval(poll); resolve() }
+      }, 50)
+    })
+    await vscode.commands.executeCommand('dsh.restart')
+    await connected()
+    assert.notEqual(api.diagnostics().pid, crashed)
   } finally {
     const pid = api.diagnostics().pid
     await vscode.commands.executeCommand('dsh.stop')

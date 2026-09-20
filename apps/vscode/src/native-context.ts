@@ -97,13 +97,18 @@ export class SnapshotDocuments implements vscode.Disposable {
  * @param path Session-relative or absolute file path.
  * @param line Optional one-based line; positions beyond the document are clamped by VS Code.
  * @param cwd Viewed Session directory, required to identify the same canonical workspace.
+ * @param signal Cancels navigation when its Webview is disposed.
  * @returns Completion after native navigation.
  */
-export async function openWorkspaceFile(workspace: string, path: string, line?: number, cwd = workspace): Promise<void> {
+export async function openWorkspaceFile(
+  workspace: string, path: string, line?: number, cwd = workspace, signal?: AbortSignal,
+): Promise<void> {
   if (await realpath(cwd) !== await realpath(workspace)) throw new Error('workspace-mismatch')
   const canonical = await realpath(resolve(workspace, path))
   await workspaceFile(workspace, canonical)
+  signal?.throwIfAborted()
   const document = await vscode.workspace.openTextDocument(vscode.Uri.file(canonical))
+  signal?.throwIfAborted()
   const selection = line === undefined ? undefined : document.validateRange(new vscode.Range(line - 1, 0, line - 1, 0))
   await vscode.window.showTextDocument(document, { preview: true, ...(selection === undefined ? {} : { selection }) })
 }

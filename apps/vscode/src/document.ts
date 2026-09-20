@@ -20,5 +20,6 @@ export function webviewDocument(html: string, uri: (path: string) => string, csp
     + `img-src ${cspSource} data: blob:; font-src ${cspSource} data:; connect-src ${cspSource}; worker-src blob:;`
   return rewritten.replace('<head>', '<head>'
     + `<meta http-equiv="Content-Security-Policy" content="${escaped(csp)}">`
+    + `<link rel="stylesheet" href="${escaped(uri('resources/editor.css'))}">`
     + `<script nonce="${escaped(nonce)}" src="${escaped(uri('bridge.js'))}"></script>`)
 }

@@ -39,6 +39,8 @@ Static assets use VS Code resource URLs. The development CSP allows `unsafe-eval
 
 ## Verification
 
+The editor chrome supports keyboard focus into History and Escape back to its toggle. The carrier stylesheet maps primary background, text, border, and font tokens to VS Code, adds high-contrast focus borders, and respects reduced motion. Unexpected runtime exit shows a localized restart instruction and drops the stale connection; reopening starts a new owned process without automatically resending input. Page error diagnostics carry only a failure flag, never raw exception text.
+
 Focused tests run without provider credentials:
 
 ```powershell

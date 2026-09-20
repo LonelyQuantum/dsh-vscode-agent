@@ -8,7 +8,7 @@ const listeners = new Map<number, (message: Record<string, unknown>) => void>()
 const nonce = document.currentScript?.nonce ?? ''
 const nativeFetch = globalThis.fetch.bind(globalThis)
 const send = (id: number, kind: string, fields: object = {}): void =>{  editor.postMessage({ channel, id, kind, ...fields }) }
-window.addEventListener('error', (event) =>{  send(++nextId, 'client-failure', { reason: event.message.slice(0, 400) }) })
+window.addEventListener('error', () =>{  send(++nextId, 'client-failure') })
 window.addEventListener('unhandledrejection', () =>{  send(++nextId, 'client-failure') })
 window.addEventListener('message', (event: MessageEvent<unknown>) => {
   if (typeof event.data !== 'object' || event.data === null) return

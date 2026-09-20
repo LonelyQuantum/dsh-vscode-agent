@@ -25,6 +25,8 @@ Open a conversation in a narrow editor sidebar, start another conversation, or r
 <a id="use-this-package"></a>
 ## Use this package
 
+Opening History moves keyboard focus to its return control. Escape closes History and restores focus to the toolbar toggle without editing the draft.
+
 The [VS Code preview](../../../apps/vscode/README.md) adds the [editor bundle](../../bundle/vscode-app/README.md) after the Web bundle. It mounts this row without plugin configuration:
 
 ```yaml

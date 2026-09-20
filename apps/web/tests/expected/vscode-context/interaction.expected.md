@@ -3,3 +3,5 @@
 - Preview: exact immutable snapshot
 - Credential gesture: native carrier
 - History return: draft retained
+- Escape: history closes and focus returns
+- Theme: light, dark, high contrast carrier colors
