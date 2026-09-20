@@ -1,4 +1,6 @@
 .root {
+  --dsh-user-stack-max-width: 100%;
+  --dsh-chat-side-padding: 12px;
   height: 100%;
   min-width: 0;
   display: flex;

@@ -31,6 +31,8 @@ kind: "package-reference"
 <a id="reference-previews"></a>
 ## 引用预览
 
+嵌入式宿主可设置 `--dsh-user-stack-max-width` 和 `--dsh-chat-side-padding` 以适应对话列；不覆盖时保留 Web 消息宽度和文本记录边距。
+
 编辑器宿主提供 `conversationEditor` 时，文件操作将当前查看的会话 id、原始路径及可选行号交给该服务。宿主负责工作区准入和原生错误提示；未提供该服务的浏览器组合保留下述 Sidebar 行为。
 
 Chat 在节点列表外通过一个 `MarkdownDelegateProvider` 提供文件及 HTTP(S) 导航。Assistant Markdown 文件链接在消息落定后可于右侧栏打开，包括未修改文件的引用。相对路径基于当前查看的 Session 工作区解析；绝对路径仍使用同一 Session 的文件系统访问。`#L24` 和 `#L24-L30` 定位到指定起始行，并复用现有文件标签。文件缺失时显示预览错误状态。

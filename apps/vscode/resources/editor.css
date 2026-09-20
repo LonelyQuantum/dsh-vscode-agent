@@ -7,14 +7,38 @@ body.vscode-light, body.vscode-dark, body.vscode-high-contrast, body.vscode-high
   --dsw-alias-bg-base: var(--vscode-sideBar-background);
   --dsw-alias-bg-layer-1: var(--vscode-editor-background);
   --dsw-alias-bg-layer-2: var(--vscode-input-background);
+  --dsw-alias-bg-layer-3: var(--vscode-editorWidget-background);
+  --dsw-alias-bg-module-platform: var(--vscode-input-background);
+  --dsw-alias-bg-overlay: var(--vscode-editorWidget-background);
+  --dsw-specific-bubble: var(--vscode-input-background);
+  --dsw-specific-input-major: var(--vscode-input-background);
+  --dsw-specific-selector: var(--vscode-dropdown-background);
+  --dsw-specific-tip: var(--vscode-editorWidget-background);
   --dsw-alias-label-primary: var(--vscode-foreground);
   --dsw-alias-label-secondary: var(--vscode-descriptionForeground);
   --dsw-alias-label-tertiary: var(--vscode-descriptionForeground);
+  --dsw-alias-label-caption: var(--vscode-descriptionForeground);
+  --dsw-alias-label-dimmed: var(--vscode-disabledForeground);
+  --dsw-alias-link: var(--vscode-textLink-foreground);
   --dsw-alias-border-l1: var(--vscode-widget-border, var(--vscode-contrastBorder, transparent));
   --dsw-alias-border-l2: var(--vscode-widget-border, var(--vscode-contrastBorder, transparent));
   --dsw-alias-border-l3: var(--vscode-widget-border, var(--vscode-contrastBorder, transparent));
   --dsw-alias-interactive-bg-hover: var(--vscode-list-hoverBackground);
+  --dsw-alias-interactive-bg-hover-solid: var(--vscode-list-hoverBackground);
+  --dsw-alias-interactive-bg-active: var(--vscode-list-activeSelectionBackground);
+  --dsw-alias-button-elevated-fill: var(--vscode-button-secondaryBackground);
+  --dsw-alias-button-floating-fill: var(--vscode-editorWidget-background);
+  --dsw-alias-button-floating-hover: var(--vscode-list-hoverBackground);
+  --dsw-alias-markdown-code-block-banner: var(--vscode-editor-background);
+  --dsw-alias-markdown-code-block: var(--vscode-editor-background);
+  --dsw-alias-markdown-inline-code: var(--vscode-textCodeBlock-background);
+  --dsw-alias-scrollbar-bg-l1: var(--vscode-scrollbarSlider-background);
+  --dsw-alias-scrollbar-bg-l2: var(--vscode-scrollbarSlider-background);
+  --dsw-alias-scrollbar-hover-l1: var(--vscode-scrollbarSlider-hoverBackground);
+  --dsw-alias-scrollbar-hover-l2: var(--vscode-scrollbarSlider-hoverBackground);
 }
+body.vscode-dark, body.vscode-high-contrast { color-scheme: dark; }
+body.vscode-light, body.vscode-high-contrast-light { color-scheme: light; }
 body[class*='vscode-'] :focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }
 body[class*='vscode-high-contrast'] button { border: 1px solid var(--vscode-contrastBorder); }
 body[class*='vscode-'] code, body[class*='vscode-'] pre { font-family: var(--vscode-editor-font-family); }

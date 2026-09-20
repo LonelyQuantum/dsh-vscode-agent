@@ -55,9 +55,11 @@ it('renders explicit editor references and native previews in a narrow conversat
           document.body.className = theme!
           document.body.style.setProperty('--vscode-sideBar-background', background!)
           document.body.style.setProperty('--vscode-foreground', foreground!)
+          document.body.style.setProperty('--vscode-input-background', background!)
         }, { theme, background, foreground })
         expect(await root.evaluate(element => getComputedStyle(element).backgroundColor)).toBe(background)
         expect(await root.evaluate(element => getComputedStyle(element).color)).toBe(foreground)
+        expect(await root.locator('[data-composer-card]').evaluate(element => getComputedStyle(element).backgroundColor)).toBe(background)
       }
       await compareOrRefreshGolden(fileURLToPath(new URL('./expected/vscode-context/interaction.expected.md', import.meta.url)),
         ['- Editor layout: single column at 420 px', '- Selection reference: context.ts · v7*',

@@ -56,6 +56,21 @@ it('replays the exact immutable editor snapshot admitted to the model and Sessio
         expect(text).toContain(capture)
         expect(text).toContain(prompt.trim())
         await expect.poll(() => root.innerText()).toContain('VERIFIED_UNSAVED_42')
+        await page.addStyleTag({ content: await readFile(new URL('../../vscode/resources/editor.css', import.meta.url), 'utf8') })
+        const bubble = root.locator('[data-user-message]').first()
+        for (const width of [320, 420]) {
+          await page.setViewportSize({ width, height: 900 })
+          expect((await bubble.boundingBox())!.width).toBeGreaterThan(width * 0.65)
+          expect(await root.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+        }
+        for (const theme of ['vscode-light', 'vscode-dark', 'vscode-high-contrast']) {
+          const background = theme === 'vscode-light' ? 'rgb(255, 255, 255)' : 'rgb(30, 30, 30)'
+          await page.evaluate(({ theme, background }) => {
+            document.body.className = theme
+            document.body.style.setProperty('--vscode-input-background', background)
+          }, { theme, background })
+          expect(await bubble.evaluate(element => getComputedStyle(element).backgroundColor)).toBe(background)
+        }
         if (mode === 'record') await recordFixture(scaffold, id, fixture)
       } finally { await browser.close() }
     } finally { await scaffold.close() }
