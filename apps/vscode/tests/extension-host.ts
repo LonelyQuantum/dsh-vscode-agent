@@ -108,7 +108,17 @@ export async function run(): Promise<void> {
       await writeFile(join(coordination, 'ready'), 'ready')
       const deadline = Date.now() + 180_000
       let result: string | undefined
+      let reviewed = false
       while (Date.now() < deadline) {
+        const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input
+        if (!reviewed && input instanceof vscode.TabInputTextDiff) {
+          assert.equal((await vscode.workspace.openTextDocument(input.original)).getText(), '')
+          assert.equal((await vscode.workspace.openTextDocument(input.modified)).getText(), 'REVIEWED_FROM_VSCODE\n')
+          assert.equal(input.original.scheme, 'dsh-snapshot')
+          assert.equal(input.modified.scheme, 'dsh-snapshot')
+          reviewed = true
+          await writeFile(join(coordination, 'review-ok'), 'passed')
+        }
         try { result = await readFile(join(coordination, 'done'), 'utf8') }
         catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
         if (result !== undefined) break

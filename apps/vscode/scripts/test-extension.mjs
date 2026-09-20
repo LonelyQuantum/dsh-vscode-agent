@@ -10,8 +10,9 @@ import { chromium } from 'playwright'
 import * as yaml from 'js-yaml'
 
 const { positionals: [executable], values } = parseArgs({ allowPositionals: true,
-  options: { vsix: { type: 'string' }, 'live-home': { type: 'string' } } })
+  options: { vsix: { type: 'string' }, 'live-home': { type: 'string' }, interactions: { type: 'boolean' } } })
 if (!executable) throw new Error('Pass the absolute VS Code executable path, not its shell wrapper')
+if (values.interactions && !values['live-home']) throw new Error('--interactions requires --live-home')
 const app = fileURLToPath(new URL('..', import.meta.url))
 const root = await mkdtemp(join(tmpdir(), 'dsh-vscode-editor-test-'))
 const userData = join(root, 'user')
@@ -151,6 +152,30 @@ try {
       await evaluate("[...root.querySelectorAll('button')].find(button => /Stop generat|停止生成/.test(button.getAttribute('aria-label') ?? '')).click()")
       await waitFor(() => evaluate("return ![...root.querySelectorAll('button')].some(button => /Stop generat|停止生成/.test(button.getAttribute('aria-label') ?? ''))"))
       console.log('VSCODE_LIVE_CANCEL_OK')
+      if (values.interactions) {
+        await evaluate("root.querySelector('[aria-label^=\"Access mode\"]').click()")
+        await waitFor(() => evaluate("return [...doc.querySelectorAll('[role=menuitem]')].some(item => item.textContent.includes('Read Only'))"))
+        await evaluate("[...doc.querySelectorAll('[role=menuitem]')].find(item => item.textContent.includes('Read Only')).click()")
+        await evaluate("root.querySelector('[data-composer-input]').focus()")
+        await request('Input.insertText', { text: 'Use a file-writing tool to create reviewed.txt with exactly REVIEWED_FROM_VSCODE and a final newline. Request the necessary approval. Do not run shell commands. After writing, reply EDIT_DONE.' })
+        await key('Enter', 'Enter', 13)
+        await waitFor(() => evaluate("return !!root.querySelector('[data-approval-key]')"), 90_000)
+        await evaluate("[...root.querySelector('[data-approval-key]').querySelectorAll('button')].find(button => /Allow once|允许一次/.test(button.textContent)).click()")
+        await waitFor(async () => (await readIfPresent(join(workspace, 'reviewed.txt'))) === 'REVIEWED_FROM_VSCODE\n', 90_000)
+        await waitFor(() => evaluate("return !!root.querySelector('[data-changed-files]') && ![...root.querySelectorAll('button')].some(button => /Stop generat|停止生成/.test(button.getAttribute('aria-label') ?? ''))"))
+        await evaluate("[...root.querySelector('[data-changed-files]').querySelectorAll('button')].find(button => (button.getAttribute('aria-label') ?? '').includes('reviewed.txt')).click()")
+        await waitFor(() => readIfPresent(join(root, 'review-ok')))
+        console.log('VSCODE_LIVE_APPROVAL_DIFF_OK')
+        await evaluate("root.querySelector('[data-composer-input]').focus()")
+        await request('Input.insertText', { text: 'Use ask_user_question to ask which label to use, with exactly two options: Alpha and Beta. Wait for my answer, then reply exactly QUESTION_DONE. Do not call other tools.' })
+        await key('Enter', 'Enter', 13)
+        await waitFor(() => evaluate("return !!root.querySelector('[data-question-key] [role=radio][aria-label=Alpha]')"), 90_000)
+        await evaluate("const option = root.querySelector('[data-question-key] [role=radio][aria-label=Alpha]'); option.focus(); option.click()")
+        await key('Enter', 'Enter', 13)
+        await waitFor(() => evaluate("return !root.querySelector('[data-question-key]') && root.innerText.split('QUESTION_DONE').length >= 3"), 90_000)
+        console.log('VSCODE_LIVE_QUESTION_OK')
+        await browser.contexts()[0].pages()[0].screenshot({ path: join(app, 'lib/live-interactions.png') })
+      }
       await writeFile(join(root, 'done'), 'passed')
       await browser.close()
       browser = undefined

@@ -67,6 +67,8 @@ This smoke creates and removes its own temporary workspace and VS Code data dire
 
 Explicitly adding `--live-home "C:/path/to/desktop/home"` enables a paid real-model check using that home's managed `DEEPSEEK_API_KEY` reference. This option supports the default DeepSeek route, not custom provider settings or OAuth records. It passes the key only to the temporary test process environment, submits an unsaved selection through the real Webview, reads the resulting durable log with DSH's decoder, and cancels a second turn. It does not copy credentials or Desktop sessions. The recorded `vscode-editor-context` scenario additionally replays the immutable submission without a key through `apps/web/tests/vscode-submission.e2e.ts`.
 
+Adding `--interactions` to the live check also requests a file write under Read Only permissions, grants Allow once, opens the changed-file card in native diff, verifies both captured documents, and answers an `ask_user_question` option. All writes stay in the temporary workspace.
+
 ## Known limitations
 
 Only a single trusted local folder is admitted. Remote SSH/WSL, virtual and multi-root workspaces are rejected. Concurrent windows on the same folder, operating systems other than Windows, crashes during active tools, and trust changes have not completed integration qualification. Do not open this preview twice on the same folder.
