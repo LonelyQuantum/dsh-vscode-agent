@@ -4,8 +4,15 @@ import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 import type { HostObservable, InjectFace, PropsLocale, PropsRenderFactories, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { VscodeKey } from './locales.ts'
 
+/** Editor actions that can capture context; no arbitrary file-read verb. */
+export type CaptureKind = 'file' | 'selection' | 'problems'
+
 /** Editor carrier installed before Client boot. */
 export interface EditorBridge {
+  /** Capture current editor state. @param kind Explicit action. @param signal View lifetime. @returns Immutable text and chip label. */
+  capture(kind: CaptureKind, signal: AbortSignal): Promise<{ label: string; text: string }>
+  /** Open read-only captured text. @param text Exact snapshot, not a path to read. */
+  preview(text: string): void
   /** Return the workspace selected by the Extension Host. @returns Absolute execution directory. */
   workspace(): string
   /** Open the native password input without exposing its result to the Client. */
@@ -26,6 +33,8 @@ export interface WorkspaceBoot {
 
 /** Callbacks and the one private startup observable bound by the renderer. */
 export interface EditorInjected {
+  /** Attach to this Session's unchanged draft. @param kind Explicit action. @param signal View lifetime. */
+  capture(kind: CaptureKind, signal: AbortSignal): void
   hooks: { workspaceBoot: HostObservable<WorkspaceBoot> }
   /** Open a blank Session using the shared navigation policy. */
   startSession(): void

@@ -1,0 +1,70 @@
+/** Explicit VS Code document and Problems capture; never scans source files in the background. */
+import * as vscode from 'vscode'
+import { randomUUID } from 'node:crypto'
+import { boundedCapture, documentCapture, workspaceFile, type EditorCapture } from './editor-context.ts'
+
+/**
+ * Capture one explicit editor-context action.
+ * @param kind Fixed action, not an arbitrary path from page content.
+ * @param workspace Trusted execution directory.
+ * @returns Exact snapshot sampled at invocation.
+ */
+export async function captureEditor(kind: 'file' | 'selection' | 'problems', workspace: string): Promise<EditorCapture> {
+  const config = vscode.workspace.getConfiguration('dsh')
+  const maxBytes = config.get<number>('contextMaxBytes', 65536)
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1024 || maxBytes > 1048576) throw new Error('invalid-context-limit')
+  if (kind === 'problems') {
+    const rows = vscode.languages.getDiagnostics().flatMap(([uri, diagnostics]) => uri.scheme === 'file'
+      ? diagnostics.map(diagnostic => ({ path: uri.fsPath, message: diagnostic.message, severity: diagnostic.severity,
+        source: diagnostic.source, code: diagnostic.code, range: diagnostic.range })) : [])
+    const admitted: object[] = []
+    const maxProblems = config.get<number>('contextMaxProblems', 100)
+    if (!Number.isSafeInteger(maxProblems) || maxProblems < 1 || maxProblems > 1000) throw new Error('invalid-problems-limit')
+    for (const row of rows) {
+      let path: string
+      try { path = await workspaceFile(workspace, row.path) }
+      catch { continue /* Problems outside the owned workspace or deleted files are not attached. */ }
+      admitted.push({ ...row, path })
+      if (admitted.length > maxProblems) throw new Error('context-too-large')
+    }
+    return boundedCapture(`Problems (${admitted.length})`, { kind, workspace, diagnostics: admitted,
+      coordinates: 'zero-based, end-exclusive', severity: '0=error, 1=warning, 2=information, 3=hint' }, maxBytes)
+  }
+  const editor = vscode.window.activeTextEditor
+  if (editor === undefined || editor.document.uri.scheme !== 'file') throw new Error('no-file-editor')
+  const document = editor.document
+  const range = kind === 'selection' ? editor.selection : new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length))
+  if (kind === 'selection' && range.isEmpty) throw new Error('empty-selection')
+  const position = (value: vscode.Position): { line: number; character: number } => ({ line: value.line, character: value.character })
+  return documentCapture(workspace, { kind, path: document.uri.fsPath, language: document.languageId,
+    version: document.version, dirty: document.isDirty, range: { start: position(range.start), end: position(range.end) },
+    text: document.getText(range) }, maxBytes)
+}
+
+/** Read-only captured documents retained only while their editor tabs remain open. */
+export class SnapshotDocuments implements vscode.Disposable {
+  private readonly values = new Map<string, string>()
+  private readonly registrations: vscode.Disposable[]
+
+  constructor() {
+    this.registrations = [vscode.workspace.registerTextDocumentContentProvider('dsh-snapshot', {
+      provideTextDocumentContent: uri => this.values.get(uri.toString()) ?? 'This captured document is no longer available.',
+    }), vscode.workspace.onDidCloseTextDocument((document) => { this.values.delete(document.uri.toString()) })]
+  }
+
+  /**
+   * Open captured text, with no filesystem write or executable URI from the page.
+   * @param text Bounded captured text.
+   * @returns Completion after opening the read-only editor.
+   */
+  async preview(text: string): Promise<void> {
+    if (Buffer.byteLength(text, 'utf8') > 1024 * 1024 || this.values.size >= 32) throw new Error('snapshot-limit')
+    const uri = vscode.Uri.from({ scheme: 'dsh-snapshot', path: `/${randomUUID()}/Editor-context.txt` })
+    this.values.set(uri.toString(), text)
+    try { await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(uri), { preview: true }) }
+    catch (error) { this.values.delete(uri.toString()); throw error }
+  }
+
+  /** Drop provider registrations and owned text. */
+  dispose(): void { for (const registration of this.registrations) registration.dispose(); this.values.clear() }
+}

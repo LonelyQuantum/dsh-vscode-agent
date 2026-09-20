@@ -53,11 +53,11 @@ The [patch](cordis.patch.yml) inserts `ui-vscode`. The manifest declares that pl
 <a id="model-experience"></a>
 ## Model Experience
 
-None, as this layer adds only editor navigation and layout.
+Indirectly, through [editor context references](../../client/ui-vscode/README.md#model-experience) submitted as ordinary user input.
 
 #### KV Cache effect
 
-None; model composition remains with the underlying profile.
+Submitted context adds user-input tokens; model composition remains with the underlying profile.
 
 ## Known Limitations and Deferred Work
 

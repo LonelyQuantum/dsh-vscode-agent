@@ -56,6 +56,8 @@ The Webview bridge keeps authentication in the Extension Host and preserves Gate
 
 ### Delivery sequence
 
+The P2 preview captures file, selection, and Problems only on explicit request, inserts immutable reference chips with draft-revision admission, and opens exact-text read-only previews. Unit tests cover UTF-8 limits, workspace/symlink admission, cancellation, and serialization; the real Windows Extension Host checks unsaved editor text, version, diagnostics, and preview. The recorded model-submission scenario remains an acceptance gap; this evidence does not mark P2 complete.
+
 | Stage | Deliverable | Exit evidence |
 |---|---|---|
 | P0: architecture and executable spike | Minimal extension, shared-profile launch, owned loopback proxy experiment, packaged assets, and current transport hooks. | A real Extension Development Host completes a model turn and cancels another; Session listing, readiness/reconnect, one upload/download, lazy asset loading, and plugin graph refresh work under CSP. Closing the extension leaves no owned process. Record any transport gap before selecting the final carrier. |

@@ -1,4 +1,6 @@
 {
+  "contextMaxBytes": "Maximum UTF-8 bytes per explicit editor-context snapshot. Oversized snapshots are rejected, not truncated.",
+  "contextMaxProblems": "Maximum Problems entries per snapshot of this workspace.",
   "description": "Development preview of the DSH agent inside VS Code.",
   "trust": "DSH executes tools and loads workspace instructions. Trust the workspace before starting it.",
   "virtual": "This preview requires a local filesystem workspace.",

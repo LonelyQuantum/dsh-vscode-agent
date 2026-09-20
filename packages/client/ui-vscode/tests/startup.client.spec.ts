@@ -33,6 +33,8 @@ async function fixture(saved?: string, delayed = false) {
   ctx.provide('workspaces', { list: workspaces, create } as never)
   ctx.provide('uiWorkspace', { openSession, openWorkspace, startSession: vi.fn() } as never)
   ctx.provide('uiConversation', {} as never)
+  ctx.provide('conversation', {} as never)
+  ctx.provide('inputTriggers', { registerSource: () => () => {} } as never)
   vi.stubGlobal('__DSH_VSCODE__', { workspace: () => '/workspace', lastSession: () => saved, configure: vi.fn(), selected: vi.fn(), ready: vi.fn() })
   const slots = ctx.get('slots') as SlotRegistry
   const original = slots.register({ name: 'root' }, () => null)

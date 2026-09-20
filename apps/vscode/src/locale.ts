@@ -7,6 +7,7 @@ const en = {
   apiKey: 'DeepSeek API key (stored in VS Code SecretStorage)',
   configured: 'API key saved. Restart DSH to use it.',
   removed: 'The extension-stored API key was removed. Restart DSH to apply the change.',
+  previewFailed: 'The captured text could not be opened. Close unused snapshot tabs and try again.',
 } as const
 type Copy = { [K in keyof typeof en]: string }
 const zh: Copy = {
@@ -17,6 +18,7 @@ const zh: Copy = {
   apiKey: 'DeepSeek API 密钥（存储在 VS Code SecretStorage 中）',
   configured: 'API 密钥已保存，重启 DSH 后生效。',
   removed: '已删除扩展保存的 API 密钥，重启 DSH 后生效。',
+  previewFailed: '无法打开捕获的文本。请关闭不再使用的快照标签页，然后重试。',
 }
 
 /** Select extension copy without changing upstream locale ownership. @param language VS Code language. @returns Complete labels. */

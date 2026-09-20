@@ -20,6 +20,13 @@ The preview reuses this checkout's built Host packages, installed dependencies, 
 
 `DSH: Configure API Key` opens a password input and stores the DeepSeek key in VS Code SecretStorage. The next child launch receives it through its environment, not the Webview or settings. `DSH: Remove Saved API Key` removes this extension-owned key; inherited environment credentials and workspace `.env` credentials remain independent. Restart DSH after changing the key. Other provider settings use the existing DSH Web application; do not put credentials into VS Code settings or commit `.env` files.
 
+<a id="editor-context"></a>
+## Editor context
+
+The toolbar explicitly captures the active file, selected text, or current Problems. File snapshots contain the canonical workspace-relative path, language, document version, unsaved flag, zero-based end-exclusive range, and exact editor text. Problems contain the currently reported diagnostics, not a fresh analysis or a guarantee of the document version they describe. Unsaved files must already have an on-disk path inside this workspace; untitled documents and symlink escapes are rejected. A reference chip previews the complete JSON as a read-only document; the shared composer serializes that same text into ordinary user input only on submission. Copied or restored drafts retain the snapshot text, not a fresh read of the file.
+
+`dsh.contextMaxBytes` defaults to 65,536 UTF-8 bytes per complete serialized snapshot; `dsh.contextMaxProblems` defaults to 100 diagnostics. Oversized captures are rejected without truncation. Changing the draft, switching Sessions, or disposing the view during capture prevents late insertion. Capturing alone neither writes workspace files nor sends model input.
+
 ## Runtime and transport
 
 The Extension Host owns one Node child using a `vscode` profile derived from the shared Web profile. Each workspace path gets a separate Harness home under the extension's VS Code global storage, without sharing Desktop sessions. Closing the panel releases its HTTP requests and sockets but keeps the child alive; `DSH: Stop Agent Runtime`, `DSH: Restart Agent Runtime`, and extension shutdown await process exit. Abrupt Extension Host loss requests child shutdown through IPC disconnect.
@@ -34,7 +41,7 @@ Focused tests run without provider credentials:
 
 ```powershell
 pnpm.cmd --filter @deepseek-ai/dsh-vscode run typecheck
-pnpm.cmd exec vitest run apps/vscode/tests/document.spec.ts apps/vscode/tests/proxy.spec.ts apps/vscode/tests/runtime.spec.ts
+pnpm.cmd exec vitest run apps/vscode/tests packages/client/ui-vscode/tests
 ```
 
 After building, run the real Extension Host smoke with the installed VS Code executable, replacing the example path:
@@ -43,10 +50,10 @@ After building, run the real Extension Host smoke with the installed VS Code exe
 node apps/vscode/scripts/test-extension.mjs "C:/path/to/Microsoft VS Code/Code.exe"
 ```
 
-This smoke creates and removes its own temporary workspace and VS Code data directories. Workspace Trust is disabled only for that isolated test process. It requires real client boot, API traffic, plugin assets, a Gateway WebSocket, and owned process exit after stop; it does not submit a model request.
+This smoke creates and removes its own temporary workspace and VS Code data directories. Workspace Trust is disabled only for that isolated test process. It checks unsaved selection and file snapshots, Problems, read-only preview, real client boot, API traffic, plugin assets, a Gateway WebSocket, and owned process exit after stop; it does not submit a model request.
 
 ## Known limitations
 
 Only a single trusted local folder is admitted. Remote SSH/WSL, virtual and multi-root workspaces are rejected. Concurrent windows on the same folder, operating systems other than Windows, crashes during active tools, and trust changes have not completed integration qualification. Do not open this preview twice on the same folder.
 
-The toolbar provides new conversation, current-workspace history, and native API key setup. The last selected Session is retained in Webview state and restored only if it still belongs to this workspace and is not archived. The real Extension Host smoke requires this editor-specific layout to mount before and after runtime restart. Editor context, native file/diff actions, a standalone runtime, and VSIX packaging remain in the development plan. The smoke does not establish model turns, approvals, questions, steering, compaction, file/media downloads, plugin graph refresh, or reconnect behavior through this bridge. These upstream capabilities need extension-specific end-to-end coverage before the preview is considered usable for daily work.
+The toolbar provides new conversation, current-workspace history, and native API key setup. The last selected Session is retained in Webview state and restored only if it still belongs to this workspace and is not archived. The real Extension Host smoke requires this editor-specific layout to mount before and after runtime restart. Native file/diff actions, a standalone runtime, and VSIX packaging remain in the development plan. The smoke does not establish context submission replay, model turns, approvals, questions, steering, compaction, file/media downloads, plugin graph refresh, or reconnect behavior through this bridge. These upstream capabilities need extension-specific end-to-end coverage before the preview is considered usable for daily work.

@@ -1,5 +1,5 @@
 /** Editor chrome around the shared Conversation Factory, with no parallel Session state. */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { EditorProps } from './contract.ts'
 import css from './Conversation.module.css'
@@ -9,13 +9,19 @@ import css from './Conversation.module.css'
  * @param props Framework-owned input.
  * @returns Single-column conversation.
  */
-export function Conversation(props: Pick<EditorProps, 'sessionId' | 'useSession' | 'useSessions' | 'useWorkspaces' | 'useWorkspaceBoot' | 't' | 'renderFactorySlot' | 'selected' | 'ready' | 'startSession' | 'openSession' | 'configure' | 'retry'>) {
+export function Conversation(props: Pick<EditorProps, 'sessionId' | 'useSession' | 'useSessions' | 'useWorkspaces' | 'useWorkspaceBoot' | 't' | 'renderFactorySlot' | 'selected' | 'ready' | 'startSession' | 'openSession' | 'configure' | 'retry' | 'capture'>) {
   const { sessionId, useSession, useSessions, useWorkspaces, useWorkspaceBoot, t, renderFactorySlot } = props
   const session = useSession(snapshot => snapshot)
   const sessions = useSessions(snapshot => snapshot)
   const workspaces = useWorkspaces(snapshot => snapshot)
   const boot = useWorkspaceBoot(snapshot => snapshot)
   const [history, setHistory] = useState(false)
+  const captureLifetime = useRef<AbortController | undefined>(undefined)
+  useEffect(() => {
+    const controller = new AbortController()
+    captureLifetime.current = controller
+    return () => { controller.abort() }
+  }, [sessionId])
   const workspace = workspaces.items.find(item => item.workspaceId === boot.workspaceId)
   const rows = (workspace?.sessionIds ?? []).filter(id => !workspaces.archivedSessionIds.includes(id))
     .map(id => sessions.byId[id]).filter(row => row !== undefined)
@@ -27,6 +33,10 @@ export function Conversation(props: Pick<EditorProps, 'sessionId' | 'useSession'
       <Button size="sm" onClick={() => { props.startSession(); setHistory(false) }} disabled={boot.state !== 'ready'}>{t('newSession')}</Button>
       <Button size="sm" aria-expanded={history} onClick={() => { setHistory(!history) }}>{t('history')}</Button>
       <Button size="sm" onClick={props.configure}>{t('settings')}</Button>
+      {(['file', 'selection', 'problems'] as const).map(kind => <Button key={kind} size="sm" disabled={sessionId === undefined}
+        onClick={() => { if (captureLifetime.current !== undefined) props.capture(kind, captureLifetime.current.signal) }}>
+        {t(kind)}
+      </Button>)}
     </header>
     {boot.state !== 'ready' && <div role="status" className={css.notice}>
       {t(boot.state === 'loading' ? 'loading' : 'failed')}

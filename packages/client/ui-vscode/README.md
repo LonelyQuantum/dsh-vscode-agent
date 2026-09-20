@@ -33,6 +33,8 @@ The [VS Code preview](../../../apps/vscode/README.md) adds the [editor bundle](.
 
 The carrier supplies its trusted local workspace before Client boot. History excludes archived Sessions and other workspaces. New conversation uses the shared workspace navigation policy, including reuse of an existing blank Session. The API key button opens the native password input; no key enters this Client plugin.
 
+Attach file, selection, or Problems explicitly from the toolbar. Each reference chip contains the carrier's immutable snapshot; clicking it opens a read-only preview of the exact submitted text. Copying or restoring the draft preserves that text. Capture is rejected if the draft revision changes, the Session changes, or the view closes before it finishes.
+
 -----
 
 <a id="understand-the-implementation"></a>
@@ -61,11 +63,11 @@ The carrier stores only the selected Session id in Webview state. The Session co
 <a id="model-experience"></a>
 ## Model Experience
 
-None, as editor navigation and layout register no model-facing input.
+Indirectly, through the [editor carrier's explicit snapshots](../../../apps/vscode/README.md#editor-context), serialized unchanged into the shared composer's logged user input.
 
 #### KV Cache effect
 
-None; this presentation does not assemble provider requests.
+Only submitted snapshots add user-input tokens; capture and preview alone send nothing to the model. Existing request prefixes are unchanged.
 
 ## Known Limitations and Deferred Work
 

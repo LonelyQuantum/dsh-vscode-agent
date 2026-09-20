@@ -2,9 +2,43 @@
 import * as vscode from 'vscode'
 import { strict as assert } from 'node:assert'
 import type { PreviewDiagnostics } from '../src/extension.ts'
+import { captureEditor, SnapshotDocuments } from '../src/native-context.ts'
+
+async function verifyEditorContext(): Promise<void> {
+  const workspace = vscode.workspace.workspaceFolders![0].uri
+  const file = vscode.Uri.joinPath(workspace, 'context.ts')
+  await vscode.workspace.fs.writeFile(file, Buffer.from('const original = 1;\n'))
+  const document = await vscode.workspace.openTextDocument(file)
+  const editor = await vscode.window.showTextDocument(document)
+  const snapshots = new SnapshotDocuments()
+  const diagnostics = vscode.languages.createDiagnosticCollection('dsh-test')
+  try {
+    assert.ok(await editor.edit((edit) => { edit.insert(new vscode.Position(1, 0), 'const unsaved = "你好";\n') }))
+    editor.selection = new vscode.Selection(1, 0, 1, 21)
+    const expected = document.getText(editor.selection)
+    const selected = await captureEditor('selection', workspace.fsPath)
+    const parsed = JSON.parse(selected.text.slice(selected.text.indexOf('{'))) as { text: string; version: number; dirty: boolean }
+    assert.equal(parsed.text, expected)
+    assert.equal(parsed.version, document.version)
+    assert.equal(parsed.dirty, true)
+    const all = await captureEditor('file', workspace.fsPath)
+    assert.ok(all.text.includes('unsaved'))
+    diagnostics.set(file, [new vscode.Diagnostic(new vscode.Range(0, 0, 0, 5), 'Captured diagnostic', vscode.DiagnosticSeverity.Warning)])
+    const problems = await captureEditor('problems', workspace.fsPath)
+    assert.ok(problems.text.includes('Captured diagnostic'))
+    await snapshots.preview(selected.text)
+    const preview = vscode.window.activeTextEditor!.document
+    assert.equal(preview.uri.scheme, 'dsh-snapshot')
+    assert.equal(preview.getText(), selected.text)
+    await vscode.commands.executeCommand('workbench.action.closeActiveEditor')
+    await vscode.window.showTextDocument(document)
+    await vscode.commands.executeCommand('workbench.action.files.revert')
+  } finally { diagnostics.dispose(); snapshots.dispose() }
+}
 
 /** Exercise Webview boot, native stream forwarding and shutdown in a real Extension Host. @returns Completion after the runtime stops. */
 export async function run(): Promise<void> {
+  await verifyEditorContext()
   const extension = vscode.extensions.getExtension<{ diagnostics(): PreviewDiagnostics }>('dsh-local.dsh-vscode-agent')
   assert.ok(extension)
   const api = await extension.activate()

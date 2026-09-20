@@ -30,6 +30,7 @@ function fixture(state: 'ready' | 'loading' | 'error' = 'ready') {
     useWorkspaceBoot: selector => selector({ state, workspaceId }),
     t: key => dictionary[key] ?? key, renderFactorySlot: factory,
     selected: vi.fn(), ready: vi.fn(), startSession: vi.fn(), openSession: vi.fn(), configure: vi.fn(), retry: vi.fn(),
+    capture: vi.fn(),
   }
   render(<Conversation {...props} />)
   return { props, factory }

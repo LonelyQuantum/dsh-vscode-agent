@@ -10,12 +10,15 @@ import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
+import type {} from '@deepseek-ai/dsh-client-ui-input-trigger/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { EditorInjected, WorkspaceBoot } from './contract.ts'
 import { Conversation } from './Conversation.tsx'
 import { en, zh } from './locales.ts'
+import { captureSource, insertCapture } from './capture.ts'
 
 /** Shared Client services required by this presentation. */
-export const inject = ['slots', 'locale', 'sessions', 'workspaces', 'uiWorkspace', 'uiConversation']
+export const inject = ['slots', 'locale', 'sessions', 'workspaces', 'uiWorkspace', 'uiConversation', 'conversation', 'inputTriggers']
 
 function Root({ renderSlot }: PropsRenderSlots<'vscode.conversation'>) {
   return renderSlot('vscode.conversation', {})
@@ -46,13 +49,29 @@ export function apply(ctx: Context): void {
     }).catch(() => { if (!lifetime.closed) boot.set({ state: 'error' }) })
   }
   ctx.effect(() => ctx.locale.register('vscode', { en, zh }))
+  ctx.effect(() => ctx.inputTriggers.registerSource(captureSource(editor)))
+  const t = ctx.locale.bind('vscode')
   ctx.effect(() => {
     const offWorkspaces = ctx.workspaces.list.subscribe(initialize)
     const offSessions = ctx.sessions.list.subscribe(initialize)
     initialize()
     return () => { lifetime.closed = true; offSessions(); offWorkspaces() }
   })
-  const injected = (): EditorInjected => ({
+  const injected = (sessionId: SessionId | undefined): EditorInjected => ({
+    capture: (kind, signal) => {
+      if (sessionId === undefined) return
+      const scope = ctx.sessions.scope(sessionId)
+      if (scope === undefined) return
+      const input = ctx.conversation.input.for(scope)
+      const current = (): boolean => !closed() && ctx.sessions.scope(sessionId) === scope
+        && (ctx.sessions.retainInfo(sessionId).getSnapshot().retainedBy.mainView ?? 0) > 0
+      void insertCapture(editor, kind, input, signal, current).then((inserted) => {
+        if (!signal.aborted && current()) {
+          if (inserted) input.focus()
+          else input.notify('info', t('contextChanged'))
+        }
+      }).catch(() => { if (!signal.aborted && current()) input.notify('error', t('contextFailed')) })
+    },
     hooks: { workspaceBoot: boot },
     startSession: () => {
       const workspaceId = boot.getSnapshot().workspaceId

@@ -53,11 +53,11 @@ kind: "package-bundle"
 <a id="model-experience"></a>
 ## 模型体验
 
-无；此层仅加入编辑器导航和布局。
+间接通过作为普通用户输入提交的[编辑器上下文引用](../../client/ui-vscode/README.zh.md#model-experience)。
 
 #### KV Cache 影响
 
-无；模型组合仍由底层 profile 负责。
+提交的上下文增加用户输入 token；模型组合仍由底层 profile 负责。
 
 ## 已知限制与后续工作
 

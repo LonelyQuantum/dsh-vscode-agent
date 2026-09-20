@@ -7,6 +7,7 @@ import { AgentRuntime, type RuntimeReady } from './runtime.ts'
 import { CHANNEL, HostProxy } from './proxy.ts'
 import { webviewDocument } from './document.ts'
 import { extensionCopy } from './locale.ts'
+import { captureEditor, SnapshotDocuments } from './native-context.ts'
 
 let stopExtension: (() => Promise<void>) | undefined
 
@@ -30,6 +31,8 @@ export interface PreviewDiagnostics {
 export function activate(context: vscode.ExtensionContext): { diagnostics(): PreviewDiagnostics } {
   let diagnostics: PreviewDiagnostics = { boot: false, rpc: 0, assets: 0, socket: false, clientFailure: false }
   const text = extensionCopy(vscode.env.language)
+  const snapshots = new SnapshotDocuments()
+  context.subscriptions.push(snapshots)
   let runtime: AgentRuntime | undefined
   let booting: Promise<RuntimeReady> | undefined
   let panel: vscode.WebviewView | undefined
@@ -103,9 +106,29 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
       })
       if (isClosed()) { await activeProxy.dispose(); return }
       proxy = activeProxy
+      let capturing = false
       const receive = current.webview.onDidReceiveMessage((message: unknown) => {
         if (lifetime.closed || !vscode.workspace.isTrusted) return
         if (typeof message === 'object' && message !== null && 'channel' in message && message.channel === CHANNEL) {
+          if ('kind' in message && message.kind === 'native-capture' && 'id' in message && Number.isSafeInteger(message.id)
+            && 'capture' in message && (message.capture === 'file' || message.capture === 'selection' || message.capture === 'problems')) {
+            const id = message.id
+            if (capturing) {
+              void current.webview.postMessage({ channel: CHANNEL, kind: 'native-result', id, ok: false })
+              return
+            }
+            capturing = true
+            void captureEditor(message.capture, workspace).then((value) => {
+              if (!isClosed() && vscode.workspace.isTrusted) void current.webview.postMessage({ channel: CHANNEL, kind: 'native-result', id, ok: true, ...value })
+            }).catch(() => {
+              if (!isClosed()) void current.webview.postMessage({ channel: CHANNEL, kind: 'native-result', id, ok: false })
+            }).finally(() => { capturing = false })
+            return
+          }
+          if ('kind' in message && message.kind === 'native-preview' && 'text' in message && typeof message.text === 'string') {
+            void snapshots.preview(message.text).catch(() => { void vscode.window.showWarningMessage(text.previewFailed) })
+            return
+          }
           if ('kind' in message && message.kind === 'native-configure') {
             void vscode.commands.executeCommand('dsh.configure')
             return

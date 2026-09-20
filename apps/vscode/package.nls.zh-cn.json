@@ -1,4 +1,6 @@
 {
+  "contextMaxBytes": "每个显式编辑器上下文快照的最大 UTF-8 字节数。超限会被拒绝，不会截断。",
+  "contextMaxProblems": "此工作区每次 Problems 快照的最大诊断条数。",
   "description": "在 VS Code 内运行 DSH Agent 的开发预览。",
   "trust": "DSH 会执行工具并加载工作区指令，请先信任工作区。",
   "virtual": "此预览需要本地文件系统工作区。",

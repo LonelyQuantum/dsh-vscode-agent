@@ -159,11 +159,32 @@ async function boot(): Promise<void> {
   }
 }
 
+async function capture(kind: 'file' | 'selection' | 'problems', signal: AbortSignal): Promise<{ label: string; text: string }> {
+  signal.throwIfAborted()
+  const id = ++nextId
+  return new Promise((resolve, reject) => {
+    const cleanup = (): void => { clearTimeout(timer); listeners.delete(id); signal.removeEventListener('abort', aborted) }
+    const aborted = (): void => { cleanup(); reject(new DOMException('Aborted', 'AbortError')) }
+    const timer = setTimeout(() => { cleanup(); reject(new Error('Editor capture timed out')) }, 15000)
+    signal.addEventListener('abort', aborted, { once: true })
+    listeners.set(id, (message) => {
+      if (message.kind !== 'native-result') return
+      cleanup()
+      if (message.ok === true && typeof message.label === 'string' && typeof message.text === 'string'
+        && message.label.length <= 2048 && message.text.length <= 1024 * 1024) resolve({ label: message.label, text: message.text })
+      else reject(new Error('Editor capture unavailable'))
+    })
+    send(id, 'native-capture', { capture: kind })
+  })
+}
+
 globalThis.fetch = proxyFetch
 globalThis.WebSocket = GatewaySocket as unknown as typeof WebSocket
 Reflect.set(globalThis, '__DSH_TRANSPORT__', { fetch: proxyFetch, loadBundle, ownsHost: true, streamBaseUrl: 'http://dsh.internal' })
 Reflect.set(globalThis, '__DSH_FILE_UPLOAD__', { fetch: proxyFetch })
 Reflect.set(globalThis, '__DSH_VSCODE__', {
+  capture,
+  preview: (text: string) => { send(++nextId, 'native-preview', { text }) },
   workspace: () => {
     if (workspace === undefined) throw new Error('Editor workspace is not ready')
     return workspace

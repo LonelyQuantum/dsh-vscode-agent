@@ -4162,7 +4162,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     replaceRisk: 'shadows-shipped-ui',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'vscode.conversation\', () => ctx.slots.register(\n      { name: \'vscode.conversation\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-vscode/src/client/contract.ts:50',
+    source: 'packages/client/ui-vscode/src/client/contract.ts:59',
   },
 ]
 /* jscpd:ignore-end */
