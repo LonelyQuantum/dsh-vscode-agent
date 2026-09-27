@@ -28,6 +28,10 @@ it('prefers the packaged CLI and never falls back from invalid package metadata'
     const metadata = { schemaVersion: 1, extensionVersion: '0.0.1', dshVersion: 'test', platform: process.platform, arch: process.arch }
     await writeFile(join(root, 'runtime.json'), JSON.stringify(metadata))
     expect(await resolveInstallation(root, 'ignored-checkout')).toEqual({ directory, version: 'test' })
+    if (process.platform === 'win32') {
+      const alias = root.charAt(0).toLowerCase() + root.slice(1)
+      expect(await resolveInstallation(alias)).toEqual({ directory, version: 'test' })
+    }
     for (const invalid of [{ ...metadata, platform: 'wrong' }, { ...metadata, arch: 'wrong' },
       { ...metadata, extensionVersion: 'stale' }, { ...metadata, schemaVersion: 2 }]) {
       await writeFile(join(root, 'runtime.json'), JSON.stringify(invalid))

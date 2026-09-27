@@ -11,6 +11,9 @@ import { compressZstdFrame, generationLogPath, readSessionLog } from '../lib/ses
  */
 export async function runCompatibilityCheck({ root, workspace, evaluate, request, waitFor, readIfPresent, presetFile, selected }) {
   let phase = 'initialize'
+  const ready = () => waitFor(() => evaluate(`return !!doc.defaultView.__DSH_VSCODE__.lastSession()
+    && [...root.querySelectorAll('button')].some(button => button.textContent === 'New conversation' && !button.disabled)
+    && root.querySelector('[data-composer-input]')?.getAttribute('contenteditable') === 'true'`))
   const rpc = async (method, args) => {
     const result = await evaluate(`return (async () => {
       const method = ${JSON.stringify(method)};
@@ -43,7 +46,7 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
     await rm(join(root, 'reloaded'), { force: true })
     await writeFile(join(root, 'reload'), 'requested')
     await waitFor(() => readIfPresent(join(root, 'reloaded')))
-    await waitFor(() => evaluate('return !!root?.querySelector("[data-composer-input]")'))
+    await ready()
   }
   const profiles = await Array.fromAsync(glob('**/homes/*/profiles/vscode/package.json', { cwd: root }))
   assert.equal(profiles.length, 1)
@@ -55,6 +58,7 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
     return readSessionLog(join(home, logs[0]))
   }
   try {
+    await ready()
     if (selected === 'migration') {
       phase = 'seed immutable V3 history'
       const id = 'vscode-legacy-qualification'
@@ -107,7 +111,7 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
     } else if (selected === 'auto-review') {
       phase = 'enable optional Auto review only in the isolated profile'
       const changed = await rpc('pluginManager/setBundleEnabled', { name: '@deepseek-ai/dsh-experimental-auto-review', enabled: true })
-      assert.equal(changed.application, 'applied')
+      assert.equal(changed.application, 'applied', `${changed.error?.code ?? 'Bundle activation failed'}: ${changed.error?.diagnostic ?? 'no diagnostic'}`)
       phase = 'select Auto review and acknowledge its risk dialog'
       await waitFor(() => evaluate(`return !!root?.querySelector('[aria-label^="Access mode"]')`))
       await evaluate(`root.querySelector('[aria-label^="Access mode"]').click()`)
@@ -127,10 +131,25 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
       const events = await currentEvents()
       assert.ok(events.some(event => event.type === 'permission/preset' && event.data.preset === 'auto'))
       assert.ok(events.some(event => event.type === 'tool/result' && event.data.error === undefined))
-      phase = 'restore experimental selection after restart'
+      const expectedSession = await evaluate('return doc.defaultView.__DSH_VSCODE__.lastSession()')
+      phase = 'restore Auto review after a process crash without plugin unload'
+      await writeFile(join(root, 'crash'), 'requested')
+      await waitFor(() => readIfPresent(join(root, 'crashed')))
       await restart()
+      assert.equal(await evaluate('return doc.defaultView.__DSH_VSCODE__.lastSession()'), expectedSession, 'Restart must restore the reviewed Session')
       await waitFor(() => evaluate(`return root.querySelector('[aria-label^="Access mode"]')?.getAttribute('aria-label').includes('Auto review')`))
+      phase = 'preserve the upstream Full access transition when Auto review unloads'
+      const disabled = await rpc('pluginManager/setBundleEnabled', { name: '@deepseek-ai/dsh-experimental-auto-review', enabled: false })
+      assert.equal(disabled.application, 'applied')
+      await waitFor(() => evaluate(`return root.querySelector('[aria-label^="Access mode"]')?.getAttribute('aria-label').includes('Full access')`))
+      await waitFor(async () => (await currentEvents()).filter(event => event.type === 'permission/preset').at(-1)?.data.preset === 'danger-full-access')
+      await restart()
+      assert.equal(await evaluate('return doc.defaultView.__DSH_VSCODE__.lastSession()'), expectedSession)
+      await waitFor(() => evaluate(`return root.querySelector('[aria-label^="Access mode"]')?.getAttribute('aria-label').includes('Full access')`))
     } else {
+      phase = 'finish the initial Session before changing its preset'
+      await send('Reply only PRESET_SETUP_DONE. Do not call tools.')
+      await completed('PRESET_SETUP_DONE')
       phase = 'configure automatic compaction in the isolated profile'
       const patch = join(home, 'profiles/vscode/cordis.patch.yml')
       const original = await readFile(patch, 'utf8')
@@ -142,10 +161,12 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
       assert.equal(override.split(target).length, 2, 'Expected one preset-local compaction backend')
       await writeFile(patch, original.replace(/^\[\]\s*$/m, '') + '\n' + override.replace(target, target + '            config:\n'
         + '              thresholdRatio: 0.005\n              retainTokens: 1\n              headroomTokens: 1024\n              maxTokens: 8192\n              auto: true\n'))
-      const layout = (await rpc('pluginManager/listPlugins', {})).find(row => row.moduleName === '@deepseek-ai/dsh-client-ui-vscode')
-      await rpc('pluginManager/setPluginEnabled', { id: layout.entryId, enabled: true })
+      await restart()
       await waitFor(() => evaluate('return [...root.querySelectorAll("button")].some(button => button.textContent === "New conversation" && !button.disabled)'))
+      const previous = await evaluate('return doc.defaultView.__DSH_VSCODE__.lastSession()')
       await click('New conversation')
+      await waitFor(() => evaluate(`return !!doc.defaultView.__DSH_VSCODE__.lastSession()
+        && doc.defaultView.__DSH_VSCODE__.lastSession() !== ${JSON.stringify(previous)}`))
       const scratch = 'Disposable scratch: blue triangles repeat; these words contain no lasting task facts. '.repeat(1600)
       phase = 'create compactable history through the composer'
       await send('Remember the project code COMPACT_CONTEXT_73. The following scratch can be discarded after reading.\n' + scratch + '\nReply only COMPACTION_STORED. Do not call tools.')

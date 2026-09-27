@@ -9,6 +9,7 @@ import * as yaml from 'js-yaml'
 import { createVSIX } from '@vscode/vsce'
 import { pnpmInvocation } from '../../../scripts/pnpm-invocation.ts'
 import { runtimeClosure, type RuntimePackage } from './package-closure.ts'
+import { windowsArtifactIgnores } from './package-files.ts'
 
 const app = fileURLToPath(new URL('..', import.meta.url))
 const repository = resolve(app, '../..')
@@ -83,7 +84,9 @@ try {
   await cp(join(repository, 'LICENSE'), join(output, 'LICENSE'))
   await cp(join(app, 'README.md'), join(output, 'README.md'))
   await cp(join(app, 'README.zh.md'), join(output, 'README.zh.md'))
-  await writeFile(join(output, '.vscodeignore'), '**/*.map\n')
+  const binFiles = (await Array.fromAsync(glob('runtime/node_modules/**/.bin/*', { cwd: output })))
+    .map(path => path.replaceAll('\\', '/'))
+  await writeFile(join(output, '.vscodeignore'), windowsArtifactIgnores(binFiles))
   const packagePath = join(app, `lib/dsh-vscode-agent-${manifest.version}-win32-x64.vsix`)
   await createVSIX({ cwd: output, packagePath, target: 'win32-x64', dependencies: false,
     allowMissingRepository: true, rewriteRelativeLinks: false })

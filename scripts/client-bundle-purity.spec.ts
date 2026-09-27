@@ -45,6 +45,34 @@ function clientConfigs(id = REQUESTING_PACKAGE) {
 }
 
 describe('client bundle build faces', () => {
+  it('omits build-machine paths from CSS debug comments while retaining license text', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-client-private-path-'))
+    onTestFinished(() => { rmSync(root, { recursive: true, force: true }) })
+    const entry = join(root, 'lib/types/client/index.js')
+    const css = join(root, 'src/client/Fixture.module.css')
+    mkdirSync(dirname(entry), { recursive: true })
+    mkdirSync(dirname(css), { recursive: true })
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ name: REQUESTING_PACKAGE, type: 'module' }))
+    writeFileSync(entry, '/*! @license Test fixture license */\nimport styles from "./Fixture.module.css"; export { styles };\n')
+    writeFileSync(css, '.root { color: red; }\n')
+    const config = clientConfigs()[0]
+    if (config === undefined) throw new Error('client config missing')
+    let builds: TsdownBundle[] = []
+    try {
+      builds = await build({ ...config, cwd: root, config: false, tsconfig: false,
+        write: false, clean: false, exports: false, report: false, logLevel: 'silent' })
+      const output = builds.flatMap(bundle => bundle.chunks)
+        .find(chunk => chunk.type === 'chunk' && chunk.fileName === 'client.js')
+      if (output?.type !== 'chunk') throw new Error('client chunk missing')
+      expect(output.code).toContain('Test fixture license')
+      expect(output.code).toContain('data-plugin-css')
+      expect(output.code).not.toContain(root)
+      expect(output.code).not.toContain(root.replaceAll('\\', '/'))
+    } finally {
+      for (const bundle of builds) await bundle[Symbol.asyncDispose]()
+    }
+  })
+
   it('watches source in development and consumes emitted JavaScript in the Client build', () => {
     const bundle = clientBundle('@deepseek-ai/dsh-client-test', ['lib/types/index.js'])
     const development = bundle({ env: {} }).find(config => config.platform === 'browser')

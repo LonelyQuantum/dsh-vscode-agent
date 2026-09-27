@@ -25,7 +25,7 @@ async function main() {
     writeFileSync(profilePath, JSON.stringify(profile, null, 2) + '\n')
   }
   const application = runProfile({ environment: loadLayeredEnv('dsh'), profile: 'vscode',
-    patchFiles: [], args: ['--no-open', '--host', '127.0.0.1', '--port', '0'], resolutionMode: 'runtime' })
+    patchFiles: [], args: ['--no-open', '--host', '127.0.0.1', '--port', '0'] })
   let stopping
   const stop = () => stopping ??= (async () => {
     const running = await application.catch(() => undefined)

@@ -13,7 +13,9 @@ export async function runEditorUxCheck({ evaluate, request, waitFor }) {
       modifiers, ...(text === undefined ? {} : { text, unmodifiedText: text }) })
     await request('Input.dispatchKeyEvent', { type: 'keyUp', key, code: key, windowsVirtualKeyCode: code, modifiers })
   }
-  await waitFor(() => evaluate('return root?.querySelector("[data-composer-input]")?.getAttribute("contenteditable") === "true"'))
+  await waitFor(() => evaluate(`return !!doc.defaultView.__DSH_VSCODE__.lastSession()
+    && [...root.querySelectorAll('button')].some(button => button.textContent === 'New conversation' && !button.disabled)
+    && root.querySelector('[data-composer-input]')?.getAttribute('contenteditable') === 'true'`))
   await evaluate('root.querySelector("[data-composer-input]").focus()')
   await request('Input.insertText', { text: 'editor draft' })
   const markup = await evaluate('return root.querySelector("[data-composer-input]").innerHTML')
