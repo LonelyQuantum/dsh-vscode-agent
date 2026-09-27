@@ -1,7 +1,9 @@
-- Editor layout: single column at 420 px
+- Editor layout: single column at 320/420 px
 - Selection reference: context.ts · v7*
 - Preview: exact immutable snapshot
 - Credential gesture: native carrier
 - History return: draft retained
 - Escape: history closes and focus returns
-- Theme: light, dark, high contrast carrier colors
+- Keyboard: modified Enter and IME retain drafts; Shift+Enter inserts a line
+- Permission menu: viewport-contained; Escape and outside click dismiss
+- Theme: light, dark, high contrast dark/light carrier colors

@@ -52,7 +52,7 @@ Static assets use VS Code resource URLs. The development CSP allows `unsafe-eval
 
 ## Verification
 
-The editor chrome supports keyboard focus into History and Escape back to its toggle. The carrier stylesheet maps primary background, text, border, and font tokens to VS Code, adds high-contrast focus borders, and respects reduced motion. Unexpected runtime exit shows a localized restart instruction and drops the stale connection; reopening starts a new owned process without automatically resending input. Page error diagnostics carry only a failure flag, never raw exception text.
+The editor chrome supports keyboard focus into History and Escape back to its toggle. Capturing a selection returns focus to the composer; modified Enter chords and IME composition preserve the draft, while Shift+Enter inserts a line. The carrier stylesheet maps background, text, border, and font tokens to VS Code, supports light/dark and both high-contrast themes, and respects reduced motion. Keyless browser checks cover 320/420 px layouts, permission-menu dismissal, immutable context replay, and 45 recorded tool results inside keyboard-operated process groups. Unexpected runtime exit shows a localized restart instruction without resending input. Page error diagnostics carry only a failure flag, never raw exception text.
 
 Focused tests run without provider credentials:
 
@@ -78,6 +78,8 @@ Use `--faults` with `--live-home` to select fault qualification instead of the o
 Two additional live probes require explicit selection: `--faults --fault-case streaming` disconnects the Gateway after model text starts streaming; `--faults --fault-case rebuild` atomically replaces a temporary plugin's client artifact during streaming and observes the rebuild event, replacement mount, and disposal. Both require `--live-home`, retain the draft and selected Session without reloading the Webview, and require model completion plus exactly one durable user input. The plugin probe restores its isolated profile and verifies both artifact generations are disposed before reporting success. It exercises artifact watching and client reload, not the source compiler.
 
 Use `--compat-case migration`, `--compat-case auto-review`, or `--compat-case compaction` with `--live-home` to qualify one Session path. Migration seeds test-owned V3 history, continues it through V4, and checks that the predecessor bytes, identity, and modification time survive restart. Auto review enables the optional experimental bundle only in the temporary profile, acknowledges its risk dialog, and verifies a reviewed file write and restored permission selection. Compaction lowers the standard preset's threshold only in that profile, requires automatic summary/checkpoint events without `/compact`, and checks remembered context after restart. These options also accept `--vsix` to exercise an isolated installation; they cannot combine with `--faults` or `--interactions`.
+
+Add `--ux` to the Extension Host smoke to check native keyboard routing, IME Enter, multiline drafts, History focus, and capture focus in the real Webview. This keyless option accepts `--vsix` but cannot combine with model or fault options.
 
 ## Known limitations
 

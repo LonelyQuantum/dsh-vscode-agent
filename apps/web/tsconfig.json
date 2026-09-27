@@ -24,6 +24,7 @@
   "exclude": [
     "tests/vscode-context.e2e.ts",
     "tests/vscode-submission.e2e.ts",
+    "tests/vscode-tools.e2e.ts",
     "tests/shortcuts-desktop.e2e.ts",
     "tests/shortcuts-workspace.e2e.ts",
     "tests/shortcuts-panels.e2e.ts",

@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { chromium } from 'playwright'
 import { expect, it } from 'vitest'
 import { compareOrRefreshGolden, launchWebScaffold, webSnapshotMode } from './scaffold.ts'
+import { writeComposerDraft } from './support.ts'
 
 it('renders explicit editor references and native previews in a narrow conversation', async () => {
   const scaffold = await launchWebScaffold({
@@ -43,13 +44,47 @@ it('renders explicit editor references and native previews in a narrow conversat
       await page.keyboard.press('Escape')
       expect(await page.evaluate(() => document.activeElement?.textContent)).toBe('History')
       await chip.waitFor({ state: 'visible' })
-      const geometry = await root.evaluate(element => ({ width: element.clientWidth, scroll: element.scrollWidth }))
-      expect(geometry.scroll).toBeLessThanOrEqual(geometry.width)
+      for (const width of [320, 420]) {
+        await page.setViewportSize({ width, height: 900 })
+        const geometry = await root.evaluate(element => ({ width: element.clientWidth, scroll: element.scrollWidth }))
+        expect(geometry.scroll).toBeLessThanOrEqual(geometry.width)
+        const access = root.getByRole('button', { name: /^Access mode/ })
+        await access.focus()
+        await page.keyboard.press('Enter')
+        const menu = page.getByRole('menu').last()
+        await menu.waitFor()
+        const bounds = await menu.boundingBox()
+        expect(bounds!.x).toBeGreaterThanOrEqual(0)
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width)
+        await page.keyboard.press('Escape')
+        await menu.waitFor({ state: 'hidden' })
+        await access.click()
+        await menu.waitFor()
+        await root.locator('header strong').click()
+        await menu.waitFor({ state: 'hidden' })
+      }
+      for (const draft of ['unsent draft', '/']) {
+        await writeComposerDraft(page, input, draft)
+        const markup = await input.innerHTML()
+        for (const chord of ['Alt+Enter', 'Meta+Alt+Enter', 'Control+Alt+Enter', 'Control+Meta+Enter', 'Meta+Shift+Enter', 'Control+Shift+Enter']) {
+          await input.press(chord)
+          expect(await input.innerHTML(), `${draft}: ${chord}`).toBe(markup)
+        }
+        await input.press('Escape')
+      }
+      await writeComposerDraft(page, input, 'first line')
+      await input.press('Shift+Enter')
+      await page.keyboard.insertText('second line')
+      expect(await input.innerText()).toBe('first line\nsecond line')
+      await input.dispatchEvent('keydown', { key: 'Enter', code: 'Enter', isComposing: true })
+      expect(await input.innerText()).toBe('first line\nsecond line')
+      expect(await root.locator('[data-user-message]').count()).toBe(0)
       await page.addStyleTag({ content: await readFile(new URL('../../vscode/resources/editor.css', import.meta.url), 'utf8') })
       for (const [theme, background, foreground] of [
         ['vscode-light', 'rgb(255, 255, 255)', 'rgb(0, 0, 0)'],
         ['vscode-dark', 'rgb(30, 30, 30)', 'rgb(240, 240, 240)'],
         ['vscode-high-contrast', 'rgb(0, 0, 0)', 'rgb(255, 255, 0)'],
+        ['vscode-high-contrast-light', 'rgb(255, 255, 255)', 'rgb(0, 0, 128)'],
       ]) {
         await page.evaluate(({ theme, background, foreground }) => {
           document.body.className = theme!
@@ -57,15 +92,18 @@ it('renders explicit editor references and native previews in a narrow conversat
           document.body.style.setProperty('--vscode-foreground', foreground!)
           document.body.style.setProperty('--vscode-input-background', background!)
         }, { theme, background, foreground })
-        await expect.poll(() => page.evaluate(() => document.body.hasAttribute('data-ds-dark-theme'))).toBe(theme !== 'vscode-light')
+        await expect.poll(() => page.evaluate(() => document.body.hasAttribute('data-ds-dark-theme')))
+          .toBe(theme === 'vscode-dark' || theme === 'vscode-high-contrast')
         expect(await root.evaluate(element => getComputedStyle(element).backgroundColor)).toBe(background)
         expect(await root.evaluate(element => getComputedStyle(element).color)).toBe(foreground)
         expect(await root.locator('[data-composer-card]').evaluate(element => getComputedStyle(element).backgroundColor)).toBe(background)
       }
       await compareOrRefreshGolden(fileURLToPath(new URL('./expected/vscode-context/interaction.expected.md', import.meta.url)),
-        ['- Editor layout: single column at 420 px', '- Selection reference: context.ts · v7*',
+        ['- Editor layout: single column at 320/420 px', '- Selection reference: context.ts · v7*',
           '- Preview: exact immutable snapshot', '- Credential gesture: native carrier', '- History return: draft retained',
-          '- Escape: history closes and focus returns', '- Theme: light, dark, high contrast carrier colors'].join('\n'),
+          '- Escape: history closes and focus returns', '- Keyboard: modified Enter and IME retain drafts; Shift+Enter inserts a line',
+          '- Permission menu: viewport-contained; Escape and outside click dismiss',
+          '- Theme: light, dark, high contrast dark/light carrier colors'].join('\n'),
         webSnapshotMode())
     } finally { await browser.close() }
   } finally { await scaffold.close() }

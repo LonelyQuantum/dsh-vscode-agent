@@ -10,8 +10,11 @@ import { chromium } from 'playwright'
 import * as yaml from 'js-yaml'
 
 const { positionals: [executable], values } = parseArgs({ allowPositionals: true,
-  options: { vsix: { type: 'string' }, 'live-home': { type: 'string' }, interactions: { type: 'boolean' }, faults: { type: 'boolean' }, 'fault-case': { type: 'string' }, 'compat-case': { type: 'string' } } })
+  options: { vsix: { type: 'string' }, 'live-home': { type: 'string' }, interactions: { type: 'boolean' }, faults: { type: 'boolean' }, 'fault-case': { type: 'string' }, 'compat-case': { type: 'string' }, ux: { type: 'boolean' } } })
 if (!executable) throw new Error('Pass the absolute VS Code executable path, not its shell wrapper')
+if (values.ux && (values['live-home'] || values.faults || values.interactions || values['compat-case'])) {
+  throw new Error('--ux is a keyless check; select it without model, fault, or compatibility options')
+}
 if (values.interactions && !values['live-home']) throw new Error('--interactions requires --live-home')
 if (values['compat-case'] && (!values['live-home'] || values.faults || values.interactions
   || !['migration', 'auto-review', 'compaction'].includes(values['compat-case']))) {
@@ -22,7 +25,7 @@ if (values['fault-case'] && (!values.faults || !['plugins', 'reconnect', 'crash'
   throw new Error('--fault-case requires --faults and one of plugins, reconnect, crash, streaming, rebuild')
 }
 const app = fileURLToPath(new URL('..', import.meta.url))
-const ui = !!values['live-home'] || values['fault-case'] === 'plugins'
+const ui = values.ux || !!values['live-home'] || values['fault-case'] === 'plugins'
 const root = await mkdtemp(join(tmpdir(), 'dsh-vscode-editor-test-'))
 const userData = join(root, 'user')
 const extensions = join(root, 'extensions')
@@ -132,7 +135,10 @@ try {
         return result.result.value
       }
       await waitFor(() => evaluate('return !!root'))
-      if (values['compat-case']) {
+      if (values.ux) {
+        const { runEditorUxCheck } = await import('./test-editor-ux.mjs')
+        await runEditorUxCheck({ evaluate, request, waitFor })
+      } else if (values['compat-case']) {
         const { runCompatibilityCheck } = await import('./test-compatibility.mjs')
         const presetFile = values.vsix ? join(extensionPath, 'runtime/node_modules/@deepseek-ai/dsh-web-app/presets/standard.patch.yml')
           : resolve(app, '../../packages/bundle/web-app/presets/standard.patch.yml')
