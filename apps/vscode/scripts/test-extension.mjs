@@ -14,8 +14,8 @@ const { positionals: [executable], values } = parseArgs({ allowPositionals: true
 if (!executable) throw new Error('Pass the absolute VS Code executable path, not its shell wrapper')
 if (values.interactions && !values['live-home']) throw new Error('--interactions requires --live-home')
 if (values.faults && values['fault-case'] !== 'plugins' && !values['live-home']) throw new Error('Model fault probes require --live-home')
-if (values['fault-case'] && (!values.faults || !['plugins', 'reconnect', 'crash'].includes(values['fault-case']))) {
-  throw new Error('--fault-case requires --faults and one of plugins, reconnect, crash')
+if (values['fault-case'] && (!values.faults || !['plugins', 'reconnect', 'crash', 'streaming', 'rebuild'].includes(values['fault-case']))) {
+  throw new Error('--fault-case requires --faults and one of plugins, reconnect, crash, streaming, rebuild')
 }
 const app = fileURLToPath(new URL('..', import.meta.url))
 const ui = !!values['live-home'] || values['fault-case'] === 'plugins'
@@ -145,7 +145,8 @@ try {
         }
         cdp.off('Target.receivedMessageFromTarget', observeContext)
         if (contextId === undefined) throw new Error('DSH Webview execution context was not found')
-        const { runFaultChecks } = await import('./test-faults.mjs')
+        const { runFaultChecks } = await import(['streaming', 'rebuild'].includes(values['fault-case'])
+          ? './test-active-faults.mjs' : './test-faults.mjs')
         const results = await runFaultChecks({ root, workspace, evaluate, request, contextId, waitFor, readIfPresent, selected: values['fault-case'] })
         await writeFile(join(app, `lib/fault-results${values['fault-case'] ? '-' + values['fault-case'] : ''}.json`), JSON.stringify(results, null, 2) + '\n')
         faultFailures = results.some(result => !result.passed)
@@ -166,7 +167,7 @@ try {
       let logged = false
       let logsRead = 0
       const { readSessionLog } = await import('../lib/session-log.mjs')
-      for await (const path of glob(['**/*.jsonl', '**/*.jsonl.zstd'], { cwd: root })) {
+      for await (const path of glob(['**/homes/*/sessions/**/*.jsonl', '**/homes/*/sessions/**/*.jsonl.zstd'], { cwd: root })) {
         logsRead++
         const events = await readSessionLog(join(root, path))
         logged ||= events.some(event => event.type === 'user/message' && event.data.content.some(block =>

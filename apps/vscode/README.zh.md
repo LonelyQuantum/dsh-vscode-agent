@@ -6,7 +6,7 @@
 
 ## 启动预览
 
-源码基线为 DSH `0.1.7-rc.2`。更新后须重新构建；已有 `0.1.6-alpha.2` VSIX 不包含新运行时。此前模型、恢复和产物测试结果需按开发计划 R1–R4 重新验收。保留现有会话代际；用新写入器打开重要历史前，先在隔离 Harness 主目录中验证升级。
+源码基线为 DSH `0.1.7-rc.2`。更新后须重新构建；已有 `0.1.6-alpha.2` VSIX 不包含新运行时。开发计划分别记录源码模型及恢复验证与打包产物验收。保留现有会话代际；用新写入器打开重要历史前，先在隔离 Harness 主目录中验证升级。
 
 需要桌面版 VS Code 1.100 或更新版本、一个已信任的本地文件夹，以及 PATH 中满足 `^22.19.0 || >=24.0.0` 的 Node。在仓库根目录先构建共享应用，再构建扩展：
 
@@ -69,16 +69,18 @@ node apps/vscode/scripts/test-extension.mjs "C:/path/to/Microsoft VS Code/Code.e
 
 此冒烟测试创建并删除自己的临时工作区和 VS Code 数据目录，仅对该隔离测试进程禁用 Workspace Trust。测试检查未保存选区和文件快照、Problems、只读预览、真实客户端启动、API 流量、插件资源、Gateway WebSocket，以及停止后所属进程退出；不会提交模型请求。
 
-显式追加 `--live-home "C:/path/to/desktop/home"` 会使用该主目录管理的 `DEEPSEEK_API_KEY` 引用，启用付费真实模型检查。此选项支持默认 DeepSeek 路由，不复用自定义提供方设置或 OAuth 记录。密钥仅传入临时测试进程环境；测试通过真实 Webview 提交未保存选区，使用 DSH 解码器读取生成的持久化日志，并取消第二轮。不会复制凭据或桌面会话。已录制的 `vscode-editor-context` 场景还通过 `apps/web/tests/vscode-submission.e2e.ts` 无密钥回放不可变上下文提交。
+显式追加 `--live-home "C:/path/to/desktop/home"` 会使用该主目录管理的 `DEEPSEEK_API_KEY` 引用，启用付费真实模型检查。此选项支持默认 DeepSeek 路由，不复用自定义提供方设置或 OAuth 记录。密钥仅传入临时测试进程环境；测试通过真实 Webview 提交未保存选区，仅使用 DSH 解码器读取 DSH 会话目录中的日志，并取消第二轮。VS Code 自身的 JSONL 日志不在扫描范围内。不会复制凭据或桌面会话。已录制的 `vscode-editor-context` 场景还通过 `apps/web/tests/vscode-submission.e2e.ts` 无密钥回放不可变上下文提交。
 
 在真实模型检查中再追加 `--interactions`，会上传二进制字节、将排队消息转为 steering、在只读权限下请求写文件、授予“允许一次”、打开原生 diff、核对捕获文档和下载文件字节，并回答 `ask_user_question` 选项。随后重启运行时，要求同一批已提交消息各恢复一次。所有写入均限定在临时工作区。
 
 将 `--faults` 与 `--live-home` 一起使用，会选择故障验证而非普通真实模型流程。测试检查插件事件通道、停用并恢复临时 profile 的布局插件、断开已建立的 Gateway 连接，并在真实 shell 工具子进程报告就绪后终止所属运行时。模型检查使用所选 DeepSeek 凭据。结果写入已忽略的 `apps/vscode/lib/fault-results*.json`；任何用例失败都会在清理后使命令失败。`--fault-case plugins`、`--fault-case reconnect` 或 `--fault-case crash` 可选择单个领域。`--faults --fault-case plugins` 不需要 `--live-home` 或模型请求，并将实际 Host 启用状态与 UI 挂载数量和 `tests/expected/plugin-lifecycle.json` 比对。
 
+另有两项真实模型测试需要显式选择：`--faults --fault-case streaming` 在模型文本开始流式输出后断开 Gateway；`--faults --fault-case rebuild` 在流式输出期间原子替换临时插件的客户端产物，观察重建事件、替换挂载及释放。两者均需要 `--live-home`，要求不重载 Webview、保留草稿及选中会话、模型正常完成，且持久化用户输入恰好一份。插件测试在报告成功前恢复其隔离 profile，并确认两代产物均已释放。该测试覆盖产物监听及客户端重载，不覆盖源码编译器。
+
 ## 已知限制
 
 仅允许单个已信任的本地文件夹，拒绝 Remote SSH/WSL、虚拟工作区和多根工作区。同一文件夹的并发窗口、Windows 以外的操作系统及信任状态变化尚未完成集成验证。不要对同一文件夹同时打开两个此预览。
 
-工具栏提供新建对话、当前工作区历史和原生 API 密钥配置。上次选中的会话保留在 Webview 状态中，仅当它仍属于此工作区且未归档时恢复。Windows 源码预览故障测试验证了空闲 Gateway 重连后保留草稿和历史且下一轮模型请求正常，以及 shell 工具运行中终止运行时后子进程退出、显式重启、消息恢复且工具不重复执行。这些检查不代表长期断网、活动流期间重连、所有工具类别或打包 VSIX 的模型故障路径已通过验收。压缩（compaction）和媒体下载 UI 仍未验证。
+工具栏提供新建对话、当前工作区历史和原生 API 密钥配置。上次选中的会话保留在 Webview 状态中，仅当它仍属于此工作区且未归档时恢复。Windows 源码预览故障测试验证了空闲及活动流期间 Gateway 重连后保留草稿和历史，以及 shell 工具运行中终止运行时后子进程退出、显式重启、消息恢复且工具不重复执行。这些检查不代表长期断网、所有工具类别或打包 VSIX 的模型故障路径已通过验收。压缩（compaction）和媒体下载 UI 仍未验证。
 
-Windows 源码预览和隔离安装 VSIX 的无密钥检查均验证了停用和启用布局插件会移除并重新挂载恰好一个 UI，而不替换 Webview。适配器测试覆盖分块 UTF-8 事件、流错误及 EOF 后重连、路由拒绝和关闭取消。模型轮次运行中重新构建插件源码仍未验证。
+Windows 源码预览和隔离安装 VSIX 的无密钥检查均验证了停用和启用布局插件会移除并重新挂载恰好一个 UI，而不替换 Webview。适配器测试覆盖分块 UTF-8 事件、流错误及 EOF 后重连、路由拒绝和关闭取消。活动轮次中的产物重载仅在源码预览中通过验证；源码编译及打包后的实时重载仍未验证。
