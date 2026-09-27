@@ -36,6 +36,7 @@ const AUTO_CHILD_OVERLAY_PATH = join(REPO_ROOT, 'apps/web/tests/auto-review-chil
 const AUTO_PROVIDER = 'shipped-auto-review-test'
 const AUTO_MODEL = 'same-route'
 const AUTO_CALL_ID = ToolCallId('shipped-auto-review-denied-delete')
+const AUTO_SHELL = process.platform === 'win32' ? 'pwsh' : 'bash'
 const AUTO_RAW_REASON = `  direct user authorized inspection only\nTEST_ONLY_SECRET_${'x'.repeat(16_384)}  `
 const AUTO_FINAL_TEXT = 'SHIPPED_AUTO_REVIEW_REJECTION_OBSERVED'
 const AUTO_CHILD_ONE_SHOT = 'AUTO_CHILD_ONE_SHOT'
@@ -117,19 +118,22 @@ class ShippedAutoAdapter extends LlmAdapter {
       yield* textChunks(AUTO_FINAL_TEXT)
       return
     }
-    const args = JSON.stringify({ command: `rm -- '${this.targetPath.replaceAll("'", "'\\''")}'` })
+    const command = process.platform === 'win32'
+      ? `Remove-Item -LiteralPath '${this.targetPath.replaceAll("'", "''")}'`
+      : `rm -- '${this.targetPath.replaceAll("'", "'\\''")}'`
+    const args = JSON.stringify({ command, description: 'Delete the pre-existing test fixture file' })
     yield { type: 'block-start', index: 0, blockType: 'tool-call' }
     yield {
       type: 'tool-call-delta',
       index: 0,
       id: AUTO_CALL_ID,
-      name: 'bash',
+      name: AUTO_SHELL,
       argumentsDelta: args,
     }
     yield {
       type: 'block-end',
       index: 0,
-      block: { type: 'tool-call', id: AUTO_CALL_ID, name: 'bash', arguments: args },
+      block: { type: 'tool-call', id: AUTO_CALL_ID, name: AUTO_SHELL, arguments: args },
     }
     yield { type: 'usage', usage: { inputTokens: 32, outputTokens: 12 } }
     yield { type: 'finish', reason: { kind: 'tool-calls' } }
@@ -784,7 +788,7 @@ it('routes one browser-authored Auto request through the same model and asks the
     { provider: AUTO_PROVIDER, model: AUTO_MODEL },
   ])
   const [firstMain, reviewer, finalMain] = adapter.requests
-  expect(firstMain?.tools?.some(schema => schema.name === 'bash')).toBe(true)
+  expect(firstMain?.tools?.some(schema => schema.name === AUTO_SHELL)).toBe(true)
   expect(reviewer?.system).toContain('You are the final authorization reviewer for exactly one pending tool call.')
   const reviewInput = reviewer?.messages.flatMap(message => message.content)
     .filter(block => block.type === 'text')
@@ -792,10 +796,10 @@ it('routes one browser-authored Auto request through the same model and asks the
     .join('') ?? ''
   expect(reviewInput).toContain('PENDING_ACTION')
   expect(reviewInput).toContain(requestId)
-  expect(reviewInput).toContain(targetPath)
-  expect(approvalReasons).toEqual([`Auto review denied tool "bash": ${AUTO_RAW_REASON}`])
+  expect(reviewInput).toContain(JSON.stringify(targetPath).slice(1, -1))
+  expect(approvalReasons).toEqual([`Auto review denied tool "${AUTO_SHELL}": ${AUTO_RAW_REASON}`])
   const finalModelInput = JSON.stringify(finalMain?.messages)
-  expect(finalModelInput).toContain('the user rejected tool \\"bash\\"')
+  expect(finalModelInput).toContain(`the user rejected tool \\"${AUTO_SHELL}\\"`)
   expect(finalModelInput).not.toContain('direct user authorized inspection only')
   expect(finalModelInput).not.toContain('TEST_ONLY_SECRET_')
 
@@ -813,7 +817,7 @@ it('routes one browser-authored Auto request through the same model and asks the
   ))
   expect(result?.data.error).toBeUndefined()
   const durableModelResult = JSON.stringify(result?.data.message)
-  expect(durableModelResult).toContain('the user rejected tool \\"bash\\"')
+  expect(durableModelResult).toContain(`the user rejected tool \\"${AUTO_SHELL}\\"`)
   expect(durableModelResult).not.toContain('direct user authorized inspection only')
   expect(durableModelResult).not.toContain('TEST_ONLY_SECRET_')
   expect(events.some(event => (

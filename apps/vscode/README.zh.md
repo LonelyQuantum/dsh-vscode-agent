@@ -77,10 +77,12 @@ node apps/vscode/scripts/test-extension.mjs "C:/path/to/Microsoft VS Code/Code.e
 
 另有两项真实模型测试需要显式选择：`--faults --fault-case streaming` 在模型文本开始流式输出后断开 Gateway；`--faults --fault-case rebuild` 在流式输出期间原子替换临时插件的客户端产物，观察重建事件、替换挂载及释放。两者均需要 `--live-home`，要求不重载 Webview、保留草稿及选中会话、模型正常完成，且持久化用户输入恰好一份。插件测试在报告成功前恢复其隔离 profile，并确认两代产物均已释放。该测试覆盖产物监听及客户端重载，不覆盖源码编译器。
 
+将 `--compat-case migration`、`--compat-case auto-review` 或 `--compat-case compaction` 与 `--live-home` 一起使用，可验证一条会话路径。迁移测试创建测试专属 V3 历史，通过 V4 继续对话，并检查重启后前代字节、文件标识及修改时间不变。Auto review 仅在临时 profile 启用可选实验性组合包、确认风险弹窗，并验证审查后的文件写入及权限选择恢复。压缩测试仅降低该 profile 中标准预设的阈值，要求不使用 `/compact` 即产生自动摘要/检查点事件，并检查重启后上下文记忆。这些选项也接受 `--vsix` 以测试隔离安装；不能与 `--faults` 或 `--interactions` 组合。
+
 ## 已知限制
 
 仅允许单个已信任的本地文件夹，拒绝 Remote SSH/WSL、虚拟工作区和多根工作区。同一文件夹的并发窗口、Windows 以外的操作系统及信任状态变化尚未完成集成验证。不要对同一文件夹同时打开两个此预览。
 
-工具栏提供新建对话、当前工作区历史和原生 API 密钥配置。上次选中的会话保留在 Webview 状态中，仅当它仍属于此工作区且未归档时恢复。Windows 源码预览故障测试验证了空闲及活动流期间 Gateway 重连后保留草稿和历史，以及 shell 工具运行中终止运行时后子进程退出、显式重启、消息恢复且工具不重复执行。这些检查不代表长期断网、所有工具类别或打包 VSIX 的模型故障路径已通过验收。压缩（compaction）和媒体下载 UI 仍未验证。
+工具栏提供新建对话、当前工作区历史和原生 API 密钥配置。上次选中的会话保留在 Webview 状态中，仅当它仍属于此工作区且未归档时恢复。Windows 源码预览检查验证了 V3 迁移、项目内写入的 Auto review、自动压缩（compaction）、空闲及活动流期间 Gateway 重连，以及不重复输入的 shell 工具崩溃恢复。这些检查不代表长期断网、所有工具类别、打包 VSIX 的模型故障路径或媒体下载 UI 已通过验收。Auto review 仍为实验功能，默认禁用。
 
 Windows 源码预览和隔离安装 VSIX 的无密钥检查均验证了停用和启用布局插件会移除并重新挂载恰好一个 UI，而不替换 Webview。适配器测试覆盖分块 UTF-8 事件、流错误及 EOF 后重连、路由拒绝和关闭取消。活动轮次中的产物重载仅在源码预览中通过验证；源码编译及打包后的实时重载仍未验证。

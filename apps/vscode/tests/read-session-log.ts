@@ -2,6 +2,8 @@
 import { readFile } from 'node:fs/promises'
 import { parseSessionLog } from '@deepseek-ai/dsh-llm-replay'
 import { scanZstdFrames, decompressZstdFrame } from '@deepseek-ai/dsh-session-persistence-jsonl/src/zstd.ts'
+export { generationLogPath } from '@deepseek-ai/dsh-session-persistence-jsonl/src/format.ts'
+export { compressZstdFrame } from '@deepseek-ai/dsh-session-persistence-jsonl/src/zstd.ts'
 
 /**
  * Read a settled test-owned log using the same compression and Session row readers as DSH.

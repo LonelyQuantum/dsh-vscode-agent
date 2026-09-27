@@ -10,9 +10,13 @@ import { chromium } from 'playwright'
 import * as yaml from 'js-yaml'
 
 const { positionals: [executable], values } = parseArgs({ allowPositionals: true,
-  options: { vsix: { type: 'string' }, 'live-home': { type: 'string' }, interactions: { type: 'boolean' }, faults: { type: 'boolean' }, 'fault-case': { type: 'string' } } })
+  options: { vsix: { type: 'string' }, 'live-home': { type: 'string' }, interactions: { type: 'boolean' }, faults: { type: 'boolean' }, 'fault-case': { type: 'string' }, 'compat-case': { type: 'string' } } })
 if (!executable) throw new Error('Pass the absolute VS Code executable path, not its shell wrapper')
 if (values.interactions && !values['live-home']) throw new Error('--interactions requires --live-home')
+if (values['compat-case'] && (!values['live-home'] || values.faults || values.interactions
+  || !['migration', 'auto-review', 'compaction'].includes(values['compat-case']))) {
+  throw new Error('--compat-case requires --live-home and one of migration, auto-review, compaction; it cannot combine with --faults or --interactions')
+}
 if (values.faults && values['fault-case'] !== 'plugins' && !values['live-home']) throw new Error('Model fault probes require --live-home')
 if (values['fault-case'] && (!values.faults || !['plugins', 'reconnect', 'crash', 'streaming', 'rebuild'].includes(values['fault-case']))) {
   throw new Error('--fault-case requires --faults and one of plugins, reconnect, crash, streaming, rebuild')
@@ -83,7 +87,7 @@ try {
     environment.DEEPSEEK_API_KEY = credential
   }
   if (ui) environment.DSH_VSCODE_TEST_UI = root
-  if (values.faults) environment.DSH_VSCODE_TEST_FAULTS = '1'
+  if (values.faults || values['compat-case']) environment.DSH_VSCODE_TEST_FAULTS = '1'
   child = spawn(executable, [workspace, '--new-window', '--disable-extensions', '--disable-workspace-trust',
     '--skip-welcome', '--skip-release-notes', '--locale=en', '--user-data-dir', userData, '--extensions-dir', extensions,
     ...ui ? ['--remote-debugging-port=0', '--remote-debugging-address=127.0.0.1'] : [],
@@ -128,7 +132,12 @@ try {
         return result.result.value
       }
       await waitFor(() => evaluate('return !!root'))
-      if (values.faults) {
+      if (values['compat-case']) {
+        const { runCompatibilityCheck } = await import('./test-compatibility.mjs')
+        const presetFile = values.vsix ? join(extensionPath, 'runtime/node_modules/@deepseek-ai/dsh-web-app/presets/standard.patch.yml')
+          : resolve(app, '../../packages/bundle/web-app/presets/standard.patch.yml')
+        await runCompatibilityCheck({ root, workspace, evaluate, request, waitFor, readIfPresent, presetFile, selected: values['compat-case'] })
+      } else if (values.faults) {
         const contexts = []
         const observeContext = event => {
           if (event.sessionId !== sessionId) return
