@@ -20,13 +20,13 @@ function fixture(state: 'ready' | 'loading' | 'error' = 'ready') {
     sessionId,
     useSession: () => undefined,
     useSessions: selector => selector({
-      ids: [sessionId, archived], phase: 'ready', subagentsByParent: {}, jobsBySession: {},
+      ids: [sessionId, archived], phase: 'ready', projectionsBySession: {},
       byId: {
         [sessionId]: { id: sessionId, displayTitle: 'Current task', running: false, retainedBy: {}, blank: false, updatedAt: 1 },
         [archived]: { id: archived, displayTitle: 'Archived task', running: false, retainedBy: {}, blank: false, updatedAt: 1 },
       },
     }),
-    useWorkspaces: selector => selector({ items: [{ workspaceId, path: '/workspace', title: 'Workspace', sessionIds: [sessionId, archived], createdAt: '0', updatedAt: '0' }], archivedSessionIds: [archived], state: 'idle', phase: 'ready', error: null }),
+    useWorkspaces: selector => selector({ items: [{ workspaceId, path: '/workspace', title: 'Workspace', sessionIds: [sessionId, archived], createdAt: '0', updatedAt: '0' }], archivedSessionIds: [archived], pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null }),
     useWorkspaceBoot: selector => selector({ state, workspaceId }),
     t: key => dictionary[key] ?? key, renderFactorySlot: factory,
     selected: vi.fn(), ready: vi.fn(), startSession: vi.fn(), openSession: vi.fn(), configure: vi.fn(), retry: vi.fn(),

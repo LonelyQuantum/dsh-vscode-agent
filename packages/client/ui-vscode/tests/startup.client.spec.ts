@@ -43,7 +43,7 @@ async function fixture(saved?: string, delayed = false) {
   const fiber = ctx.plugin({ apply, inject })
   await fiber.await()
   const entry = slots.entries('vscode.conversation')[0]!
-  const injected = entry.inject!({} as never) as unknown as EditorInjected
+  const injected = entry.inject!({} as never) as EditorInjected
   const ready = () => { workspaces.set({ phase: 'ready', archivedSessionIds: ['archived'] }); sessions.set({ phase: 'ready' }) }
   return { slots, fiber, original, create, openSession, openWorkspace, sessions, workspaces, injected, ready, complete }
 }

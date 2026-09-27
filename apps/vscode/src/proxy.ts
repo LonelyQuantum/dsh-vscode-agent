@@ -71,7 +71,10 @@ export class HostProxy {
       try {
         for (;;) {
           const next = await reader.read()
-          if (next.done) return JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown
+          if (next.done) {
+            const captured: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+            return captured
+          }
           bytes += next.value.byteLength
           if (bytes > 24 * 1024 * 1024) throw new Error('oversized')
           chunks.push(next.value)

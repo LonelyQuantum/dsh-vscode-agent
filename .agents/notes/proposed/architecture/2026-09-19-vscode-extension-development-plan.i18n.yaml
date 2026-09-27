@@ -1,6 +1,43 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-19-vscode-extension-development-plan.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/proposed/architecture/2026-09-19-vscode-extension-development-plan.md
-2026-09-19-vscode-extension-development-plan.md: ae21dd898ea36be497043e5b375a946a1b1ebf1b
-2026-09-19-vscode-extension-development-plan.zh.md: 9b5c8c71d7b5d4e07008526c3a71d5677e7af5b2
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application:
+  en: 5690f1c03cfe99b0
+  zh: 89ab22f9ae2ac04c
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/problem:
+  en: 73b08d24c3034178
+  zh: d1d9a7f0927b58ef
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/proposal:
+  en: b869a7cc88953a73
+  zh: b6e5721ce2a4835d
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/proposal/upstream-findings-and-plan-changes:
+  en: f176b7006dd29dde
+  zh: f522a9694b4121e9
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/proposal/integration-priorities-after-this-update:
+  en: 8e733bbdfe2da805
+  zh: 758045c705dc8c03
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/proposal/process-and-data-ownership:
+  en: 353567205cb7aabe
+  zh: a1aa24fe10c43813
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/proposal/proposed-code-placement:
+  en: 531f6c79d0c538a4
+  zh: 377779a991cc1608
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/proposal/p0-progress-and-open-decisions:
+  en: dca635aa3634c53c
+  zh: 433f1261e1bfce11
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/proposal/delivery-sequence:
+  en: 3747279167ee92aa
+  zh: 6be39e20acb8f275
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/proposal/reuse-and-upstream-maintenance:
+  en: 582755b928d98deb
+  zh: 6daf68994c5b9de2
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/alternatives-considered:
+  en: c08f3cbb0fd07f8d
+  zh: 2c2fc726b845ec88
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/acceptance-criteria:
+  en: 1c80c341b2668b64
+  zh: 7f20aa5350b3f27b
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/risks:
+  en: 182d7786129c8e9e
+  zh: 6f10cbdfd9769123

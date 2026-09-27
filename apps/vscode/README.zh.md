@@ -2,9 +2,11 @@
 
 [English](README.md) | 中文
 
-此开发预览在 DSH Activity Bar 视图中打开单栏 DSH 对话。它使用现有 DSH Web 运行时和 Conversation 工厂来实现 [VS Code 开发计划](../../.agents/notes/proposed/architecture/2026-09-19-vscode-extension-development-plan.zh.md)。Windows x64 支持本地 VSIX 预览；发行验收仍未完成。
+此开发预览在 DSH Activity Bar 视图中打开单栏 DSH 对话。它使用现有 DSH Web 运行时和 Conversation 工厂来实现 [VS Code 开发计划](../../.agents/notes/proposed/architecture/2026-09-19-vscode-extension-development-plan.zh.md)。Windows x64 支持本地 VSIX 预览；发行验收仍未完成。开发宿主包保持私有；VSIX 打包独立于 npm 发布。
 
 ## 启动预览
+
+源码基线为 DSH `0.1.7-rc.2`。更新后须重新构建；已有 `0.1.6-alpha.2` VSIX 不包含新运行时。此前模型、恢复和产物测试结果需按开发计划 R1–R4 重新验收。保留现有会话代际；用新写入器打开重要历史前，先在隔离 Harness 主目录中验证升级。
 
 需要桌面版 VS Code 1.100 或更新版本、一个已信任的本地文件夹，以及 PATH 中满足 `^22.19.0 || >=24.0.0` 的 Node。在仓库根目录先构建共享应用，再构建扩展：
 
@@ -23,7 +25,7 @@ pnpm.cmd run dev:vscode
 <a id="windows-vsix"></a>
 ## Windows VSIX 预览
 
-构建共享应用后，运行 `pnpm.cmd run package:vscode`。本地产物为 `apps/vscode/lib/dsh-vscode-agent-0.0.1-win32-x64.vsix`；通过 VS Code 的 **扩展: 从 VSIX 安装** 命令安装。打包使用本地 npm tarball 和隔离的生产依赖安装，包含必需的 peer 和 Client 注入包。包内包含共享 Web 组合及其 Office 转换依赖，不包含 Desktop 的 Electron 外壳、Python/Office skills 载荷、Node 或 pnpm 分发。产物约 175 MiB；仍需兼容的外部 Node。不执行 Marketplace 发布或签名。
+构建共享应用后，运行 `pnpm.cmd run package:vscode`。本地产物为 `apps/vscode/lib/dsh-vscode-agent-0.0.1-win32-x64.vsix`；通过 VS Code 的 **扩展: 从 VSIX 安装** 命令安装。打包使用本地 npm tarball 和隔离的生产依赖安装，包含必需的 peer 和 Client 注入包。包内包含共享 Web 组合及其 Office 转换依赖，不包含 Desktop 的 Electron 外壳、Python/Office skills 载荷、Node 或 pnpm 分发。此前 `0.1.6-alpha.2` 产物约 175 MiB；更新后的产物体积需要重新测量。仍需兼容的外部 Node。不执行 Marketplace 发布或签名。
 
 打包的客户端资源与 DSH 包记录匹配版本。`runtime.json` 记录平台、架构、包版本和生产锁文件摘要。启动器拒绝版本或平台不匹配，打包元数据无效时不会回退到源码仓库。`dsh.repositoryPath` 仅适用于源码开发。构建只替换自己生成的扩展暂存目录；重新构建前请停止开发窗口。
 
@@ -42,7 +44,7 @@ pnpm.cmd run dev:vscode
 
 扩展宿主管理一个 Node 子进程，使用从共享 Web 配置派生的 `vscode` profile。每个工作区路径在扩展的 VS Code 全局存储中拥有独立的 Harness 主目录，不与桌面版共享会话。关闭面板会释放其 HTTP 请求和 socket，但保留子进程；`DSH: Stop Agent Runtime`、`DSH: Restart Agent Runtime` 和扩展退出会等待进程退出。扩展宿主意外退出时，通过 IPC 断开请求子进程关闭。
 
-子进程监听临时 IPv4 回环端口。启动 token 仅通过私有 IPC 传输；扩展宿主用它交换 HTTP-only cookie。Webview 使用限制路由的 `postMessage` HTTP 和 WebSocket 适配器，不接收启动 URL 或 cookie。Gateway 保留业务协议及流分帧。HTTP 响应按需逐步读取；上传请求经过缓冲，单次超过 8 MiB 时会在转发前被拒绝。
+子进程监听临时 IPv4 回环端口。启动 token 仅通过私有 IPC 传输；扩展宿主用它交换 HTTP-only cookie。Webview 使用限制路由的 `postMessage` HTTP 和 WebSocket 适配器，不接收启动 URL 或 cookie。Gateway 保留业务协议及流分帧。套接字适配器仅允许 Gateway URL 和文本帧，不协商子协议；事件监听器和事件处理属性均接收传输事件。HTTP 响应按需逐步读取；上传请求经过缓冲，单次超过 8 MiB 时会在转发前被拒绝。
 
 插件图事件使用 `eventsource` 库经同一带认证的 Fetch 桥接传输，仅允许 `/plugins/events`。适配器在流错误或 EOF 后重连；关闭时中止请求并取消待执行的重试。认证保留在 Extension Host。SSE 解析和重试语义由该库负责，扩展不维护第二套事件解析器。
 

@@ -1,6 +1,5 @@
 /** Capture admission and serialization preserve immutable text across asynchronous editor reads. */
 import { expect, it, vi } from 'vitest'
-import type { SessionInput } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { EditorBridge } from '../src/client/contract.ts'
 import { captureSource, insertCapture } from '../src/client/capture.ts'
 
@@ -13,7 +12,7 @@ function fixture() {
     lastSession: () => undefined, configure: vi.fn(), selected: vi.fn(), ready: vi.fn() }
   const insertReference = vi.fn(() => true)
   // This function only reads the revision and invokes the guarded insertion.
-  const input = { state: { getSnapshot: () => ({ draftRev: 9 }) }, insertReference } as unknown as SessionInput
+  const input = { state: { getSnapshot: () => ({ draftRev: 9 }) }, insertReference }
   return { complete, editor, input, insertReference, preview }
 }
 

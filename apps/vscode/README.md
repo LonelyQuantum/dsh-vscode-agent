@@ -2,9 +2,11 @@
 
 English | [中文](README.zh.md)
 
-This development preview opens a single-column DSH conversation inside the DSH Activity Bar view. It uses the existing DSH Web runtime and Conversation factory for the [VS Code development plan](../../.agents/notes/proposed/architecture/2026-09-19-vscode-extension-development-plan.md). Windows x64 supports a local VSIX preview; release acceptance remains incomplete.
+This development preview opens a single-column DSH conversation inside the DSH Activity Bar view. It uses the existing DSH Web runtime and Conversation factory for the [VS Code development plan](../../.agents/notes/proposed/architecture/2026-09-19-vscode-extension-development-plan.md). Windows x64 supports a local VSIX preview; release acceptance remains incomplete. The development carrier package is private; VSIX packaging is independent of npm publication.
 
 ## Start the preview
+
+The source baseline is DSH `0.1.7-rc.2`. Rebuild after updating; an existing `0.1.6-alpha.2` VSIX is not the new runtime. Earlier model, recovery, and artifact results require requalification in the development plan's R1–R4 queue. Preserve existing Session generations; test upgrades in an isolated Harness home before opening valuable history with the new writer.
 
 Use one trusted local folder in desktop VS Code 1.100 or newer, plus Node `^22.19.0 || >=24.0.0` on PATH. Build the shared application from the repository root before building this extension:
 
@@ -23,7 +25,7 @@ The preview reuses this checkout's built Host packages, installed dependencies, 
 <a id="windows-vsix"></a>
 ## Windows VSIX preview
 
-After building the shared application, run `pnpm.cmd run package:vscode`. The local artifact is `apps/vscode/lib/dsh-vscode-agent-0.0.1-win32-x64.vsix`; install it with VS Code's **Extensions: Install from VSIX** command. Packaging uses local npm tarballs plus an isolated production installation, including required peers and Client injection packages. It includes the shared Web composition and its Office conversion dependencies, without Desktop's Electron shell, Python/Office skills payload, Node, or pnpm distributions. The artifact is approximately 175 MiB; a compatible external Node is still required. No Marketplace publication or signing is performed.
+After building the shared application, run `pnpm.cmd run package:vscode`. The local artifact is `apps/vscode/lib/dsh-vscode-agent-0.0.1-win32-x64.vsix`; install it with VS Code's **Extensions: Install from VSIX** command. Packaging uses local npm tarballs plus an isolated production installation, including required peers and Client injection packages. It includes the shared Web composition and its Office conversion dependencies, without Desktop's Electron shell, Python/Office skills payload, Node, or pnpm distributions. The previous `0.1.6-alpha.2` artifact was approximately 175 MiB; the updated artifact needs a new size measurement. A compatible external Node is still required. No Marketplace publication or signing is performed.
 
 Packaged client assets and DSH packages have matching recorded versions. `runtime.json` records the platform, architecture, package versions, and production lockfile digest. The launcher rejects version/platform mismatches and never falls back to a checkout when packaged metadata is invalid. `dsh.repositoryPath` applies only to source development. The build replaces only its generated extension staging directory; stop development windows before rebuilding.
 
@@ -42,7 +44,7 @@ File links open in the native editor at the requested line only when the viewed 
 
 The Extension Host owns one Node child using a `vscode` profile derived from the shared Web profile. Each workspace path gets a separate Harness home under the extension's VS Code global storage, without sharing Desktop sessions. Closing the panel releases its HTTP requests and sockets but keeps the child alive; `DSH: Stop Agent Runtime`, `DSH: Restart Agent Runtime`, and extension shutdown await process exit. Abrupt Extension Host loss requests child shutdown through IPC disconnect.
 
-The child binds an ephemeral IPv4 loopback port. Its launch token travels only through private IPC; the Extension Host exchanges it for an HTTP-only cookie. The Webview uses route-limited `postMessage` HTTP and WebSocket adapters, without receiving the launch URL or cookie. Gateway retains its business protocol and stream framing. HTTP responses are pulled incrementally; uploads are buffered and rejected above 8 MiB per request before forwarding.
+The child binds an ephemeral IPv4 loopback port. Its launch token travels only through private IPC; the Extension Host exchanges it for an HTTP-only cookie. The Webview uses route-limited `postMessage` HTTP and WebSocket adapters, without receiving the launch URL or cookie. Gateway retains its business protocol and stream framing. Its socket adapter admits only the Gateway URL and text frames, without subprotocol negotiation; both event listeners and event-handler properties receive transport events. HTTP responses are pulled incrementally; uploads are buffered and rejected above 8 MiB per request before forwarding.
 
 Plugin graph events use the `eventsource` library over the same authenticated Fetch bridge, restricted to `/plugins/events`. The adapter reconnects after a stream error or EOF; closing it aborts the request and cancels pending retries. Authentication stays in the Extension Host. The library owns SSE parsing and retry semantics; the extension does not maintain a second event parser.
 

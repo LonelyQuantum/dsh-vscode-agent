@@ -67,16 +67,35 @@ async function proxyFetch(input: RequestInfo | URL, init?: RequestInit): Promise
 }
 
 /** Gateway-only socket adapter; the upstream Gateway retains framing, reconnect and cancellation. */
-class GatewaySocket extends EventTarget {
+class GatewaySocket extends EventTarget implements WebSocket {
   static readonly CONNECTING = 0
   static readonly OPEN = 1
   static readonly CLOSING = 2
   static readonly CLOSED = 3
-  readyState = GatewaySocket.CONNECTING
+  readonly CONNECTING = 0
+  readonly OPEN = 1
+  readonly CLOSING = 2
+  readonly CLOSED = 3
+  readonly url: string
+  readonly protocol = ''
+  readonly extensions = ''
+  readonly bufferedAmount = 0
+  binaryType: BinaryType = 'blob'
+  onopen: WebSocket['onopen'] = null
+  onmessage: WebSocket['onmessage'] = null
+  onerror: WebSocket['onerror'] = null
+  onclose: WebSocket['onclose'] = null
+  readyState: WebSocket['readyState'] = GatewaySocket.CONNECTING
   private readonly id = ++nextId
-  constructor(url: string | URL) {
+  constructor(url: string | URL, protocols?: string | string[]) {
     super()
-    if (String(url) !== 'ws://dsh.internal/api/remote.mux') throw new Error('Unsupported DSH stream URL')
+    this.url = String(url)
+    if (this.url !== 'ws://dsh.internal/api/remote.mux') throw new Error('Unsupported DSH stream URL')
+    if (protocols !== undefined && protocols.length !== 0) throw new Error('DSH streams do not negotiate subprotocols')
+    this.addEventListener('open', (event) => { this.onopen?.call(this, event) })
+    this.addEventListener('message', (event) => { this.onmessage?.call(this, event as MessageEvent) })
+    this.addEventListener('error', (event) => { this.onerror?.call(this, event) })
+    this.addEventListener('close', (event) => { this.onclose?.call(this, event as CloseEvent) })
     listeners.set(this.id, (message) => {
       switch (message.kind) {
         case 'socket-open':
@@ -96,8 +115,9 @@ class GatewaySocket extends EventTarget {
     })
     send(this.id, 'socket-open')
   }
-  send(data: string): void {
+  send(data: string | ArrayBufferLike | Blob | ArrayBufferView): void {
     if (this.readyState !== GatewaySocket.OPEN) throw new Error('DSH stream is not open')
+    if (typeof data !== 'string') throw new Error('DSH streams require text frames')
     send(this.id, 'socket-send', { data })
   }
   close(): void {
@@ -181,7 +201,7 @@ async function capture(kind: 'file' | 'selection' | 'problems', signal: AbortSig
 }
 
 globalThis.fetch = proxyFetch
-globalThis.WebSocket = GatewaySocket as unknown as typeof WebSocket
+globalThis.WebSocket = GatewaySocket
 globalThis.EventSource = pluginEventSource(proxyFetch)
 Reflect.set(globalThis, '__DSH_TRANSPORT__', { fetch: proxyFetch, loadBundle, ownsHost: true, streamBaseUrl: 'http://dsh.internal' })
 Reflect.set(globalThis, '__DSH_FILE_UPLOAD__', { fetch: proxyFetch })

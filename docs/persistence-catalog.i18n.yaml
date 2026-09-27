@@ -288,8 +288,8 @@
   en: 63ee1a85e4b59ae3
   zh: 63ee1a85e4b59ae3
 /session-persistence-event-catalog/events/workspace/workspace-changes-log-only:
-  en: ee6b592f9e2193a7
-  zh: 7a7a69ae52aa714a
+  en: 5ce3e2fc4d290d4a
+  zh: 2743258d91ba4a7f
 /session-persistence-event-catalog/resolved-persistence-types:
   en: 3493ecf0993e5397
   zh: ec95688f593a4ed4
@@ -1833,8 +1833,8 @@
   en: 06e6c1837e2b5d50
   zh: 37cebfe3e41294ec
 /session-persistence-event-catalog/resolved-persistence-types/turn:
-  en: a79b2ab16b9ed215
-  zh: 764cd1400ee8db63
+  en: 63adbebae029e28d
+  zh: 8f0b3f46d836cb79
 /session-persistence-event-catalog/resolved-persistence-types/type-agent-preset-selected:
   en: d59bb505610b862f
   zh: e2637fbbb8365bdf

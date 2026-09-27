@@ -15,7 +15,8 @@ import { scrubWindowsSigningEnvironment } from './windows-sign.mjs'
 export async function preparePrimaryRuntime(options: { deferSmoke?: boolean; development?: boolean } = {}): Promise<void> {
   const paths = resolveDesktopTargetBuildPaths()
   const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }
-  await preparePayload({ target: resolveDesktopBuildTarget(), output: paths.runtime, cache: paths.downloads, version, development: options.development })
+  await preparePayload({ target: resolveDesktopBuildTarget(), output: paths.runtime, cache: paths.downloads, version,
+    ...(options.development === undefined ? {} : { development: options.development }) })
   if (!options.deferSmoke) smokePrimaryRuntime(join(paths.runtime, 'primary-runtime'))
 }
 

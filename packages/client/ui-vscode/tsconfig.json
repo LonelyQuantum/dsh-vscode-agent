@@ -8,7 +8,7 @@
     "src"
   ],
   "references": [
-    { "path": "../ui-theme" },
+    { "path": "../ui-theme/tsconfig.client.json" },
     {
       "path": "../../../vendor/cordis"
     },
@@ -31,7 +31,7 @@
       "path": "../ui-workspace"
     },
     {
-      "path": "../ui-conversation"
+      "path": "../ui-conversation/tsconfig.client.json"
     },
     {
       "path": "../ui-input-trigger"
@@ -40,7 +40,7 @@
       "path": "../ui-primitives"
     },
     {
-      "path": "../locale"
+      "path": "../locale/tsconfig.client.json"
     },
     {
       "path": "../store"

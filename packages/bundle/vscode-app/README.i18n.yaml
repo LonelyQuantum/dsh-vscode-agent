@@ -1,6 +1,49 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/bundle/vscode-app/README.md
-README.md: e4090462bd71b6592f635fc93d39ddf660a2926b
-README.zh.md: a43132efaa7d95383d9a951378f9c7323aa1827f
+/:
+  en: 1eaed05042dd04ec
+  zh: cdfb8e5936f4ba88
+/deepseek-ai-dsh-vscode-app:
+  en: 70e24245789bdd0b
+  zh: be493edfb6583d7d
+/deepseek-ai-dsh-vscode-app/summary:
+  en: 79039cb47002f9a6
+  zh: 4d41236315b96644
+/deepseek-ai-dsh-vscode-app/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 364c80ee00a374ff
+/deepseek-ai-dsh-vscode-app/use-this-package:
+  en: 389cece31d72ffac
+  zh: 8664498c499b1332
+/deepseek-ai-dsh-vscode-app/understand-the-implementation:
+  en: 1f38b2f90467894b
+  zh: 2798f5fc40fc1d2d
+/deepseek-ai-dsh-vscode-app/further-exploration:
+  en: 83357446daea6e70
+  zh: 45f23af29391b7f2
+/deepseek-ai-dsh-vscode-app/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-vscode-app/model-experience/editor-surface-orientation:
+  en: 280fbdf7c9d27cc1
+  zh: baf949fc1f639798
+/deepseek-ai-dsh-vscode-app/model-experience/editor-surface-orientation/what-the-model-sees:
+  en: f8468a0ca00ccc21
+  zh: b4b70214d09a018f
+/deepseek-ai-dsh-vscode-app/model-experience/editor-surface-orientation/what-the-model-sees/vs-code-surface-section:
+  en: 112a07177d4c4e73
+  zh: 59f04fa675063361
+/deepseek-ai-dsh-vscode-app/model-experience/editor-surface-orientation/token-effect:
+  en: 4300e49d88ed54a5
+  zh: efccfdaebc8747da
+/deepseek-ai-dsh-vscode-app/model-experience/editor-surface-orientation/kv-cache-effect:
+  en: 46a76116d45b50c5
+  zh: 76f5ca7866fbb2e6
+/deepseek-ai-dsh-vscode-app/known-limitations-and-deferred-work:
+  en: 1c7940b7fd68b852
+  zh: 534a411493f924dc
+/deepseek-ai-dsh-vscode-app/known-limitations-and-deferred-work/dev-note:
+  en: c798e21d50246c70
+  zh: 8f63a95e85603a6f

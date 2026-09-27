@@ -1,6 +1,25 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write apps/vscode/README.md
-README.md: bb9d98c4e9133e375a01377aeccc2fe0d75afbfe
-README.zh.md: 5c0014230419c106457f2de179800999759d68e5
+/dsh-vs-code-development-preview:
+  en: 75eb27f01f2634a1
+  zh: d20ac1ee62ad7052
+/dsh-vs-code-development-preview/start-the-preview:
+  en: a1bf19df301300a0
+  zh: 0551003be0627596
+/dsh-vs-code-development-preview/windows-vsix-preview:
+  en: 62e0611128387b37
+  zh: e9da0e06ee5af3b9
+/dsh-vs-code-development-preview/editor-context:
+  en: 67b6f263b9439e27
+  zh: 5d5c71eb9df942a1
+/dsh-vs-code-development-preview/runtime-and-transport:
+  en: ea3dc218b088b042
+  zh: 2777ae53a474ccfe
+/dsh-vs-code-development-preview/verification:
+  en: 88d1120c520caac2
+  zh: 9de4b000173734d8
+/dsh-vs-code-development-preview/known-limitations:
+  en: 08faefb84f985e64
+  zh: 81494bf838a1198f

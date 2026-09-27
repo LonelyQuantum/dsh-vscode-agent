@@ -3,6 +3,11 @@ import type { SessionInput } from '@deepseek-ai/dsh-client-ui-conversation/clien
 import type { InputTriggerSource } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import type { CaptureKind, EditorBridge } from './contract.ts'
 
+/** Draft fields and insertion operation used by native captures. */
+type CaptureInput = Pick<SessionInput, 'insertReference'> & {
+  state: { getSnapshot(): { draftRev: number } }
+}
+
 /**
  * Insert only when the original Session generation, view, and draft still own the request.
  * @param editor Native editor carrier.
@@ -12,7 +17,7 @@ import type { CaptureKind, EditorBridge } from './contract.ts'
  * @param current Original Session generation remains selected.
  * @returns Whether the snapshot entered the visible draft.
  */
-export async function insertCapture(editor: EditorBridge, kind: CaptureKind, input: SessionInput,
+export async function insertCapture(editor: EditorBridge, kind: CaptureKind, input: CaptureInput,
   signal: AbortSignal, current: () => boolean): Promise<boolean> {
   signal.throwIfAborted()
   const draftRev = input.state.getSnapshot().draftRev

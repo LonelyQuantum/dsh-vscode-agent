@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-vscode-app",
   "description": "VS Code presentation layer over the shared Web composition",
-  "version": "0.1.6-alpha.2",
+  "version": "0.1.7-rc.2",
   "publishConfig": {
     "access": "public"
   },
@@ -34,14 +34,14 @@
     }
   },
   "dependencies": {
-    "@deepseek-ai/dsh-client-ui-vscode": "workspace:^"
+    "@deepseek-ai/dsh-client-ui-vscode": "workspace:*"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "workspace:^",
-    "@deepseek-ai/dsh-system-prompt": "workspace:^"
+    "@deepseek-ai/cordis": "workspace:~",
+    "@deepseek-ai/dsh-system-prompt": "workspace:*"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": "workspace:^",
-    "@deepseek-ai/dsh-system-prompt": "workspace:^"
+    "@deepseek-ai/cordis": "workspace:~",
+    "@deepseek-ai/dsh-system-prompt": "workspace:*"
   }
 }

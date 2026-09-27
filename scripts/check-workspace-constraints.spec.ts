@@ -27,6 +27,14 @@ const experimental = {
   },
 } satisfies WorkspaceManifest
 
+it('keeps the VSIX development carrier private while requiring its shared family version', () => {
+  const manifest = JSON.parse(readFileSync(new URL('../apps/vscode/package.json', import.meta.url), 'utf8')) as WorkspaceManifest['manifest']
+  expect(checkWorkspaceManifest({ dir: 'apps/vscode', manifest })).toEqual([])
+  expect(checkWorkspaceManifest({ dir: 'apps/vscode', manifest: { ...manifest, private: false } }))
+    .toEqual([expect.stringContaining('@deepseek-ai/dsh-vscode: package.json must set "private": true')])
+  expect(checkWorkspaceManifest({ dir: 'apps/vscode', manifest: { ...manifest, version: '0.0.0' } })).not.toEqual([])
+})
+
 describe('workspace dependency ranges', () => {
   const dependency = { dir: 'packages/core/runtime', manifest: { name: '@deepseek-ai/dsh-runtime' } }
   const cli = { dir: 'apps/cli', manifest: { name: '@deepseek-ai/dsh' } }

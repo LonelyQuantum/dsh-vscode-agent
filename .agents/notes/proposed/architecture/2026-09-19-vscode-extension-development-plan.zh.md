@@ -8,7 +8,7 @@ Status: proposed
 
 此 fork 需要一个以编辑器为中心、具有 Codex 风格交互的 VS Code 扩展，包含对话、显式文件和选区上下文、工具进度、审批及变更审查。ProleCoder 提供已有的交互参考。DSH 必须继续负责 agent（智能体）执行、会话及权限，让扩展可以跟随上游发展，无需维护平行实现。
 
-本提案在检查从 `dsh-v0.1.1-rc.2` 到 `dsh-v0.1.6-alpha.2` 的上游更新后，替代最初仅存在于对话中的开发计划。下列发现来自源码检查及上游决策记录。[VS Code 预览](../../../../apps/vscode/README.zh.md)已实现 P0–P4 的开发项；进度章节区分可用功能与待完成的发行验收。
+本提案跟随官方 `dsh-v0.1.7-rc.2` 基线。下列发现来自源码检查及上游决策记录。[VS Code 预览](../../../../apps/vscode/README.zh.md)已实现 P0–P4 的开发项；集成优先级区分此前预览证据与本次更新后所需的验收。
 
 ## 提案
 
@@ -16,16 +16,35 @@ Status: proposed
 
 ### 上游发现与计划调整
 
+集成基线为 2026-09-27 拉取的官方 `upstream/master`：`dsh-v0.1.7-rc.2`。相对 `dsh-v0.1.6-alpha.2` 基线新增 1,963 个可达提交；本地 `master` 与新基线一致。17 个扩展提交已 rebase，原分支顶端保留在 `backup/vscode-before-upstream-2026-09-27`。此操作不更新远端分支。
+
 | 已检查的上游变化 | 对扩展的影响 |
 |---|---|
-| [Desktop 包装完整 Web 应用](../../implemented/architecture/2026-09-10-desktop-web-wrapper.zh.md)，对应 PR（Pull Request）#3981。业务通信使用带身份验证的 HTTP 和 WebSocket；IPC 承载生命周期和启动数据。 | 优先评估 Extension Host 到其持有的本地回环 Web 运行时的代理。无端口业务 IPC 传输仅在证实 Webview 有此需求后考虑，不再作为前置要求。 |
-| [Connection 传输钩子](../../../../packages/client/connection/src/client/index.ts) 提供 `rpc`、`fetch`、`openStream`、`loadBundle`、`ownsHost` 和 `streamBaseUrl`；[Gateway](../../../../packages/api/gateway/README.zh.md) 负责多路复用流、就绪和恢复。 | 替换旧的 `createApiClient` 假设。通过当前接口保留单次请求取消、逻辑流取消、连接代际就绪及日志追赶行为。 |
-| [客户端模块](../../../../packages/client/modules/README.zh.md) 支持动态插件组合、延迟分片、样式和图更新；PR #4189 引入动态组合。 | 传输验证必须覆盖动态资源、精确 Fetch 路由、上传下载和模块重载，以及文本请求。 |
-| [组件 Factory](../../implemented/architecture/2026-09-10-component-factories-and-local-slots.zh.md) 已随 PR #4359 实现，包含 `conversation.content`。 | 在窄版 VS Code 布局中组合现有对话正文和输入框。保留其存储与会话作用域，通过声明的 slot 和回调实现编辑器专用控件。 |
-| [客户端生成工具展示](../../implemented/architecture/2026-08-23-client-derived-tool-presentation.zh.md) 消费原始事件及持久化结果元数据。 | 继续由 `ui-tool` 负责卡片。不要预期 Session Remote 响应含有 Host 渲染意图，也不要向 Webview 导入 Host 工具实现。 |
-| [工作区变更](../../../../packages/deliverables/workspace-changes/README.zh.md) 和[审查 UI](../../../../packages/client/ui-deliverables/README.zh.md) 捕获轮次比较；PR #4279 提供审查预览。 | 复用摘要及变更坐标。原生完整文件 diff 需要有界读取两个捕获版本：当前响应提供 hunks，而非完整文件。Host 重启后的历史审查仍需独立的持久化决策。 |
-| [应用启动器](../../../../docs/architecture.zh.md) 要求使用配置文件；[app-boot](../../../../packages/boot/app-boot/README.zh.md) 负责 runtime/link 解析与插件安装。 | 使用应用持有的 `vscode` 配置文件及共享启动器。不要引入独立 agent 可执行文件，也不要复用 Desktop 保留的配置文件。 |
-| [会话格式状态](../../../../docs/session-format-status.zh.md) 记录了已发布的格式 3；[相邻迁移](../../implemented/architecture/2026-08-31-released-session-format-migrations.zh.md) 保留不可变代际。[agent loop（智能体循环）](../../../../docs/architecture.zh.md) 负责持久化收件箱。 | 复用迁移、队列、回执及恢复行为。不要建立 Webview 自有的会话日志，也不要因产品处于预发布阶段就假定可以丢弃持久化数据。 |
+| [会话写入器](../../../../packages/core/session/src/types.ts) 已为 V4，具有相邻迁移和不可变历史代际。 | 在隔离主目录中验证打开 V3 对话并写入 V4 后继。保留已录制的 V3 编辑器上下文夹具；写入器升级本身不授权重写该夹具，也不代表支持降级。 |
+| [客户端会话展示](../../../../packages/client/ui-session/README.zh.md) 将视图绑定与 Agent scope 分离；[Conversation](../../../../packages/client/ui-conversation/README.zh.md) 增加分组和仅消息组合。 | 编辑器捕获适配当前 binding/input API。继续由 `conversation.content` 负责 UI，重新检查草稿保留、空会话启动、历史和窄栏布局。 |
+| [Connection](../../../../packages/client/connection/src/client/index.ts)、[Gateway](../../../../packages/api/gateway/README.zh.md) 和[模块系统](../../../../packages/client/modules/README.zh.md) 包含相对路由、双向流、信任分类及服务端重启后的资源版本修复。 | 保留认证 Fetch/WebSocket 桥接和由库承载的插件事件。通过真实 Webview 重新验证字节传输、取消、动态资源、活动轮次重连和插件重建。 |
+| [Agent 预设](../../../../packages/preset/agent-preset/README.zh.md) 改用 profile YAML；[Web 组合包](../../../../packages/bundle/web-app/package.json) 声明有序补丁文件。 | VS Code 层继续叠加在完整 Web 组合包之上。验证安装后的预设资源、新 profile 启动及已有 profile 协调；不向扩展复制旧预设清单。 |
+| [审批](../../../../packages/client/ui-approval/README.zh.md) 增加本地化说明及自动审查修复；[压缩](../../../../packages/compaction/compaction-basic/README.zh.md) 预留模型输出容量和余量。 | 通过共享控件重跑人工审批、自动审查、取消和压缩验收。这些仍是 DSH 能力，不在扩展内重新实现。 |
+| [带超时的用户提问](2026-09-19-timed-user-question-two-settlements.zh.md) 仍是提案；[ask-user](../../../../packages/interaction/tool-ask-user/README.zh.md) 仍等待回答或取消。发行 profile 默认禁用调度。 | 不宣称已支持非阻塞超时提问，也不隐式开启调度。它们不进入首发范围；普通反问和计划审查仍需回归覆盖。 |
+| [审查 UI](../../../../packages/client/ui-deliverables/README.zh.md) 增加文件悬停预览、应用选择、语法高亮和滚动修复。 | 保留上游 Web/Sidebar 行为，并存可选 `ConversationEditor` 服务及有界捕获内容路由。原生 diff 仍为只读，受 Host 生命周期限制。 |
+| [共享运行时准备](../../../../scripts/primary-runtime/prepare.ts) 替代 Desktop 专属辅助代码；工作区依赖采用精确 DSH 发行范围。 | 将开发时 pnpm 共享迁至共享运行时所有者，保留仅 Python 载荷支持，对齐扩展包版本和范围，重新生成生产依赖集合。VS Code 继续使用外部 Node。 |
+| [快捷键](../../../../packages/client/shortcuts/README.zh.md)、插件设置及工具/进程分组改变了共享交互界面。 | 验收新产物前重新检查 VS Code 快捷键冲突、焦点、菜单、明暗/高对比度配色和 320/420 px 宽度。语音和自动化保持可选，不作为发行前提。 |
+
+### 本次更新后的集成优先级
+
+| 顺序 | 工作及所属阶段 | 完成证据 |
+|---|---|---|
+| R0 | Rebase 适配、生成式声明、依赖及构建（P0/P4）。 | 冲突正确解决；定向测试、类型/构建检查、生成目录及双语文档与新基线一致。 |
+| R1 | 共享组合及桥接恢复（P0/P1）。 | 源码 Extension Host 启动、提交/取消、传输字节、流式输出期间重连及轮次内插件重建均不重复输入或泄漏凭据。 |
+| R2 | 会话及交互兼容（P1/P2/P3）。 | V3→V4 打开/写入保留前代；编辑器上下文回放、队列/steering、人工/自动审批、反问、压缩、重启和捕获的原生 diff 保持原有语义。 |
+| R3 | Codex 风格编辑器 UX 回归（P4）。 | 窄栏回放和真实编辑器检查覆盖分组工具进度、输入框焦点、快捷键、主题、无障碍标签及原生文件/审查导航。ProleCoder 作为行为参考，不引入第二套状态模型。 |
+| R4 | 新 Windows 产物验证（P4）。 | 从此确切基线重新构建 VSIX，在仓库外安装并重复源码交互/故障检查。记录实际大小和依赖集合；发行前完成 CSP 和 Workspace Trust 审查。 |
+
+先完成 R0，再推进 R1–R4。下方进度段落记录的是 `0.1.6-alpha.2` 预览的证据，不是 `0.1.7-rc.2` 的验收结果。受影响的检查须基于新构建重跑；旧 VSIX 文件及被忽略的测试报告不构成当前证据。P5 继续延后。
+
+2026-09-27 的集成证据覆盖共享应用完整构建、扩展构建及类型检查、lint、定向运行时/客户端/审查/文档测试，以及上下文捕获、窄栏布局、主题和不可变提交的无密钥浏览器检查。编辑器上下文场景新增 V4 后继并更新共享提示词/schema 预期；V3 代际保持不变。文档检查包含网站构建。本次不包含付费模型检查或重新构建的 VSIX 验收。
+
+R0 仍有两个 Windows 检查问题：NodeNext 消费者验证需要目录符号链接，而此主机以 `EPERM` 拒绝；Cordis 验证在 `core.symlinks=false` 下将 ACP 夹具已跟踪的符号链接读为普通文本。单独进行 Windows 兼容修改，不放宽检查。R1 的真实 Extension Host 冒烟被已安装 VS Code 的更新锁阻止；编辑器更新结束后重试，不终止用户的更新进程。其余 R1–R4 验收仍未关闭。
 
 ### 进程与数据归属
 
@@ -81,7 +100,7 @@ Windows 预览已为 P0–P4 的各个开发领域提交实现，但不代表发
 
 参考 ProleCoder 的 Workspace Trust、编辑器选区及诊断、进程恢复、原生 diff 导航和 VSIX 测试。agent 执行、RPC 业务方法、历史、压缩（compaction）和工具展示继续由 DSH 负责。直接复用代码前需要确定来源和许可；行为参考不依赖导入 ProleCoder 的实现。
 
-本地 `master` 跟踪 `upstream/master`，不包含扩展提交。获取上游并快进 `master`；将验证过的基线纳入开发分支，默认不重写已发布工作。产品修改在开发分支上进行。同步 fork 远端的 `master` 是独立的 Git 推送操作，获取 upstream 不代表已执行该推送。
+本地 `master` 跟踪 `upstream/master`，不包含扩展提交。获取上游并快进 `master`；仅在用户要求时 rebase 开发分支，保留本地备份和已拉取的远端顶端。之后若获准推送重写历史，使用精确的 `--force-with-lease`，禁止 `--force`。同步 fork 远端的 `master` 是独立推送操作，获取 upstream 不代表已执行该推送。
 
 ## 考虑过的替代方案
 

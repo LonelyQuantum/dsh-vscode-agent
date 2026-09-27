@@ -36,7 +36,7 @@ export interface WorkspaceBoot {
 }
 
 /** Callbacks and the one private startup observable bound by the renderer. */
-export interface EditorInjected {
+export type EditorInjected = {
   /** Attach to this Session's unchanged draft. @param kind Explicit action. @param signal View lifetime. */
   capture(kind: CaptureKind, signal: AbortSignal): void
   hooks: { workspaceBoot: HostObservable<WorkspaceBoot> }
