@@ -22,7 +22,7 @@ const STYLES = [
 ] as const
 
 /**
- * Mount the global theme sheets for exactly the owning plugin lifetime.
+ * Mount the global theme sheets for the plugin lifetime, inheriting the page script nonce.
  * @param ctx - Owning plugin context.
  */
 export function installThemeStyles(ctx: Context): void {
@@ -30,6 +30,8 @@ export function installThemeStyles(ctx: Context): void {
   for (const [name, css] of STYLES) {
     ctx.effect(() => {
       const tag = document.createElement('style')
+      const nonce = document.querySelector<HTMLScriptElement>('script[nonce]')?.nonce
+      if (nonce) tag.nonce = nonce
       tag.dataset.plugin = PLUGIN_ID
       tag.dataset.pluginCss = `${PLUGIN_ID}/${name}`
       tag.textContent = css

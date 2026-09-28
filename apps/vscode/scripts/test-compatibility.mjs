@@ -138,14 +138,28 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
       await restart()
       assert.equal(await evaluate('return doc.defaultView.__DSH_VSCODE__.lastSession()'), expectedSession, 'Restart must restore the reviewed Session')
       await waitFor(() => evaluate(`return root.querySelector('[aria-label^="Access mode"]')?.getAttribute('aria-label').includes('Auto review')`))
-      phase = 'preserve the upstream Full access transition when Auto review unloads'
-      const disabled = await rpc('pluginManager/setBundleEnabled', { name: '@deepseek-ai/dsh-experimental-auto-review', enabled: false })
-      assert.equal(disabled.application, 'applied')
-      await waitFor(() => evaluate(`return root.querySelector('[aria-label^="Access mode"]')?.getAttribute('aria-label').includes('Full access')`))
-      await waitFor(async () => (await currentEvents()).filter(event => event.type === 'permission/preset').at(-1)?.data.preset === 'danger-full-access')
+      phase = 'preserve Auto review during a graceful runtime restart'
       await restart()
       assert.equal(await evaluate('return doc.defaultView.__DSH_VSCODE__.lastSession()'), expectedSession)
-      await waitFor(() => evaluate(`return root.querySelector('[aria-label^="Access mode"]')?.getAttribute('aria-label').includes('Full access')`))
+      await waitFor(() => evaluate(`return root.querySelector('[aria-label^="Access mode"]')?.getAttribute('aria-label').includes('Auto review')`))
+      assert.equal((await currentEvents()).filter(event => event.type === 'permission/preset').at(-1)?.data.preset, 'auto')
+      phase = 'fall back to Read Only when Auto review unloads'
+      const disabled = await rpc('pluginManager/setBundleEnabled', { name: '@deepseek-ai/dsh-experimental-auto-review', enabled: false })
+      assert.equal(disabled.application, 'applied')
+      await waitFor(() => evaluate(`return root.querySelector('[aria-label^="Access mode"]')?.getAttribute('aria-label').includes('Read Only')`))
+      await waitFor(async () => (await currentEvents()).filter(event => event.type === 'permission/preset').at(-1)?.data.preset === 'read-only')
+      phase = 'require human approval for a write after reviewer removal'
+      await send('Create unreviewed.txt containing UNREVIEWED using a file-writing tool, not shell or run_code. If approval is denied, do not retry or use another tool. Then reply AUTO_FALLBACK_DONE.')
+      await waitFor(() => evaluate('return !!root.querySelector("[data-approval-key]")'), 90_000)
+      assert.equal(await readIfPresent(join(workspace, 'unreviewed.txt')), undefined)
+      await evaluate(`const card = root.querySelector('[data-approval-key]');
+        const reject = [...card.querySelectorAll('button')].find(button => /Reject/.test(button.textContent));
+        if (!reject) throw new Error('Approval rejection control is missing'); reject.click()`)
+      await completed('AUTO_FALLBACK_DONE')
+      assert.equal(await readIfPresent(join(workspace, 'unreviewed.txt')), undefined)
+      await restart()
+      assert.equal(await evaluate('return doc.defaultView.__DSH_VSCODE__.lastSession()'), expectedSession)
+      await waitFor(() => evaluate(`return root.querySelector('[aria-label^="Access mode"]')?.getAttribute('aria-label').includes('Read Only')`))
     } else {
       phase = 'finish the initial Session before changing its preset'
       await send('Reply only PRESET_SETUP_DONE. Do not call tools.')

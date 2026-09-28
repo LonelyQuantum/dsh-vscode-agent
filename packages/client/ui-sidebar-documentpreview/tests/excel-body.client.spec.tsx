@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Excel preview lifecycle and read-only renderer settings. */
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { Config } from '../src/config.ts'
 import { en, zh } from '../src/client/excel/locales.ts'
@@ -19,6 +19,16 @@ const loadedProps = { ...props, format: 'xlsx', loading: <LoadingIndicator label
 const value = { sheets: [{ name: 'Budget', celldata: [] }], missingResults: 0, unsupportedFeatures: [] }
 const formulaValue = { sheets: [{ name: 'Budget', celldata: [{ r: 0, c: 0, v: { f: '=SUM(1,2)', m: '' } }] }], missingResults: 1, unsupportedFeatures: [] }
 afterEach(() => { cleanup(); vi.resetAllMocks(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
+
+it('authorizes the spreadsheet stylesheet with the page script nonce', async () => {
+  const script = document.createElement('script')
+  script.nonce = 'test-excel-nonce'
+  document.head.append(script)
+  onTestFinished(() => { script.remove() })
+  mocked.parse.mockResolvedValue(value)
+  const view = render(<ExcelBody {...loadedProps} />)
+  await waitFor(() => { expect(view.container.querySelector('style')?.nonce).toBe('test-excel-nonce') })
+})
 
 it('refreshes the existing workbook on pane resize and disconnects on file replacement and unmount', async () => {
   const observers: { callback: ResizeObserverCallback; observe: ReturnType<typeof vi.fn>; disconnect: ReturnType<typeof vi.fn> }[] = []

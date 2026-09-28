@@ -1088,23 +1088,20 @@ it('withdraws Auto on shipped Loader unload and does not restore migrated live s
 
     await autoEntry.update({ disabled: true })
     await ctx.loader.await()
-    expect(ctx.permissionPresets.names).not.toContain('auto')
-    expect(ctx.permissionPresets.current(handle.agent.session)).toBe('danger-full-access')
-    expect(ctx.sandboxPolicy.overrideOf(handle.agent.session)).toBe('danger-full-access')
-    expect(ctx.approval.overrideOf(handle.agent.session)).toBe('never')
-    expect(terminals.list(handle.agent)).toMatchObject([
-      { sessionId: terminal.sessionId, pid: terminal.pid, status: { kind: 'running' } },
-    ])
-    const sent = await terminals.startSend(handle.agent, terminal.sessionId, {
-      text: 'echo AUTO_TERMINAL_SURVIVED', submit: true,
-    }).done
-    expect(sent.sessionStatus).toEqual({ kind: 'running' })
-    expect(sent.viewport).toContain('AUTO_TERMINAL_SURVIVED')
+    await expect.poll(() => ctx.permissionPresets.names).not.toContain('auto')
+    expect(ctx.permissionPresets.current(handle.agent.session)).toBe('read-only')
+    expect(ctx.sandboxPolicy.overrideOf(handle.agent.session)).toBe('read-only')
+    expect(ctx.approval.overrideOf(handle.agent.session)).toBe('ask')
+    expect(terminals.list(handle.agent)).toEqual([])
+    expect(terminals.hasOwnerActivity(handle.agent)).toBe(false)
+    expect(() => terminals.startSend(handle.agent, terminal.sessionId, {
+      text: 'echo UNREVIEWED_TERMINAL', submit: true,
+    })).toThrow('unknown PTY session')
 
     await autoEntry.update({ disabled: false })
     await ctx.loader.await()
     expect(ctx.permissionPresets.names).toContain('auto')
-    expect(ctx.permissionPresets.current(handle.agent.session)).toBe('danger-full-access')
+    expect(ctx.permissionPresets.current(handle.agent.session)).toBe('read-only')
   } finally {
     await handle.dispose()
   }

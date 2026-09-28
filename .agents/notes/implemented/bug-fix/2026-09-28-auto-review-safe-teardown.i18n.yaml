@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for 2026-09-28-auto-review-safe-teardown.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-28-auto-review-safe-teardown.md
+/agent-note-preserve-reviewed-permissions-during-teardown:
+  en: 20db5414947b4120
+  zh: 50e1966e17c260f3
+/agent-note-preserve-reviewed-permissions-during-teardown/problem:
+  en: 63dd71a6c9d2dc9d
+  zh: 43e41bf64607daa8
+/agent-note-preserve-reviewed-permissions-during-teardown/decision:
+  en: 02441ca2b1c8a2f5
+  zh: 0ce39dfee1e4cef0
+/agent-note-preserve-reviewed-permissions-during-teardown/alternatives-considered:
+  en: 387c3609f67f6d24
+  zh: 8f9a225e1e0388a2
+/agent-note-preserve-reviewed-permissions-during-teardown/consequences:
+  en: b0d7335da97de633
+  zh: 2cdd960290547db2

@@ -49,7 +49,7 @@ export function ExcelBody({ content, format, limits, t, loading }: LoadedExcelBo
   </div>
   const hasFormulas = state.value.sheets.some(sheet => sheet.celldata?.some(cell => cell.v?.f !== undefined))
   return <section className={css.body} data-excel-preview aria-label={t('title')}>
-    <style>{scopedStyles}</style>
+    <style nonce={document.querySelector<HTMLScriptElement>('script[nonce]')?.nonce}>{scopedStyles}</style>
     {state.value.unsupportedFeatures.length > 0 && <div className={css.notice} role="note" data-excel-unsupported-notice>
       <IconWarningTriangleOutlineRegular size={16} />
       <span>{t('unsupportedNotice', { features: state.value.unsupportedFeatures.map(feature => t(feature)).join(t('featureSeparator')) })}</span>

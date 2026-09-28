@@ -19,6 +19,11 @@ it('maps static assets and installs a non-inline carrier before the Web entry', 
   for (const directive of ['base-uri', 'form-action', 'frame-src', 'object-src']) expect(html).toContain(`${directive} 'none'`)
   expect(html).toContain('/carrier/bridge.js')
   expect(html).not.toContain("script-src 'unsafe-inline'")
+  expect(html).not.toContain("'unsafe-eval'")
+  expect(html).not.toMatch(/script-src[^;]*blob:/)
+  expect(html).toContain("style-src https://local.example 'nonce-nonce123'")
+  expect(html).toContain("style-src-attr 'unsafe-inline'")
+  expect(html).not.toMatch(/style-src [^;]*'unsafe-inline'/)
   expect(html).not.toContain('http://127.0.0.1')
 })
 

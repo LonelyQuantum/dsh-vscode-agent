@@ -496,8 +496,10 @@ describe('client bundle CSS Modules watch graph', () => {
     if (virtualId === null || virtualId === undefined) throw new Error('CSS Modules import was not resolved')
     const addWatchFile = vi.fn()
 
-    await plugin.load?.call({ addWatchFile }, virtualId)
+    const source = await plugin.load?.call({ addWatchFile }, virtualId)
 
     expect(addWatchFile).toHaveBeenCalledExactlyOnceWith(stylesheet)
+    expect(source).toContain("document.querySelector('script[nonce]')?.nonce")
+    expect(source).toContain('if (nonce) tag.nonce = nonce;')
   })
 })

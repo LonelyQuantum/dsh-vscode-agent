@@ -8,8 +8,9 @@
  * @module @deepseek-ai/dsh-experimental-auto-review
  */
 
-import type { Context } from '@deepseek-ai/cordis'
+import { FiberState, type Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
+import { serviceForAgent } from '@deepseek-ai/dsh-agent-preset-registry'
 import type {} from '@deepseek-ai/dsh-agent-instructions'
 import {
   BlockAssembler,
@@ -22,7 +23,8 @@ import {
 } from '@deepseek-ai/dsh-llm'
 import { deepFreeze } from '@deepseek-ai/dsh-util-values'
 import { AUTO_PRESET } from '@deepseek-ai/dsh-permission-presets'
-import type { SessionEvent } from '@deepseek-ai/dsh-session'
+import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
+import type {} from '@deepseek-ai/dsh-terminal'
 import type {} from '@deepseek-ai/dsh-subagent'
 import type {} from '@deepseek-ai/dsh-user-approval'
 import {
@@ -123,7 +125,7 @@ interface ScopedPtcStart {
 /** Cordis plugin name used by loader diagnostics. */
 export const name = 'experimental-auto-review'
 /** Complete host services required before Auto may be advertised. */
-export const inject = ['approval', 'llm', 'permissionPresets', 'sessions', 'tools']
+export const inject = ['agents', 'approval', 'llm', 'permissionPresets', 'sessions', 'tools']
 
 /** Return JSON text for one immutable logged value. */
 function json(value: unknown): string {
@@ -678,23 +680,26 @@ function failed(exec: ToolExecution, error: unknown): PreToolDecision {
 export function apply(ctx: Context): void {
   // Retain the injected service while this context drains on disposal.
   const permissionPresets = ctx.permissionPresets
+  const agents = ctx.agents
+  const fallback = permissionPresets.resolve('read-only')
+  if (fallback.sandbox !== 'read-only' || fallback.approval !== 'ask') {
+    throw new Error('auto-review: preset "read-only" must use read-only sandbox and ask approval')
+  }
   let accepting = true
   const active = new Set<Promise<void>>()
   const lifecycle = new AbortController()
+  const closingSessions = new Set<Session>()
 
   ctx.effect(function* () {
     const stopListener = ctx.on('tools/pre-execute', async (exec, next): Promise<PreToolDecision> => {
       const agent = exec.agent
+      if (agent !== undefined && closingSessions.has(agent.session)) return { kind: 'cancel' }
       if (agent === undefined || (exec.parent === undefined && exec.name === RUN_CODE_NAME)) {
         return next()
       }
       if (permissionPresets.current(agent.session) !== AUTO_PRESET) {
         return next()
       }
-      if (!accepting || lifecycle.signal.aborted) {
-        return { kind: 'cancel' }
-      }
-
       const completed = Promise.withResolvers<void>()
       active.add(completed.promise)
       try {
@@ -726,13 +731,36 @@ export function apply(ctx: Context): void {
     yield stopContribution
     yield async () => {
       accepting = false
+      for (const session of ctx.sessions.list()) {
+        if (permissionPresets.current(session) === AUTO_PRESET) closingSessions.add(session)
+      }
+      lifecycle.abort(new Error('auto-review integration disposed'))
       try {
-        for (const session of ctx.sessions.list()) {
-          if (permissionPresets.current(session) !== AUTO_PRESET) continue
-          permissionPresets.set(session, 'danger-full-access')
+        // Application shutdown preserves the selected mode for restoration.
+        // Live removal must not grant unreviewed access after withdrawing Auto.
+        if (ctx.root.fiber.state === FiberState.ACTIVE) {
+          for (const session of closingSessions) {
+            const agent = agents.get(session.id)
+            if (agent === undefined) {
+              permissionPresets.set(session, 'read-only')
+              continue
+            }
+            agent.cancel({ kind: 'hook', reason: 'Auto review removed' })
+            await agent.whenIdle()
+            await agent.runMaintenance(async (signal) => {
+              signal.throwIfAborted()
+              const terminals = serviceForAgent(ctx, agent, 'terminals') ?? agent.ctx.get('terminals')
+              if (terminals !== undefined) {
+                for (const terminal of terminals.list(agent)) {
+                  await terminals.kill(agent, terminal.sessionId, 'Auto review removed')
+                }
+              }
+              signal.throwIfAborted()
+              permissionPresets.set(session, 'read-only')
+            })
+          }
         }
       } finally {
-        lifecycle.abort(new Error('auto-review integration disposed'))
         await Promise.allSettled([...active])
       }
     }

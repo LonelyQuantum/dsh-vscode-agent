@@ -148,7 +148,7 @@ try {
           const doc = document.querySelector('[data-vscode-conversation]') ? document : document.querySelector('iframe')?.contentDocument ?? document;
           const root = doc.querySelector('[data-vscode-conversation]');
           ${body}
-        })()`, returnByValue: true, awaitPromise: true })
+        })()`, returnByValue: true, awaitPromise: true, allowUnsafeEvalBlockedByCSP: false })
         if (result.exceptionDetails) throw new Error('Webview test DOM action failed')
         return result.result.value
       }

@@ -171,6 +171,7 @@ async function boot(): Promise<void> {
       case 'script-preload': break
       case 'style': {
         const style = document.createElement('style')
+        style.nonce = nonce
         style.textContent = String(row.text)
         document.head.append(style)
         break

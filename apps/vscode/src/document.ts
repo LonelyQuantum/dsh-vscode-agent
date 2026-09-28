@@ -21,9 +21,8 @@ export function webviewDocument(html: string, uri: (path: string) => string, csp
     if (path.split('/').some(part => part === '..') || path.includes('\\')) throw new Error('Invalid built Web asset path')
     return `${attribute}="${escaped(uri('web/' + path))}"`
   }).replace(/<script\b/g, `<script nonce="${escaped(nonce)}"`)
-  // Cordis Loader initializes its expression evaluator in the shared Web bundle; this preview requires eval.
-  const csp = `default-src 'none'; script-src ${cspSource} 'nonce-${nonce}' blob: 'unsafe-eval'; `
-    + `style-src ${cspSource} 'unsafe-inline'; `
+  const csp = `default-src 'none'; script-src ${cspSource} 'nonce-${nonce}'; `
+    + `style-src ${cspSource} 'nonce-${nonce}'; style-src-attr 'unsafe-inline'; `
     + `img-src ${cspSource} data: blob:; font-src ${cspSource} data:; connect-src ${cspSource}; worker-src blob:; `
     + 'base-uri \'none\'; form-action \'none\'; frame-src \'none\'; object-src \'none\';'
   return rewritten.replace('<head>', '<head>'
