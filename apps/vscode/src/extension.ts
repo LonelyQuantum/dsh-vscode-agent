@@ -1,11 +1,11 @@
 /** VS Code-owned lifecycle for the local DSH application preview. */
 import * as vscode from 'vscode'
 import { createHash, randomBytes } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
+import { readFile, realpath } from 'node:fs/promises'
 import { join } from 'node:path'
-import { AgentRuntime, type RuntimeReady } from './runtime.ts'
+import { AgentRuntime, RuntimeOwnershipError, type RuntimeReady } from './runtime.ts'
 import { CHANNEL, HostProxy } from './proxy.ts'
-import { webviewDocument } from './document.ts'
+import { statusDocument, webviewDocument } from './document.ts'
 import { extensionCopy } from './locale.ts'
 import { captureEditor, openWorkspaceFile, SnapshotDocuments } from './native-context.ts'
 import { capturedPair } from './review.ts'
@@ -32,6 +32,7 @@ export interface PreviewDiagnostics {
 export function activate(context: vscode.ExtensionContext): { diagnostics(): PreviewDiagnostics } {
   let diagnostics: PreviewDiagnostics = { boot: false, rpc: 0, assets: 0, socket: false, clientFailure: false }
   const text = extensionCopy(vscode.env.language)
+  const trusted = (): boolean => vscode.workspace.isTrusted
   const snapshots = new SnapshotDocuments()
   context.subscriptions.push(snapshots)
   let runtime: AgentRuntime | undefined
@@ -52,7 +53,7 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
     const activeOpening = opening
     return stopping ??= (async () => {
       closeActive?.()
-      if (panel) panel.webview.html = `<html><body><p>${text.stopped}</p></body></html>`
+      if (panel) panel.webview.html = statusDocument(text.stopped)
       await runtime?.stop()
       await activeOpening?.catch(() => {})
       await Promise.allSettled(pendingDisposals)
@@ -71,8 +72,8 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
     if (!vscode.workspace.isTrusted || vscode.env.remoteName || folders?.length !== 1 || folders[0]?.uri.scheme !== 'file') {
       await vscode.window.showWarningMessage(text.workspace); return
     }
-    const workspace = folders[0].uri.fsPath
-    current.webview.options = { enableScripts: true, localResourceRoots: [context.extensionUri] }
+    current.webview.options = { enableScripts: true, localResourceRoots:
+      ['web', 'resources', 'carrier'].map(path => vscode.Uri.joinPath(context.extensionUri, path)) }
     diagnostics = { boot: false, rpc: 0, assets: 0, socket: false, clientFailure: false }
     const lifetime = { closed: false }
     const nativeLifetime = new AbortController()
@@ -86,14 +87,16 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
       for (const binding of bindings) binding.dispose()
       closeActive = undefined
     }
-    current.webview.html = `<html><body><p>${text.starting}</p></body></html>`
+    current.webview.html = statusDocument(text.starting)
     try {
+      const workspace = vscode.Uri.file(await realpath(folders[0].uri.fsPath)).fsPath
+      if (isClosed() || !trusted()) return
       if (!booting) {
         const apiKey = await context.secrets.get('deepseek.apiKey')
-        if (isClosed()) return
+        if (isClosed() || !trusted()) return
         const config = vscode.workspace.getConfiguration('dsh')
         const installation = await resolveInstallation(context.extensionPath, config.get<string>('repositoryPath'))
-        if (isClosed()) return
+        if (isClosed() || !trusted()) return
         runtime = new AgentRuntime()
         const owner = runtime
         owner.onExit(() => {
@@ -103,7 +106,7 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
           booting = undefined
           diagnostics.clientFailure = true
           delete diagnostics.pid
-          if (panel) panel.webview.html = `<html><body><p>${text.crashed}</p></body></html>`
+          if (panel) panel.webview.html = statusDocument(text.crashed)
         })
         booting = runtime.start({ node: config.get<string>('nodePath') || 'node', installation: installation.directory,
           version: installation.version,
@@ -196,9 +199,9 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
       if (!isClosed()) current.webview.html = webviewDocument(index,
         path => current.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, path)).toString(),
         current.webview.cspSource, randomBytes(24).toString('hex'))
-    } catch {
+    } catch (error) {
       diagnostics.clientFailure = true
-      if (!lifetime.closed) current.webview.html = `<html><body><p>${text.failed}</p></body></html>`
+      if (!lifetime.closed) current.webview.html = statusDocument(error instanceof RuntimeOwnershipError ? text.ownership : text.failed)
       disposeProxy(proxy)
       proxy = undefined
       await runtime?.stop()

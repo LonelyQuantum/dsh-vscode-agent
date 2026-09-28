@@ -25,11 +25,11 @@ pnpm.cmd run dev:vscode
 <a id="windows-vsix"></a>
 ## Windows VSIX 预览
 
-构建共享应用后，运行 `pnpm.cmd run package:vscode`。本地产物为 `apps/vscode/lib/dsh-vscode-agent-0.0.2-win32-x64.vsix`；通过 VS Code 的 **扩展: 从 VSIX 安装** 命令安装。打包使用本地 npm tarball 和隔离的生产依赖安装，包含必需的 peer 和 Client 注入包。包内包含共享 Web 组合及其 Office 转换依赖，不包含 Desktop 的 Electron 外壳、Python/Office skills 载荷、Node 或 pnpm 分发。生产依赖集合记录了 283 个工作区包；开发计划记录产物测量及验收结果。客户端 JavaScript 不包含构建机器的调试路径注释，但保留许可证文本；Windows VSIX 不包含 source map、本机 pnpm 记录或 POSIX 启动脚本。仍需兼容的外部 Node。不执行 Marketplace 发布或签名。
+构建共享应用后，运行 `pnpm.cmd run package:vscode`。本地产物为 `apps/vscode/lib/dsh-vscode-agent-0.0.3-win32-x64.vsix`；通过 VS Code 的 **扩展: 从 VSIX 安装** 命令安装。打包使用本地 npm tarball 和隔离的生产依赖安装，包含必需的 peer 和 Client 注入包。包内包含共享 Web 组合及其 Office 转换依赖，不包含 Desktop 的 Electron 外壳、Python/Office skills 载荷、Node 或 pnpm 分发。生产依赖集合记录了 283 个工作区包；开发计划记录产物测量及验收结果。客户端 JavaScript 不包含构建机器的调试路径注释，但保留许可证文本；Windows VSIX 不包含 source map、本机 pnpm 记录或 POSIX 启动脚本。仍需兼容的外部 Node。不执行 Marketplace 发布或签名。
 
 打包的客户端资源与 DSH 包记录匹配版本。`runtime.json` 记录平台、架构、包版本和生产锁文件摘要。启动器拒绝版本或平台不匹配，打包元数据无效时不会回退到源码仓库。启动器在加载模块前规范化安装路径，使 Windows 盘符别名共享 DSH 的模块状态。`dsh.repositoryPath` 仅适用于源码开发。构建只替换自己生成的扩展暂存目录；重新构建前请停止开发窗口。
 
-产物冒烟测试将 VSIX 安装到仓库外的临时扩展目录并检查已安装文件：`node apps/vscode/scripts/test-extension.mjs "C:/path/to/Microsoft VS Code/Code.exe" --vsix apps/vscode/lib/dsh-vscode-agent-0.0.2-win32-x64.vsix`。它不会修改用户日常使用的 VS Code 安装。
+产物冒烟测试将 VSIX 安装到仓库外的临时扩展目录并检查已安装文件：`node apps/vscode/scripts/test-extension.mjs "C:/path/to/Microsoft VS Code/Code.exe" --vsix apps/vscode/lib/dsh-vscode-agent-0.0.3-win32-x64.vsix`。它不会修改用户日常使用的 VS Code 安装。
 
 <a id="editor-context"></a>
 ## 编辑器上下文
@@ -42,13 +42,17 @@ pnpm.cmd run dev:vscode
 
 文件链接仅在当前查看的会话目录和规范化文件属于此工作区时，才在原生编辑器的指定行打开。改动文件卡片使用 DSH 捕获的完整前后版本打开只读 `vscode.diff` 标签页，两侧合计最多 4 MiB。新建和删除文件不存在的一侧为空，并由标题明确标注。重命名使用 DSH 的旧路径和新路径快照；捕获也可能包含用户同时编辑的内容，并非仅归因于 Agent。拒绝二进制和超大文件对比。捕获随 Host 会话或运行时结束而过期；已打开的标签页保留其副本直到关闭。不提供应用或回退操作。
 
-扩展宿主管理一个 Node 子进程，使用从共享 Web 配置派生的 `vscode` profile。每个工作区路径在扩展的 VS Code 全局存储中拥有独立的 Harness 主目录，不与桌面版共享会话。关闭面板会释放其 HTTP 请求和 socket，但保留子进程；`DSH: Stop Agent Runtime`、`DSH: Restart Agent Runtime` 和扩展退出会等待进程退出。扩展宿主意外退出时，通过 IPC 断开请求子进程关闭。
+扩展宿主管理一个 Node 子进程，使用从共享 Web 配置派生的 `vscode` profile。每个规范化工作区路径在扩展的 VS Code 全局存储中拥有独立的 Harness 主目录，不与桌面版共享会话。选择主目录前会解析目录 junction 和路径大小写别名。旧版按非规范化别名索引的主目录不会被自动移动或删除。关闭面板会释放其 HTTP 请求和 socket，但保留子进程；`DSH: Stop Agent Runtime`、`DSH: Restart Agent Runtime` 和扩展退出会等待进程退出。扩展宿主意外退出时，通过 IPC 断开请求子进程关闭。
+
+子进程在初始化 profile 前为其 Harness 主目录持有上游写入锁，并在正常关闭后释放。使用同一主目录的第二个窗口会被拒绝，并显示重启提示；不同工作区主目录可以独立运行。锁记录子进程 PID，因此扩展宿主丢失后，不会在子进程仍退出中时立即允许另一个写入方进入。崩溃恢复遵循[上游锁规则](../../packages/util/atomic-write/README.zh.md)：已退出的持有者可以被接替，但不明确的记录和被复用的存活 PID 需要操作者检查。
 
 子进程监听临时 IPv4 回环端口。启动 token 仅通过私有 IPC 传输；扩展宿主用它交换 HTTP-only cookie。Webview 使用限制路由的 `postMessage` HTTP 和 WebSocket 适配器，不接收启动 URL 或 cookie。Gateway 保留业务协议及流分帧。套接字适配器仅允许 Gateway URL 和文本帧，不协商子协议；事件监听器和事件处理属性均接收传输事件。HTTP 响应按需逐步读取；上传请求经过缓冲，单次超过 8 MiB 时会在转发前被拒绝。
 
 插件图事件使用 `eventsource` 库经同一带认证的 Fetch 桥接传输，仅允许 `/plugins/events`。适配器在流错误或 EOF 后重连；关闭时中止请求并取消待执行的重试。认证保留在 Extension Host。SSE 解析和重试语义由该库负责，扩展不维护第二套事件解析器。
 
-静态资源使用 VS Code 资源 URL。开发 CSP 允许 `unsafe-eval`，因为仓库内的 Cordis 配置 loader 在客户端启动时构造函数。它不允许任意内联脚本或直接连接回环地址。移除此例外或验证其发行安全性仍属于 P0 安全决策，并非绕过认证的手段。
+静态资源限定于 `web/`、`resources/` 和 `carrier/`；工作区、Host 入口及打包运行时都不属于 Webview 资源根目录。CSP 拒绝未列出的来源、任意内联脚本、外部连接/图片、基础 URL 更改、表单、frame 和 object。带 nonce 的脚本以及基于 blob 的插件/worker 加载仍可使用。Windows 开发预览保留 `unsafe-eval`，因为共享 Cordis 配置 loader 在客户端启动时构造函数，同时保留共享 UI 所需的内联样式。这是限定范围的预览例外，不是 XSS 安全保证，也不代表已完成 Marketplace 发行加固：已安装的 Cordis 插件属于受信任代码，启用前必须审查。
+
+manifest（元数据清单）在受限模式中禁用 DSH。启动过程在异步读取工作区、凭据和安装信息后再次检查信任。授予信任后扩展可用；撤销信任会重启 Extension Host，释放所属运行时，并使 DSH 保持禁用。原生操作在接纳页面消息前也检查信任。真实编辑器信任检查使用独立观察扩展，不使用扩展测试生命周期，使 VS Code 能执行正常的宿主重启。
 
 ## 验证
 
@@ -81,9 +85,11 @@ node apps/vscode/scripts/test-extension.mjs "C:/path/to/Microsoft VS Code/Code.e
 
 在扩展宿主冒烟测试中追加 `--ux`，可在真实 Webview 中检查原生键盘路由、输入法 Enter、多行草稿、历史焦点及捕获焦点。此无密钥选项接受 `--vsix`，但不能与模型或故障选项组合。
 
+追加 `--security` 可无密钥检查浏览器实际执行的 CSP/资源限制、子进程归属竞争及两个真实对等窗口。目录 junction 别名必须被拒绝，不同工作区则能启动；对等窗口只共享测试扩展的存储。将 `--trust` 与 `--vsix` 一起使用，可验证安装扩展从受限模式到信任后启动，再回到受限模式的周期，要求原有子进程退出。该检查在隔离的用户数据、共享数据和扩展目录中操作原生 Workspace Trust 按钮。这些选项与 `--ux`、模型和故障检查分开运行。
+
 ## 已知限制
 
-仅允许单个已信任的本地文件夹，拒绝 Remote SSH/WSL、虚拟工作区和多根工作区。同一文件夹的并发窗口、Windows 以外的操作系统及信任状态变化尚未完成集成验证。不要对同一文件夹同时打开两个此预览。
+每个窗口仅允许单个已信任的本地文件夹，拒绝 Remote SSH/WSL、虚拟工作区和多根工作区。Windows 本地信任切换和多窗口归属已完成验证；macOS/Linux 尚未验证。明确不支持对同一 Harness 主目录并发编辑，包括两个窗口使用同一文件夹别名的情况。
 
 工具栏提供新建对话、当前工作区历史和原生 API 密钥配置。上次选中的会话保留在 Webview 状态中，仅当它仍属于此工作区且未归档时恢复。开发计划分别记录迁移、Auto review、压缩（compaction）及恢复的源码与安装产物证据。这些检查不代表长期断网、所有工具类别或媒体下载 UI 已通过验收。Auto review 仍为实验功能，默认禁用。
 

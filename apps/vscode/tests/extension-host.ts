@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import type { PreviewDiagnostics } from '../src/extension.ts'
 import { captureEditor, openWorkspaceFile, SnapshotDocuments } from '../src/native-context.ts'
+import { verifyRuntimeOwnership } from './runtime-ownership.ts'
 
 async function verifyEditorContext(): Promise<void> {
   const workspace = vscode.workspace.workspaceFolders![0].uri
@@ -101,6 +102,10 @@ export async function run(): Promise<void> {
     assert.notEqual(api.diagnostics().pid, crashed)
     const coordination = process.env.DSH_VSCODE_TEST_UI
     if (coordination) {
+      if (process.env.DSH_VSCODE_TEST_SECURITY) {
+        await verifyRuntimeOwnership(coordination, extension.extensionPath)
+        await connected()
+      }
       const document = await vscode.workspace.openTextDocument(vscode.Uri.joinPath(vscode.workspace.workspaceFolders![0].uri, 'context.ts'))
       const editor = await vscode.window.showTextDocument(document)
       assert.ok(await editor.edit((edit) => { edit.insert(new vscode.Position(1, 0), 'const editorOnly = "VSCODE_UNSAVED_42";\n') }))

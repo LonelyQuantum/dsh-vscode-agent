@@ -1,6 +1,6 @@
 /** Exercise a development extension or an installed VSIX in an isolated VS Code window. */
 import { spawn } from 'node:child_process'
-import { glob, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { cp, glob, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -10,11 +10,13 @@ import { chromium } from 'playwright'
 import * as yaml from 'js-yaml'
 
 const { positionals: [executable], values } = parseArgs({ allowPositionals: true,
-  options: { vsix: { type: 'string' }, 'live-home': { type: 'string' }, interactions: { type: 'boolean' }, faults: { type: 'boolean' }, 'fault-case': { type: 'string' }, 'compat-case': { type: 'string' }, ux: { type: 'boolean' } } })
+  options: { vsix: { type: 'string' }, 'live-home': { type: 'string' }, interactions: { type: 'boolean' }, faults: { type: 'boolean' }, 'fault-case': { type: 'string' }, 'compat-case': { type: 'string' }, ux: { type: 'boolean' }, security: { type: 'boolean' }, trust: { type: 'boolean' } } })
 if (!executable) throw new Error('Pass the absolute VS Code executable path, not its shell wrapper')
-if (values.ux && (values['live-home'] || values.faults || values.interactions || values['compat-case'])) {
-  throw new Error('--ux is a keyless check; select it without model, fault, or compatibility options')
+if ((values.ux || values.security || values.trust) && (values['live-home'] || values.faults || values.interactions || values['compat-case']
+  || [values.ux, values.security, values.trust].filter(Boolean).length > 1)) {
+  throw new Error('--ux, --security and --trust are separate keyless checks; select without model, fault, or compatibility options')
 }
+if (values.trust && !values.vsix) throw new Error('--trust requires an installed --vsix, not a development extension')
 if (values.interactions && !values['live-home']) throw new Error('--interactions requires --live-home')
 if (values['compat-case'] && (!values['live-home'] || values.faults || values.interactions
   || !['migration', 'auto-review', 'compaction'].includes(values['compat-case']))) {
@@ -25,7 +27,7 @@ if (values['fault-case'] && (!values.faults || !['plugins', 'reconnect', 'crash'
   throw new Error('--fault-case requires --faults and one of plugins, reconnect, crash, streaming, rebuild')
 }
 const app = fileURLToPath(new URL('..', import.meta.url))
-const ui = values.ux || !!values['live-home'] || values['fault-case'] === 'plugins'
+const ui = values.ux || values.security || values.trust || !!values['live-home'] || values['fault-case'] === 'plugins'
 const root = await mkdtemp(join(tmpdir(), 'dsh-vscode-editor-test-'))
 const userData = join(root, 'user')
 const extensions = join(root, 'extensions')
@@ -73,7 +75,7 @@ try {
       throw new Error('VS Code CLI entry was not found beside the executable')
     })
     const install = spawn(executable, [cli,
-      '--user-data-dir', userData, '--extensions-dir', extensions, '--install-extension', resolve(values.vsix)],
+      '--user-data-dir', userData, '--shared-data-dir', join(root, 'shared'), '--extensions-dir', extensions, '--install-extension', resolve(values.vsix)],
     { env: { ...environment, ELECTRON_RUN_AS_NODE: '1' }, windowsHide: true, stdio: 'inherit' })
     const code = await new Promise((resolve, reject) => { install.once('error', reject); install.once('close', resolve) })
     if (code !== 0) throw new Error('Isolated VSIX installation failed')
@@ -90,11 +92,23 @@ try {
     environment.DEEPSEEK_API_KEY = credential
   }
   if (ui) environment.DSH_VSCODE_TEST_UI = root
+  if (values.security) environment.DSH_VSCODE_TEST_SECURITY = '1'
   if (values.faults || values['compat-case']) environment.DSH_VSCODE_TEST_FAULTS = '1'
-  child = spawn(executable, [workspace, '--new-window', '--disable-extensions', '--disable-workspace-trust',
-    '--skip-welcome', '--skip-release-notes', '--locale=en', '--user-data-dir', userData, '--extensions-dir', extensions,
+  if (values.trust) {
+    extensionPath = join(root, 'trust-driver')
+    await mkdir(extensionPath)
+    await writeFile(join(extensionPath, 'package.json'), JSON.stringify({ name: 'trust-driver', publisher: 'dsh-test', version: '0.0.1',
+      engines: { vscode: '^1.100.0' }, main: './probe.cjs', activationEvents: ['onStartupFinished'],
+      capabilities: { untrustedWorkspaces: { supported: true } } }))
+    await cp(join(app, 'lib/trust-host.cjs'), join(extensionPath, 'probe.cjs'))
+    await mkdir(join(userData, 'User'), { recursive: true })
+    await writeFile(join(userData, 'User/settings.json'), JSON.stringify({ 'security.workspace.trust.startupPrompt': 'never',
+      'security.workspace.trust.enabled': true, 'telemetry.telemetryLevel': 'off', 'workbench.startupEditor': 'none' }))
+  }
+  child = spawn(executable, [workspace, '--new-window', ...values.trust ? [] : ['--disable-extensions', '--disable-workspace-trust'],
+    '--skip-welcome', '--skip-release-notes', '--locale=en', '--user-data-dir', userData, '--shared-data-dir', join(root, 'shared'), '--extensions-dir', extensions,
     ...ui ? ['--remote-debugging-port=0', '--remote-debugging-address=127.0.0.1'] : [],
-    '--extensionDevelopmentPath=' + extensionPath, '--extensionTestsPath=' + resolve(app, 'lib/extension-host.cjs')],
+    '--extensionDevelopmentPath=' + extensionPath, ...values.trust ? [] : ['--extensionTestsPath=' + resolve(app, 'lib/extension-host.cjs')]],
   { cwd: workspace, stdio: 'inherit', windowsHide: true, env: environment })
   completion = new Promise((resolve, reject) => { child.once('error', reject); child.once('close', resolve) })
   let timedOut = false
@@ -105,6 +119,10 @@ try {
       const devtools = await waitFor(() => readIfPresent(join(userData, 'DevToolsActivePort')))
       const [port, socketPath] = devtools.trim().split('\n')
       browser = await chromium.connectOverCDP(`ws://127.0.0.1:${Number(port)}${socketPath}`)
+      if (values.trust) {
+        const { runWorkspaceTrustCheck } = await import('./test-trust.mjs')
+        await runWorkspaceTrustCheck({ browser, root, waitFor, readIfPresent })
+      } else {
       const cdp = await browser.newBrowserCDPSession()
       const target = await waitFor(async () => (await cdp.send('Target.getTargets')).targetInfos
         .find(target => target.type === 'iframe' && target.url.startsWith('vscode-webview://')))
@@ -127,7 +145,7 @@ try {
       })
       const evaluate = async (body) => {
         const result = await request('Runtime.evaluate', { expression: `(() => {
-          const doc = document.querySelector('iframe')?.contentDocument ?? document;
+          const doc = document.querySelector('[data-vscode-conversation]') ? document : document.querySelector('iframe')?.contentDocument ?? document;
           const root = doc.querySelector('[data-vscode-conversation]');
           ${body}
         })()`, returnByValue: true, awaitPromise: true })
@@ -135,7 +153,12 @@ try {
         return result.result.value
       }
       await waitFor(() => evaluate('return !!root'))
-      if (values.ux) {
+      if (values.security) {
+        const { runSecurityCheck } = await import('./test-security.mjs')
+        await runSecurityCheck({ evaluate, waitFor })
+        const { runWindowIsolation } = await import('./test-windows.mjs')
+        await runWindowIsolation({ executable, extensionPath, root, workspace, app, environment, waitFor, readIfPresent })
+      } else if (values.ux) {
         const { runEditorUxCheck } = await import('./test-editor-ux.mjs')
         await runEditorUxCheck({ evaluate, request, waitFor })
       } else if (values['compat-case']) {
@@ -252,6 +275,7 @@ try {
         await waitFor(() => readIfPresent(join(root, 'reloaded')))
         await waitFor(() => evaluate(`return root?.innerText.includes('QUESTION_DONE') && JSON.stringify([...root.querySelectorAll('[data-user-message]')].map(element => element.textContent)) === ${JSON.stringify(JSON.stringify(previousMessages))}`))
         console.log('VSCODE_LIVE_RESUME_OK: prior messages restored once after runtime restart')
+      }
       }
       }
       await writeFile(join(root, 'done'), 'passed')

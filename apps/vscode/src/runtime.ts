@@ -16,6 +16,9 @@ export interface RuntimeOptions {
   apiKey?: string
 }
 
+/** The child's Harness home could not be locked; no profile was started. */
+export class RuntimeOwnershipError extends Error {}
+
 /** Owned process with a readiness handshake and awaited shutdown. */
 export class AgentRuntime {
   private readonly exitListeners = new Set<() => void>()
@@ -66,6 +69,7 @@ export class AgentRuntime {
         const message = (value: unknown): void => {
           if (typeof value !== 'object' || value === null || !('type' in value)) return
           if (value.type === 'fatal') { exited(); return }
+          if (value.type === 'ownership') { fail(new RuntimeOwnershipError('DSH runtime home is unavailable')); return }
           if (value.type !== 'ready' || !('url' in value) || typeof value.url !== 'string'
             || !('injections' in value) || !Array.isArray(value.injections)) return
           let url: URL

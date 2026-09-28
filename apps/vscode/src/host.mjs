@@ -15,6 +15,21 @@ async function main() {
   const manifest = JSON.parse(readFileSync(join(installation, 'package.json'), 'utf8'))
   if (manifest.name !== '@deepseek-ai/dsh' || manifest.version !== version) throw new Error('DSH runtime version mismatch')
   const require = createRequire(join(installation, 'package.json'))
+  const { withFileLock } = await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-atomic-write')).href)
+  let acquired = false
+  try {
+    await withFileLock(join(home, 'vscode-runtime'), async () => {
+      acquired = true
+      await run(installation, home, require)
+    }, { waitMs: 0 })
+  } catch (error) {
+    if (acquired) throw error
+    if (process.connected) process.send({ type: 'ownership' }, () => process.disconnect())
+    process.exitCode = 1
+  }
+}
+
+async function run(installation, home, require) {
   const { runProfile, initializeProfileFromDefault } = await import(pathToFileURL(join(installation, 'lib/profile-boot.js')).href)
   const { loadLayeredEnv } = await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-app-boot')).href)
   if (!existsSync(join(home, 'profiles/vscode'))) initializeProfileFromDefault('vscode', 'web', home)
@@ -27,10 +42,13 @@ async function main() {
   const application = runProfile({ environment: loadLayeredEnv('dsh'), profile: 'vscode',
     patchFiles: [], args: ['--no-open', '--host', '127.0.0.1', '--port', '0'] })
   let stopping
+  let finished
+  const stopped = new Promise(resolve => { finished = resolve })
   const stop = () => stopping ??= (async () => {
     const running = await application.catch(() => undefined)
     await running?.shutdown.shutdown(0)
     if (process.connected) process.disconnect()
+    finished()
   })()
   process.on('message', message => { if (message?.type === 'shutdown') void stop() })
   process.once('disconnect', () => { void stop() })
@@ -39,6 +57,7 @@ async function main() {
   if (!stopping && process.connected) process.send({ type: 'ready',
     url: ctx.connection.authenticatedUrl(`http://127.0.0.1:${ctx.webServer.port}`),
     injections: ctx.webServer.collectIndexInjections() })
+  await stopped
 }
 
 main().catch(() => {
