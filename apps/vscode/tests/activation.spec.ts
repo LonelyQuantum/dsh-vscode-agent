@@ -8,6 +8,7 @@ const state = vi.hoisted(() => ({
   commands: new Map<string, (...args: never[]) => unknown>(),
   resolve: undefined as ((view: object) => void) | undefined,
   start: vi.fn(), stop: vi.fn(), secret: vi.fn(), realpath: vi.fn(),
+  desktop: vi.fn(),
 }))
 vi.mock('node:fs/promises', () => ({ realpath: state.realpath, readFile: vi.fn() }))
 vi.mock('../src/runtime.ts', () => ({ RuntimeOwnershipError: class extends Error {}, AgentRuntime: class {
@@ -17,6 +18,7 @@ vi.mock('../src/runtime.ts', () => ({ RuntimeOwnershipError: class extends Error
 } }))
 vi.mock('../src/native-context.ts', () => ({ SnapshotDocuments: class { dispose() {} } }))
 vi.mock('../src/installation.ts', () => ({ resolveInstallation: vi.fn(async () => ({ directory: '/installation', version: 'fixture' })) }))
+vi.mock('../src/desktop-home.ts', () => ({ DesktopHomeError: class extends Error {}, resolveDesktopHome: state.desktop }))
 vi.mock('vscode', () => ({
   env: { language: 'en', get remoteName() { return state.remote } },
   Uri: { file: (fsPath: string) => ({ fsPath }), joinPath: (_base: object, path: string) => ({ fsPath: '/extension/' + path }) },
@@ -45,6 +47,7 @@ beforeEach(() => {
   state.start.mockReset()
   state.stop.mockReset()
   state.secret.mockReset().mockResolvedValue(undefined)
+  state.desktop.mockReset().mockResolvedValue(undefined)
   state.realpath.mockReset().mockResolvedValue('/workspace')
 })
 afterEach(async () => { await deactivate() })
@@ -87,5 +90,16 @@ it('joins startup cancellation without launching a late runtime', async () => {
   release('/workspace')
   await Promise.all([opening, stopped])
   expect(state.secret).not.toHaveBeenCalled()
+  expect(state.start).not.toHaveBeenCalled()
+})
+
+it('rechecks trust after resolving Desktop configuration', async () => {
+  let release!: (home: string | undefined) => void
+  state.desktop.mockReturnValue(new Promise<string | undefined>((resolve) => { release = resolve }))
+  const opening = open()
+  await vi.waitFor(() => { expect(state.desktop).toHaveBeenCalledOnce() })
+  state.trusted = false
+  release('/desktop')
+  await opening
   expect(state.start).not.toHaveBeenCalled()
 })

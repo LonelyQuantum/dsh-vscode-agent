@@ -2,13 +2,13 @@
 
 [English](README.md) | 中文
 
-此开发预览在 DSH Activity Bar 视图中打开单栏 DSH 对话。它使用现有 DSH Web 运行时和 Conversation 工厂来实现 [VS Code 开发计划](../../.agents/notes/proposed/architecture/2026-09-19-vscode-extension-development-plan.zh.md)。Windows x64 支持本地 VSIX 预览；发行验收仍未完成。开发宿主包保持私有；VSIX 打包独立于 npm 发布。
+此预览在 VS Code 辅助侧边栏中打开当前工作区的会话列表。在底部固定的输入框发送消息即可开始对话；左上角返回按钮回到列表，不停止任务。加号菜单用于添加文件和图片附件。Desktop 与 VS Code 默认共享本地后台：凭据、API 地址、模型配置、插件和会话历史。Windows x64 支持本地 VSIX 预览；Marketplace 验收仍未完成。
 
 ## 启动预览
 
 源码基线为 DSH `0.1.7-rc.2`。更新后须重新构建；已有 `0.1.6-alpha.2` VSIX 不包含新运行时。开发计划分别记录源码模型及恢复验证与打包产物验收。保留现有会话代际；用新写入器打开重要历史前，先在隔离 Harness 主目录中验证升级。
 
-需要桌面版 VS Code 1.100 或更新版本、一个已信任的本地文件夹，以及 PATH 中满足 `^22.19.0 || >=24.0.0` 的 Node。在仓库根目录先构建共享应用，再构建扩展：
+需要桌面版 VS Code 1.106 或更新版本，以及一个已信任的本地文件夹；独立模式还需要满足 `^22.19.0 || >=24.0.0` 的 Node。在仓库根目录先构建共享应用，再构建扩展：
 
 ```powershell
 pnpm.cmd install
@@ -16,25 +16,27 @@ pnpm.cmd run build
 pnpm.cmd run dev:vscode
 ```
 
-`dev:vscode` 构建扩展，并通过 PATH 中的 `code` 命令打开扩展开发宿主。在该窗口的 Activity Bar 打开 DSH，或在命令面板运行 `DSH: Open Agent`。中文 VS Code 显示为 `DSH: 打开 Agent`。构建产物位于 `apps/vscode/lib/extension/`；构建后可通过 `pnpm.cmd run start:vscode` 跳过构建直接启动。
+`dev:vscode` 构建扩展，并通过 PATH 中的 `code` 打开扩展开发宿主。在辅助侧边栏打开 DSH，或运行 `DSH: Open Agent`（中文为 `DSH: 打开 Agent`）。已有视图位置偏好优先生效；如有需要，使用 **移动视图 → 辅助侧边栏**。产物位于 `apps/vscode/lib/extension/`；`pnpm.cmd run start:vscode` 跳过构建。
 
 此预览复用当前仓库已构建的 Host 包、已安装的依赖及复制的 Web 资源，不会另行下载一份 Node 或 pnpm。上游更新后需重新构建共享应用和扩展；移动仓库目录后需重新构建扩展或设置 `dsh.repositoryPath`。如果扩展宿主无法在 PATH 中找到兼容的 `node`，请将机器级设置 `dsh.nodePath` 指向 Node 可执行文件的绝对路径。
 
-`DSH: 配置 API 密钥` 打开密码输入框，并将 DeepSeek 密钥保存到 VS Code SecretStorage。下次启动子进程时通过环境传入密钥，不经过 Webview 或设置。`DSH: 删除已保存的 API 密钥` 删除扩展保存的密钥；继承的环境凭据和工作区 `.env` 凭据相互独立，不受影响。更换密钥后需重启 DSH。其他模型提供方设置沿用现有 DSH Web 应用；不要把凭据写入 VS Code 设置，也不要提交 `.env` 文件。
+先启动一次更新后的 Desktop 注册后台启动器，再选择 `DSH: 连接桌面版共享后台`。机器级设置 `dsh.desktopHome` 指向包含 `profiles/desktop` 的 Harness 主目录；自动发现检查 `DSH_HOME`、当前仓库的开发版 Desktop 主目录及账户的 `.dsh` 目录。两端需要相同 DSH 版本。Desktop 无需保持打开：VS Code 可以独立启动已注册的后台。
+
+`DSH: 配置 API` 选择共享后台，或显式切换到 `dsh.backend = isolated` 并在 SecretStorage 中保存独立密钥。共享模式使用 Desktop profile 的凭据及模型提供方配置，不复制密钥。删除扩展保存的密钥不会删除 Desktop 凭据。已有私有历史仍可在独立模式访问，不会自动合并。
 
 <a id="windows-vsix"></a>
 ## Windows VSIX 预览
 
-构建共享应用后，运行 `pnpm.cmd run package:vscode`。本地产物为 `apps/vscode/lib/dsh-vscode-agent-0.0.4-win32-x64.vsix`；通过 VS Code 的 **扩展: 从 VSIX 安装** 命令安装。打包使用本地 npm tarball 和隔离的生产依赖安装，包含必需的 peer 和 Client 注入包。包内包含共享 Web 组合及其 Office 转换依赖，不包含 Desktop 的 Electron 外壳、Python/Office skills 载荷、Node 或 pnpm 分发。生产依赖集合记录了 283 个工作区包；开发计划记录产物测量及验收结果。客户端 JavaScript 不包含构建机器的调试路径注释，但保留许可证文本；Windows VSIX 不包含 source map、本机 pnpm 记录或 POSIX 启动脚本。仍需兼容的外部 Node。不执行 Marketplace 发布或签名。
+构建共享应用后，运行 `pnpm.cmd run package:vscode`。本地产物为 `apps/vscode/lib/dsh-vscode-agent-0.0.6-win32-x64.vsix`；通过 VS Code 的 **扩展: 从 VSIX 安装** 命令安装。打包使用本地 npm tarball 和隔离的生产依赖安装，包含必需的 peer 和 Client 注入包。包内包含共享 Web 组合及其 Office 转换依赖，不包含 Desktop 的 Electron 外壳、Python/Office skills 载荷、Node 或 pnpm 分发。打包运行时清单记录生产依赖集合。客户端 JavaScript 不包含构建机器的调试路径注释，但保留许可证文本；Windows VSIX 不包含 source map、本机 pnpm 记录或 POSIX 启动脚本。仍需兼容的外部 Node。不执行 Marketplace 发布或签名。
 
 打包的客户端资源与 DSH 包记录匹配版本。`runtime.json` 记录平台、架构、包版本和生产锁文件摘要。启动器拒绝版本或平台不匹配，打包元数据无效时不会回退到源码仓库。启动器在加载模块前规范化安装路径，使 Windows 盘符别名共享 DSH 的模块状态。`dsh.repositoryPath` 仅适用于源码开发。构建只替换自己生成的扩展暂存目录；重新构建前请停止开发窗口。
 
-产物冒烟测试将 VSIX 安装到仓库外的临时扩展目录并检查已安装文件：`node apps/vscode/scripts/test-extension.mjs "C:/path/to/Microsoft VS Code/Code.exe" --vsix apps/vscode/lib/dsh-vscode-agent-0.0.4-win32-x64.vsix`。它不会修改用户日常使用的 VS Code 安装。
+产物冒烟测试将 VSIX 安装到仓库外的临时扩展目录并检查已安装文件：`node apps/vscode/scripts/test-extension.mjs "C:/path/to/Microsoft VS Code/Code.exe" --vsix apps/vscode/lib/dsh-vscode-agent-0.0.6-win32-x64.vsix`。它不会修改用户日常使用的 VS Code 安装。
 
 <a id="editor-context"></a>
 ## 编辑器上下文
 
-工具栏显式捕获活动文件、选区或当前 Problems。文件快照包含规范化的工作区相对路径、语言、文档版本、未保存标记、从零开始且末端不包含的范围，以及编辑器中的确切文本。Problems 包含当前报告的诊断，不会重新分析，也不保证诊断对应的文档版本。未保存文件必须已在工作区内有磁盘路径；拒绝未命名文档和符号链接逃逸。引用 chip 以只读文档预览完整 JSON；仅在提交时，共享输入框才将相同文本序列化为普通用户输入。复制或恢复草稿保留快照文本，不会重新读取文件。
+底部工具栏显式捕获选区或当前 Problems；加号菜单上传文件和图片。文件快照包含规范化的工作区相对路径、语言、文档版本、未保存标记、从零开始且末端不包含的范围，以及编辑器中的确切文本。Problems 包含当前报告的诊断，不会重新分析，也不保证诊断对应的文档版本。未保存文件必须已在工作区内有磁盘路径；拒绝未命名文档和符号链接逃逸。引用 chip 以只读文档预览完整 JSON；仅在提交时，共享输入框才将相同文本序列化为普通用户输入。复制或恢复草稿保留快照文本，不会重新读取文件。
 
 `dsh.contextMaxBytes` 默认为每份完整序列化快照 65,536 个 UTF-8 字节；`dsh.contextMaxProblems` 默认为 100 条诊断。超限捕获直接拒绝，不截断。捕获期间修改草稿、切换会话或释放视图会阻止延迟插入。仅捕获不会写入工作区文件，也不会发送模型输入。
 
@@ -42,11 +44,11 @@ pnpm.cmd run dev:vscode
 
 文件链接仅在当前查看的会话目录和规范化文件属于此工作区时，才在原生编辑器的指定行打开。改动文件卡片使用 DSH 捕获的完整前后版本打开只读 `vscode.diff` 标签页，两侧合计最多 4 MiB。新建和删除文件不存在的一侧为空，并由标题明确标注。重命名使用 DSH 的旧路径和新路径快照；捕获也可能包含用户同时编辑的内容，并非仅归因于 Agent。拒绝二进制和超大文件对比。捕获随 Host 会话或运行时结束而过期；已打开的标签页保留其副本直到关闭。不提供应用或回退操作。
 
-扩展宿主管理一个 Node 子进程，使用从共享 Web 配置派生的 `vscode` profile。每个规范化工作区路径在扩展的 VS Code 全局存储中拥有独立的 Harness 主目录，不与桌面版共享会话。选择主目录前会解析目录 junction 和路径大小写别名。旧版按非规范化别名索引的主目录不会被自动移动或删除。关闭面板会释放其 HTTP 请求和 socket，但保留子进程；`DSH: Stop Agent Runtime`、`DSH: Restart Agent Runtime` 和扩展退出会等待进程退出。扩展宿主意外退出时，通过 IPC 断开请求子进程关闭。
+默认 `shared` 模式为每个原生客户端提供一个租约，连接规范化 Harness 主目录对应的同一个 Desktop profile 后台。多个编辑器窗口与 Desktop 共用一个写入器。每个编辑器优先显示当前工作区的会话，没有时显示全部会话。在列表页发送新消息会在编辑器工作区开始对话。关闭面板保留原生租约；停止、重启或退出只释放该窗口租约。最后一个租约释放后关闭 profile。
 
-子进程在初始化 profile 前为其 Harness 主目录持有上游写入锁，并在正常关闭后释放。使用同一主目录的第二个窗口会被拒绝，并显示重启提示；不同工作区主目录可以独立运行。锁记录子进程 PID，因此扩展宿主丢失后，不会在子进程仍退出中时立即允许另一个写入方进入。崩溃恢复遵循[上游锁规则](../../packages/util/atomic-write/README.zh.md)：已退出的持有者可以被接替，但不明确的记录和被复用的存活 PID 需要操作者检查。
+`dsh.backend = isolated` 保留原有模式：每个规范化工作区在扩展全局存储中使用带单写入器锁的私有 `vscode` profile。两种模式都不会移动或删除历史。[共享后台库](../shared-host/README.zh.md)负责认证租约、版本检查、冷启动、崩溃恢复及 Desktop 独占更新。
 
-子进程监听临时 IPv4 回环端口。启动 token 仅通过私有 IPC 传输；扩展宿主用它交换 HTTP-only cookie。Webview 使用限制路由的 `postMessage` HTTP 和 WebSocket 适配器，不接收启动 URL 或 cookie。Gateway 保留业务协议及流分帧。套接字适配器仅允许 Gateway URL 和文本帧，不协商子协议；事件监听器和事件处理属性均接收传输事件。HTTP 响应按需逐步读取；上传请求经过缓冲，单次超过 8 MiB 时会在转发前被拒绝。
+后台监听临时 IPv4 回环端口。共享模式通过认证控制 socket 传送原生启动数据；独立模式使用私有子进程 IPC。Extension Host 用启动 token 交换 HTTP-only cookie。限制路由的 Webview 适配器不接收 URL 或 cookie。Gateway 保留流分帧。HTTP 响应逐步读取；拒绝超过 8 MiB 的缓冲上传。
 
 插件图事件使用 `eventsource` 库经同一带认证的 Fetch 桥接传输，仅允许 `/plugins/events`。适配器在流错误或 EOF 后重连；关闭时中止请求并取消待执行的重试。认证保留在 Extension Host。SSE 解析和重试语义由该库负责，扩展不维护第二套事件解析器。
 
@@ -71,7 +73,7 @@ pnpm.cmd exec vitest run apps/vscode/tests packages/client/ui-vscode/tests
 node apps/vscode/scripts/test-extension.mjs "C:/path/to/Microsoft VS Code/Code.exe"
 ```
 
-此冒烟测试创建并删除自己的临时工作区和 VS Code 数据目录，仅对该隔离测试进程禁用 Workspace Trust。测试检查未保存选区和文件快照、Problems、只读预览、真实客户端启动、API 流量、插件资源、Gateway WebSocket，以及停止后所属进程退出；不会提交模型请求。
+冒烟测试显式选择独立模式，并创建、清理自己的临时工作区和 VS Code Portable 目录，包括 `argv.json`。工作区信任仅在该测试进程中禁用。它检查编辑器快照、Problems、只读预览、客户端启动、API 流量、插件资源、Gateway socket 和所属进程退出，不发送模型请求。
 
 显式追加 `--live-home "C:/path/to/desktop/home"` 会使用该主目录管理的 `DEEPSEEK_API_KEY` 引用，启用付费真实模型检查。此选项支持默认 DeepSeek 路由，不复用自定义提供方设置或 OAuth 记录。密钥仅传入临时测试进程环境；测试通过真实 Webview 提交未保存选区，仅使用 DSH 解码器读取 DSH 会话目录中的日志，并取消第二轮。VS Code 自身的 JSONL 日志不在扫描范围内。不会复制凭据或桌面会话。已录制的 `vscode-editor-context` 场景还通过 `apps/web/tests/vscode-submission.e2e.ts` 无密钥回放不可变上下文提交。
 
@@ -83,15 +85,15 @@ node apps/vscode/scripts/test-extension.mjs "C:/path/to/Microsoft VS Code/Code.e
 
 将 `--compat-case migration`、`--compat-case auto-review` 或 `--compat-case compaction` 与 `--live-home` 一起使用，可验证一条会话路径。迁移测试创建测试专属 V3 历史，通过 V4 继续对话，并检查重启后前代字节、文件标识及修改时间不变。Auto review 仅在临时 profile 启用可选实验性组合包、确认风险弹窗，验证审查后的文件写入、进程崩溃及正常重启后恢复 Auto，以及显式卸载切换到 Read Only 后必须人工审批。拒绝该审批后目标文件仍不存在。压缩测试仅降低该 profile 中标准预设的阈值，要求不使用 `/compact` 即产生自动摘要/检查点事件，并检查重启后上下文记忆。这些选项也接受 `--vsix` 以测试隔离安装；不能与 `--faults` 或 `--interactions` 组合。
 
-在扩展宿主冒烟测试中追加 `--ux`，可在真实 Webview 中检查原生键盘路由、输入法 Enter、多行草稿、历史焦点及捕获焦点。此无密钥选项接受 `--vsix`，但不能与模型或故障选项组合。
+在扩展宿主冒烟测试中追加 `--ux`，可在真实 Webview 中检查原生键盘路由、输入法 Enter、多行草稿、会话列表、文件菜单点击命中及捕获焦点。此无密钥选项接受 `--vsix`，但不能与模型或故障选项组合。
 
 追加 `--security` 可无密钥检查浏览器实际执行的 CSP/资源限制、子进程归属竞争及两个真实对等窗口。目录 junction 别名必须被拒绝，不同工作区则能启动；对等窗口只共享测试扩展的存储。将 `--trust` 与 `--vsix` 一起使用，可验证安装扩展从受限模式到信任后启动，再回到受限模式的周期，要求原有子进程退出。该检查在隔离的用户数据、共享数据和扩展目录中操作原生 Workspace Trust 按钮。这些选项与 `--ux`、模型和故障检查分开运行。
 
 ## 已知限制
 
-每个窗口仅允许单个已信任的本地文件夹，拒绝 Remote SSH/WSL、虚拟工作区和多根工作区。Windows 本地信任切换和多窗口归属已完成验证；macOS/Linux 尚未验证。明确不支持对同一 Harness 主目录并发编辑，包括两个窗口使用同一文件夹别名的情况。
+每个窗口接纳一个受信任的本地文件夹。拒绝 Remote SSH/WSL、虚拟和多根工作区。共享模式支持每个主目录的多个原生客户端；独立模式保留单写入器限制。后台崩溃后需要显式重新连接，不会重发输入。Windows 已在本机验证；macOS/Linux 共享宿主行为尚未验证。
 
-工具栏提供新建对话、当前工作区历史和原生 API 密钥配置。上次选中的会话保留在 Webview 状态中，仅当它仍属于此工作区且未归档时恢复。开发计划分别记录迁移、Auto review、压缩（compaction）及恢复的源码与安装产物证据。这些检查不代表长期断网、所有工具类别或媒体下载 UI 已通过验收。Auto review 仍为实验功能，默认禁用。
+底部工具栏提供显式选区/Problems 捕获和原生 API 配置。启动时显示会话列表，不恢复上次会话。尚未发送的草稿不共享。Auto review 仍属实验功能，默认禁用。
 
 正常关闭会保留 Auto Session 的持久权限选择。运行时仍在活动时卸载 reviewer，会切换为需要人工审批的 Read Only；重新安装 reviewer 不会静默重新启用 Auto。运行中移除 reviewer 会取消活动 Auto 工作，并在降权前关闭其 agent 拥有的持久终端；用户自己的 VS Code 终端不受影响。旧预览可能已在关闭时记录 Full access：请显式检查这些 Session，因为日志无法区分该变更与用户主动选择。参见 [Auto review 生命周期](../../packages/experimental/auto-review/README.zh.md#understand-the-implementation)。
 

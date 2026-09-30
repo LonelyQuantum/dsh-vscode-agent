@@ -7,5 +7,3 @@
 - insert:
     - id: vscode-runtime
       name: '@deepseek-ai/dsh-vscode-app'
-    - id: ui-vscode
-      name: '@deepseek-ai/dsh-client-ui-vscode'

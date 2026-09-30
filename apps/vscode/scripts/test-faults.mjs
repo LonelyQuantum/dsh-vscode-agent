@@ -26,8 +26,6 @@ export async function runFaultChecks({ root, workspace, evaluate, request, conte
     await request('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode })
   }
   const send = async (text) => {
-    phase = 'workspace initialization'
-    await waitFor(() => evaluate("return [...root.querySelectorAll('button')].some(button => button.textContent === 'New conversation' && !button.disabled)"))
     phase = 'wait for editable composer'
     await waitFor(() => evaluate("return root?.querySelector('[data-composer-input]')?.getAttribute('contenteditable') === 'true'"))
     await evaluate("root.querySelector('[data-composer-input]').focus()")
@@ -192,6 +190,8 @@ if (existsSync('tool-release')) writeFileSync('tool-completed', 'completed');
       await writeFile(join(root, 'reload'), 'requested')
       await waitFor(() => readIfPresent(join(root, 'reloaded')))
       await waitFor(() => evaluate('return !!root?.querySelector("[data-composer-input]")'))
+      await waitFor(() => evaluate(`const row = [...root.querySelectorAll('nav button[data-session-id]')]
+        .find(button => button.dataset.sessionId === ${JSON.stringify(selected)}); if (!row) return false; row.click(); return true`))
       await waitFor(() => evaluate(`return JSON.stringify([...root.querySelectorAll('[data-user-message]')].map(message => message.textContent)) === ${JSON.stringify(JSON.stringify(before))}`))
       assert.equal(await evaluate('return doc.defaultView.__DSH_VSCODE__.lastSession()'), selected)
       assert.equal(await readIfPresent(join(workspace, 'tool-completed')), undefined)

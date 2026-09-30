@@ -2,10 +2,10 @@
   "name": "dsh-vscode-agent",
   "displayName": "DSH Agent (Development)",
   "description": "%description%",
-  "version": "0.0.4",
+  "version": "0.0.6",
   "publisher": "dsh-local",
   "license": "MIT",
-  "engines": { "vscode": "^1.100.0" },
+  "engines": { "vscode": "^1.106.0" },
   "categories": ["AI", "Other"],
   "extensionKind": ["workspace"],
   "main": "./extension.cjs",
@@ -15,7 +15,7 @@
     "virtualWorkspaces": { "supported": false, "description": "%virtual%" }
   },
   "contributes": {
-    "viewsContainers": { "activitybar": [{ "id": "dsh", "title": "DSH", "icon": "resources/agent.svg" }] },
+    "viewsContainers": { "secondarySidebar": [{ "id": "dsh", "title": "DSH", "icon": "resources/agent.svg" }] },
     "views": { "dsh": [{ "type": "webview", "id": "dsh.agent", "name": "DSH Agent" }] },
     "menus": { "view/title": [
       { "command": "dsh.restart", "when": "view == dsh.agent", "group": "navigation@2" },
@@ -26,12 +26,21 @@
       { "command": "dsh.open", "title": "%open%", "category": "DSH" },
       { "command": "dsh.restart", "title": "%restart%", "category": "DSH", "icon": "$(refresh)" },
       { "command": "dsh.configure", "title": "%configure%", "category": "DSH", "icon": "$(key)" },
+      { "command": "dsh.useDesktopApi", "title": "%useDesktopApi%", "category": "DSH" },
       { "command": "dsh.clearApiKey", "title": "%clearApiKey%", "category": "DSH" },
       { "command": "dsh.stop", "title": "%stop%", "category": "DSH" }
     ],
     "configuration": {
       "title": "DSH",
       "properties": {
+        "dsh.backend": {
+          "type": "string", "enum": ["shared", "isolated"], "default": "shared", "scope": "machine",
+          "description": "%backend%"
+        },
+        "dsh.desktopHome": {
+          "type": "string", "default": "", "scope": "machine",
+          "description": "%desktopHome%"
+        },
         "dsh.contextMaxBytes": {
           "type": "integer", "default": 65536, "minimum": 1024, "maximum": 1048576,
           "description": "%contextMaxBytes%"

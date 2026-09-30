@@ -1,7 +1,8 @@
-/** Own one DSH profile process; credentials remain in the Extension Host. */
+/** Attach to the shared Desktop backend or own an isolated editor profile process. */
 import { spawn, type ChildProcess } from 'node:child_process'
 import { readFile, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
+import { acquireSharedHost, SharedHostError, type SharedHostClient } from '@deepseek-ai/dsh-shared-host/client'
 
 /** Child boot information, never forwarded verbatim to the Webview. */
 export interface RuntimeReady { url: string; injections: unknown[]; pid: number }
@@ -14,17 +15,20 @@ export interface RuntimeOptions {
   workspace: string
   home: string
   apiKey?: string
+  /** Shared Desktop backend home; private home is unused in shared mode. */
+  desktopHome?: string
 }
 
 /** The child's Harness home could not be locked; no profile was started. */
 export class RuntimeOwnershipError extends Error {}
 
-/** Owned process with a readiness handshake and awaited shutdown. */
+/** Native backend attachment with readiness validation and awaited lease or child cleanup. */
 export class AgentRuntime {
   private readonly exitListeners = new Set<() => void>()
   private child: ChildProcess | undefined
   private exited: Promise<void> = Promise.resolve()
   private stopping: Promise<void> | undefined
+  private shared: Promise<SharedHostClient> | undefined
 
   /** Observe post-readiness exit. @param listener Receives no raw process output. @returns Listener disposer. */
   onExit(listener: () => void): () => void {
@@ -38,12 +42,22 @@ export class AgentRuntime {
    * @returns Authenticated boot data.
    */
   async start(options: RuntimeOptions): Promise<RuntimeReady> {
-    if (this.child) throw new Error('DSH runtime is already started')
+    if (this.child || this.shared) throw new Error('DSH runtime is already started')
+    if (options.desktopHome !== undefined) {
+      this.shared = acquireSharedHost({ home: options.desktopHome, version: options.version, role: 'vscode' }).catch(() => {
+        throw new SharedHostError('Shared Desktop backend is unavailable')
+      })
+      const client = await this.shared
+      if (this.stopping) { await client.close(); throw new Error('DSH startup was cancelled') }
+      client.onExit(() => { for (const listener of this.exitListeners) listener() })
+      return client.ready
+    }
     await readFile(join(options.installation, 'lib/profile-boot.js'))
     await mkdir(options.home, { recursive: true })
     if (this.stopping) throw new Error('DSH startup was cancelled')
     const env: NodeJS.ProcessEnv = { ...process.env, DSH_HOME: options.home }
     if (options.apiKey !== undefined) env.DEEPSEEK_API_KEY = options.apiKey
+    delete env.DSH_VSCODE_DESKTOP_HOME
     delete env.NODE_OPTIONS
     delete env.ELECTRON_RUN_AS_NODE
     const child = spawn(options.node, [options.entry, options.installation, options.version], {
@@ -93,12 +107,17 @@ export class AgentRuntime {
     }
   }
 
-  /** Stop admission and await process exit; repeated callers join the same shutdown. @returns Quiescent child exit. */
+  /** Release the shared lease or stop the isolated child; repeated callers join cleanup. @returns Completed native attachment cleanup. */
   stop(): Promise<void> {
     return this.stopping ??= this.stopChild()
   }
 
   private async stopChild(): Promise<void> {
+    if (this.shared) {
+      const client = await this.shared.catch(() => undefined)
+      await client?.close()
+      return
+    }
     const child = this.child
     if (!child) return
     const kill = async (): Promise<void> => {

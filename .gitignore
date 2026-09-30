@@ -11,6 +11,7 @@ pnpm-debug.log
 .cache/
 examples/*/*.jsonl
 .storages/
+.shared-host/
 .sessions/
 examples/*/.sessions/
 coverage/

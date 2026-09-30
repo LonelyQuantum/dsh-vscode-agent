@@ -14,7 +14,7 @@ export async function runEditorUxCheck({ evaluate, request, waitFor }) {
     await request('Input.dispatchKeyEvent', { type: 'keyUp', key, code: key, windowsVirtualKeyCode: code, modifiers })
   }
   await waitFor(() => evaluate(`return !!doc.defaultView.__DSH_VSCODE__.lastSession()
-    && [...root.querySelectorAll('button')].some(button => button.textContent === 'New conversation' && !button.disabled)
+    && root.querySelector('nav[aria-label="All conversations"]')
     && root.querySelector('[data-composer-input]')?.getAttribute('contenteditable') === 'true'`))
   await evaluate('root.querySelector("[data-composer-input]").focus()')
   await request('Input.insertText', { text: 'editor draft' })
@@ -30,14 +30,19 @@ export async function runEditorUxCheck({ evaluate, request, waitFor }) {
   await evaluate(`root.querySelector('[data-composer-input]').dispatchEvent(new doc.defaultView.KeyboardEvent('keydown',
     { key: 'Enter', code: 'Enter', bubbles: true, isComposing: true }))`)
   assert.equal(await evaluate('return root.querySelector("[data-composer-input]").innerText'), draft)
-  await evaluate('[...root.querySelectorAll("button")].find(button => button.textContent === "History").click()')
-  await waitFor(() => evaluate('return doc.activeElement?.textContent === "Back to conversation"'))
+  assert.equal(await evaluate('return [...root.querySelectorAll("button")].some(button => ["History", "New conversation", "Attach file"].includes(button.textContent))'), false)
+  await evaluate(`root.querySelector('[aria-label="Add files or run commands"]').click()`)
+  await waitFor(() => evaluate('return !!doc.querySelector("[data-trigger-menu]")'))
+  assert.equal(await evaluate(`const item = [...doc.querySelectorAll('[role=option]')].find(node => node.textContent.trim() === 'File');
+    if (!item) return false;
+    const box = item.getBoundingClientRect();
+    return item.contains(doc.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2))`), true)
   await key('Escape')
-  await waitFor(() => evaluate('return doc.activeElement?.textContent === "History"'))
+  await waitFor(() => evaluate('return !doc.querySelector("[data-trigger-menu]")'))
   assert.equal(await evaluate('return root.querySelector("[data-composer-input]").innerText'), draft)
   assert.equal(await evaluate('return root.querySelectorAll("[data-user-message]").length'), 0)
   await evaluate('[...root.querySelectorAll("button")].find(button => button.textContent === "Attach selection").click()')
   await waitFor(() => evaluate('return root.querySelector("[data-composer-input]") === doc.activeElement'))
   assert.equal(await evaluate('return root.querySelectorAll("[data-composer-chip=editor-context]").length'), 1)
-  console.log('VSCODE_EDITOR_UX_OK ' + JSON.stringify({ keyboard: true, historyFocus: true, captureFocus: true, submitted: 0 }))
+  console.log('VSCODE_EDITOR_UX_OK ' + JSON.stringify({ keyboard: true, conversationList: true, fileMenu: true, captureFocus: true, submitted: 0 }))
 }

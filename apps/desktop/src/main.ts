@@ -23,7 +23,10 @@ import {
 } from 'electron'
 import { resolveDesktopPaths } from './paths.ts'
 import { DesktopProjectManager } from './project-manager.ts'
-import { DesktopHostFatalError, DesktopHostProcess, DesktopHostUncleanExitError } from './host-process.ts'
+import { DesktopHostFatalError, DesktopHostUncleanExitError } from './host-process.ts'
+import { SharedDesktopHost } from './shared-host.ts'
+import { withStoppedSharedHost } from '@deepseek-ai/dsh-shared-host/client'
+import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import { DesktopPlatformView, PLATFORM_IPC, platformBounds } from './platform-view.ts'
 import { installDesktopDirectoryPicker } from './directory-picker.ts'
 import { installMicrophonePermissions } from './microphone-permissions.ts'
@@ -92,7 +95,7 @@ const recovery = new DesktopFatalRecovery({
   stop: () => { shuttingDown = true; return stopForRecovery() },
   disablePlugins: async () => {
     const manager = new DesktopProjectManager(resolveDesktopPaths(), runtimeResources())
-    const backupPath = await manager.disableAllPlugins()
+    const backupPath = await withStoppedSharedHost(resolveDshHome(), () => manager.disableAllPlugins())
     console.info('Desktop profile recovery completed:', { profilePatchBackup: backupPath ?? null, homePatch: 'unchanged' })
   },
   exit: () => { quitWithoutConfirmation() },
@@ -317,7 +320,6 @@ async function main(): Promise<void> {
   const primaryRuntime = development
     ? developmentPrimaryRuntime()
     : join(process.resourcesPath, 'runtime', 'primary-runtime')
-  const activeProject = paths.profile
   const manager = new DesktopProjectManager(paths, resources)
   let quitting = false
   let startup: Promise<void> | undefined
@@ -406,11 +408,14 @@ async function main(): Promise<void> {
   const platformView = new DesktopPlatformView(join(app.getAppPath(), 'lib', 'preload-platform-account.cjs'),
     () => locale.id === 'zh-CN' ? 'zh_CN' : 'en_US', process.platform === 'win32' ? 'win32' : 'darwin')
   const backend = new DesktopBackendController((onFailure) => {
-    const hostInspectPort = developmentHostInspectPort(development)
-    const host = new DesktopHostProcess(resources.node, resources.dsh, activeProject,
-      hostInspectPort, process.env, onFailure,
-      primaryRuntime,
-      resources, (next) => { platformView.setSession(next) })
+    const host = new SharedDesktopHost({
+      home: resolveDshHome(), version: app.getVersion(),
+      inspectPort: developmentHostInspectPort(development),
+      launch: { protocol: 1, version: app.getVersion(), node: resources.node, runtime: resources.dsh,
+        primaryRuntime, pnpm: resources.pnpm, nodeBin: resources.nodeBin },
+      prepare: () => manager.applyRelease(), failure: onFailure,
+      platformSession: (next) => { platformView.setSession(next) },
+    })
     return {
       start: async () => {
         const ready = await host.start()
@@ -529,9 +534,7 @@ async function main(): Promise<void> {
   const reconcileBackend = (): Promise<void> => {
     startup ??= (async () => {
       await navigateMain(applicationUrl)
-      await backend.start(async () => {
-        await manager.applyRelease()
-      })
+      await backend.start(async () => {})
       if (backend.host !== undefined) await openInitialWindow()
       if (backend.host !== undefined) updateJournal?.action('workspace-ready')
       // The existing Web document resumes through the boot IPC response.

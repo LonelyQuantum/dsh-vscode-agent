@@ -3,23 +3,23 @@
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write apps/vscode/README.md
 /dsh-vs-code-development-preview:
-  en: 75eb27f01f2634a1
-  zh: d20ac1ee62ad7052
+  en: 9130845b3582cc96
+  zh: 47c5358cc73f71c5
 /dsh-vs-code-development-preview/start-the-preview:
-  en: 20bff507a4768433
-  zh: 2a2755c84987df60
+  en: 412d6b5a93b57b62
+  zh: 2d1dfe377d1ee4b5
 /dsh-vs-code-development-preview/windows-vsix-preview:
-  en: fc60435666e039c2
-  zh: fff70c3c6cde3b98
+  en: 1dbf1453f7770947
+  zh: 65a4dfefd1a92c99
 /dsh-vs-code-development-preview/editor-context:
-  en: 67b6f263b9439e27
-  zh: 5d5c71eb9df942a1
+  en: 021dc126428db8e1
+  zh: 6f3bf542ab0281ec
 /dsh-vs-code-development-preview/runtime-and-transport:
-  en: 6de0342d5d70dae2
-  zh: 0bc011b7653a4505
+  en: 1b90232aba9acfbf
+  zh: 013ba918240271e3
 /dsh-vs-code-development-preview/verification:
-  en: aa9cb1bbeb2e50ac
-  zh: 9511b6f10fd3f944
+  en: 665b263929610e2d
+  zh: b3b7ec72755f9f3b
 /dsh-vs-code-development-preview/known-limitations:
-  en: a02f2c190a8e75ea
-  zh: fd4fe995d366568e
+  en: 94adefb3c1ab4087
+  zh: 837f86875d2854ee

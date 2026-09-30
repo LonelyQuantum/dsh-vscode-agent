@@ -3,6 +3,7 @@ import * as vscode from 'vscode'
 import { createHash, randomBytes } from 'node:crypto'
 import { readFile, realpath } from 'node:fs/promises'
 import { join } from 'node:path'
+import { homedir } from 'node:os'
 import { AgentRuntime, RuntimeOwnershipError, type RuntimeReady } from './runtime.ts'
 import { CHANNEL, HostProxy } from './proxy.ts'
 import { statusDocument, webviewDocument } from './document.ts'
@@ -10,6 +11,8 @@ import { extensionCopy } from './locale.ts'
 import { captureEditor, openWorkspaceFile, SnapshotDocuments } from './native-context.ts'
 import { capturedPair } from './review.ts'
 import { resolveInstallation } from './installation.ts'
+import { DesktopHomeError, resolveDesktopHome } from './desktop-home.ts'
+import { SharedHostError } from '@deepseek-ai/dsh-shared-host/client'
 
 let stopExtension: (() => Promise<void>) | undefined
 
@@ -97,6 +100,17 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
         const config = vscode.workspace.getConfiguration('dsh')
         const installation = await resolveInstallation(context.extensionPath, config.get<string>('repositoryPath'))
         if (isClosed() || !trusted()) return
+        const selectedHome = config.get<string>('desktopHome')
+        const shared = config.get<string>('backend') !== 'isolated'
+        const desktopHome = shared
+          ? await resolveDesktopHome(selectedHome, [
+            ...process.env.DSH_HOME ? [process.env.DSH_HOME] : [],
+            ...installation.desktopHome ? [installation.desktopHome] : [],
+            join(homedir(), '.dsh'),
+          ])
+          : undefined
+        if (shared && desktopHome === undefined) throw new DesktopHomeError('Desktop home is not initialized')
+        if (isClosed() || !trusted()) return
         runtime = new AgentRuntime()
         const owner = runtime
         owner.onExit(() => {
@@ -111,7 +125,7 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
         booting = runtime.start({ node: config.get<string>('nodePath') || 'node', installation: installation.directory,
           version: installation.version,
           entry: join(context.extensionPath, 'host.mjs'), workspace,
-          ...(apiKey === undefined ? {} : { apiKey }),
+          ...(desktopHome === undefined ? apiKey === undefined ? {} : { apiKey } : { desktopHome }),
           home: join(context.globalStorageUri.fsPath, 'homes', createHash('sha256').update(workspace).digest('hex').slice(0, 24)) })
       }
       const ready = await booting
@@ -201,7 +215,8 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
         current.webview.cspSource, randomBytes(24).toString('hex'))
     } catch (error) {
       diagnostics.clientFailure = true
-      if (!lifetime.closed) current.webview.html = statusDocument(error instanceof RuntimeOwnershipError ? text.ownership : text.failed)
+      if (!lifetime.closed) current.webview.html = statusDocument(error instanceof RuntimeOwnershipError ? text.ownership
+        : error instanceof DesktopHomeError || error instanceof SharedHostError ? text.desktopFailed : text.failed)
       disposeProxy(proxy)
       proxy = undefined
       await runtime?.stop()
@@ -213,6 +228,17 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
     if (opening) return opening
     opening = open().finally(() => { opening = undefined })
     return opening
+  }
+  const connectDesktop = async (): Promise<void> => {
+    const picked = await vscode.window.showOpenDialog({ title: text.desktopFolder, canSelectFiles: false,
+      canSelectFolders: true, canSelectMany: false, openLabel: text.useDesktopApi })
+    if (!picked?.[0]) return
+    try {
+      const home = await resolveDesktopHome(picked[0].fsPath, [])
+      await vscode.workspace.getConfiguration('dsh').update('desktopHome', home, vscode.ConfigurationTarget.Global)
+      await vscode.workspace.getConfiguration('dsh').update('backend', 'shared', vscode.ConfigurationTarget.Global)
+      await vscode.window.showInformationMessage(text.desktopConfigured)
+    } catch (_error) { await vscode.window.showWarningMessage(text.desktopFailed) }
   }
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider('dsh.agent', {
@@ -229,11 +255,20 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
     vscode.commands.registerCommand('dsh.stop', stop),
     vscode.commands.registerCommand('dsh.restart', async () => { await stop(); await requestOpen() }),
     vscode.commands.registerCommand('dsh.configure', async () => {
+      const choice = await vscode.window.showQuickPick([
+        { label: text.useDesktopApi, description: text.desktopDescription, source: 'desktop' },
+        { label: text.usePrivateApi, description: text.privateDescription, source: 'private' },
+      ], { title: text.apiSource, ignoreFocusOut: true })
+      if (!choice) return
+      if (choice.source === 'desktop') { await connectDesktop(); return }
       const key = await vscode.window.showInputBox({ title: text.apiKey, password: true, ignoreFocusOut: true })
       if (key === undefined || key.trim() === '') return
       await context.secrets.store('deepseek.apiKey', key.trim())
+      await vscode.workspace.getConfiguration('dsh').update('backend', 'isolated', vscode.ConfigurationTarget.Global)
+      await vscode.workspace.getConfiguration('dsh').update('desktopHome', undefined, vscode.ConfigurationTarget.Global)
       await vscode.window.showInformationMessage(text.configured)
     }),
+    vscode.commands.registerCommand('dsh.useDesktopApi', connectDesktop),
     vscode.commands.registerCommand('dsh.clearApiKey', async () => {
       await context.secrets.delete('deepseek.apiKey')
       await vscode.window.showInformationMessage(text.removed)

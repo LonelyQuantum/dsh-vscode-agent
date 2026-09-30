@@ -3,6 +3,8 @@
   --dsh-chat-side-padding: 12px;
   height: 100%;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   background: var(--dsw-alias-bg-base);
@@ -14,11 +16,12 @@
   align-items: center;
   gap: 2px;
   padding: 6px 8px;
-  border-bottom: 1px solid var(--dsw-alias-border-l3);
+  border-top: 0.5px solid var(--dsw-alias-border-l3);
   flex: none;
 }
+.heading { display: flex; align-items: center; gap: 6px; padding: 6px 12px; flex: none; }
 .title {
-  flex: 1 1 100%;
+  flex: 1; min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -32,8 +35,10 @@
   display: flex;
   flex-direction: column;
 }
-.content[hidden] { display: none; }
-.history { flex: 1; overflow: auto; padding: 8px; }
+.content[data-list] { flex: none; }
+.content[data-list] :global([data-conversation-content]),
+.content[data-list] :global([data-conversation-scroll]) { overflow: visible; }
+.history { flex: 1; min-height: 0; overflow: auto; padding: 8px; }
 .session {
   display: block;
   width: 100%;
@@ -50,4 +55,4 @@
 }
 .session:hover, .session[aria-current='true'] { background: var(--dsw-alias-interactive-bg-hover); }
 .session:focus-visible { outline: 1px solid var(--vscode-focusBorder, currentColor); outline-offset: -1px; }
-.notice { padding: 12px; font-size: 12px; }
+.notice { padding: 12px; font-size: 12px; line-height: 18px; }

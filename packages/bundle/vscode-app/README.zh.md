@@ -9,7 +9,7 @@ kind: "package-bundle"
 
 ## 概述
 
-在 VS Code 侧栏中使用 DSH 对话，同时保留共享 agent（智能体）运行时。扩展将此层加入其从 Web 派生的私有 profile。普通 Web 和 Desktop profile 不包含此层。其客户端展示需要编辑器启动桥接。
+不希望共享 Desktop 数据时，可使用独立编辑器 profile 进行 DSH 对话。扩展仅在 `isolated` 模式加入此层。默认 `shared` 模式使用 Desktop profile，不加载此组合包；Web 组合提供由编辑器桥接启用的展示层。
 
 ## 目录
 
@@ -25,7 +25,7 @@ kind: "package-bundle"
 <a id="use-this-package"></a>
 ## 使用此包
 
-启动 [VS Code 开发预览](../../../apps/vscode/README.zh.md)。启动器在私有 `vscode` profile 的 `base` 和 `web-app` 之后加入此内置组合包。不要将其加入纯浏览器 profile：那里没有编辑器管理的工作区和原生凭据命令。
+启动 [VS Code 开发预览](../../../apps/vscode/README.zh.md)。`isolated` 模式的启动器在私有 `vscode` profile 的 `base` 和 `web-app` 之后加入此内置组合包。不要将其加入纯浏览器 profile：那里没有编辑器管理的工作区和原生凭据命令。
 
 -----
 
@@ -35,7 +35,7 @@ kind: "package-bundle"
 <details>
 <summary>实现内部结构——点击展开</summary>
 
-[补丁](cordis.patch.yml)插入编辑器布局和 Host 提示词贡献，禁用浏览器打开、URL 打印及 Web 专属模型界面说明。Host 入口通过共享 system-prompt 注册表提供 VS Code 界面描述；释放插件会移除该节。运行时与客户端依赖通过共享 profile 安装解析。
+[补丁](cordis.patch.yml)插入 Host 提示词贡献；Web 组合包负责编辑器布局。它禁用浏览器打开、URL 打印及 Web 专属模型界面说明。Host 入口通过共享 system-prompt 注册表提供 VS Code 界面描述；释放插件会移除该节。运行时与客户端依赖通过共享 profile 安装解析。
 
 </details>
 

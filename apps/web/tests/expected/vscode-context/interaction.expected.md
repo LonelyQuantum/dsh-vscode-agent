@@ -1,9 +1,10 @@
 - Editor layout: single column at 320/420 px
+- Initial layout: all conversations when this workspace is empty, above a bottom-docked new-message composer
 - Selection reference: context.ts · v7*
 - Preview: exact immutable snapshot
 - Credential gesture: native carrier
-- History return: draft retained
-- Escape: history closes and focus returns
+- Footer: selection, Problems, API settings; no History, new-conversation or file button
+- Plus menu: file chooser uploads editor-upload.txt; menu stays clickable and viewport-contained; Escape and outside click dismiss
 - Keyboard: modified Enter and IME retain drafts; Shift+Enter inserts a line
 - Permission menu: viewport-contained; Escape and outside click dismiss
 - Theme: light, dark, high contrast dark/light carrier colors

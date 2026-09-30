@@ -8,6 +8,7 @@
     "src"
   ],
   "references": [
+    { "path": "../shared-host" },
     {
       "path": "../../packages/boot/app-boot"
     },

@@ -31,7 +31,7 @@ function Root({ renderSlot }: PropsRenderSlots<'vscode.conversation'>) {
  */
 export function apply(ctx: Context): void {
   const editor = globalThis.__DSH_VSCODE__
-  if (editor === undefined) throw new Error('ui-vscode requires the VS Code editor carrier')
+  if (editor === undefined) return
   installEditorTheme(ctx)
   const boot = createSnapshotStore<WorkspaceBoot>({ state: 'loading' })
   const lifetime = { closed: false }
@@ -52,10 +52,7 @@ export function apply(ctx: Context): void {
     boot.set({ state: 'loading' })
     void ctx.workspaces.create({ path: editor.workspace() }).then(async (workspace) => {
       if (closed()) return
-      const saved = editor.lastSession()
-      const existing = workspace.sessionIds.find(id => id === saved && !ctx.workspaces.list.getSnapshot().archivedSessionIds.includes(id))
-      if (existing !== undefined) ctx.uiWorkspace.openSession(existing)
-      else await ctx.uiWorkspace.openWorkspace(workspace.workspaceId)
+      await ctx.uiWorkspace.openWorkspace(workspace.workspaceId)
       if (!closed()) boot.set({ state: 'ready', workspaceId: workspace.workspaceId })
     }).catch(() => { if (!lifetime.closed) boot.set({ state: 'error' }) })
   }
@@ -84,9 +81,13 @@ export function apply(ctx: Context): void {
       }).catch(() => { if (!signal.aborted && current()) input.notify('error', t('contextFailed')) })
     },
     hooks: { workspaceBoot: boot },
-    startSession: () => {
+    showConversations: () => {
       const workspaceId = boot.getSnapshot().workspaceId
-      if (workspaceId !== undefined) ctx.uiWorkspace.startSession(workspaceId)
+      if (workspaceId === undefined || boot.getSnapshot().state !== 'ready') return
+      boot.set({ state: 'loading', workspaceId })
+      void ctx.uiWorkspace.openWorkspace(workspaceId).then(() => {
+        if (!closed()) boot.set({ state: 'ready', workspaceId })
+      }).catch(() => { if (!closed()) boot.set({ state: 'error', workspaceId }) })
     },
     openSession: (id) => { ctx.uiWorkspace.openSession(id) },
     configure: () => { editor.configure() },

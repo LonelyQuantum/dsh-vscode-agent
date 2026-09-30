@@ -19,7 +19,7 @@ export interface EditorBridge {
   preview(text: string): void
   /** Return the workspace selected by the Extension Host. @returns Absolute execution directory. */
   workspace(): string
-  /** Open the native password input without exposing its result to the Client. */
+  /** Open native API source selection without exposing credentials to the Client. */
   configure(): void
   /** Persist a selection, never conversation contents. @param id Selected Session id. */
   selected(id: string): void
@@ -40,8 +40,8 @@ export type EditorInjected = {
   /** Attach to this Session's unchanged draft. @param kind Explicit action. @param signal View lifetime. */
   capture(kind: CaptureKind, signal: AbortSignal): void
   hooks: { workspaceBoot: HostObservable<WorkspaceBoot> }
-  /** Open a blank Session using the shared navigation policy. */
-  startSession(): void
+  /** Return to the workspace list and its blank draft without stopping other Sessions. */
+  showConversations(): void
   /** Select one listed Session. @param id Workspace member selected by the user. */
   openSession(id: SessionId): void
   /** Open native credential setup. */

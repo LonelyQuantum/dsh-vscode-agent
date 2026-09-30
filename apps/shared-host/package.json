@@ -1,0 +1,19 @@
+{
+  "name": "@deepseek-ai/dsh-shared-host",
+  "version": "0.1.7-rc.2",
+  "private": true,
+  "description": "Authenticated local backend leases for Desktop and VS Code",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./client": { "types": "./lib/types/client.d.ts", "default": "./lib/client.js" },
+    "./server": { "types": "./lib/types/server.d.ts", "default": "./lib/server.js" }
+  },
+  "files": ["lib/**/*.js", "lib/types/**/*.d.ts"],
+  "dependencies": {
+    "@deepseek-ai/dsh-atomic-write": "workspace:*",
+    "@deepseek-ai/dsh-util-values": "workspace:*",
+    "ws": "^8.21.0"
+  },
+  "devDependencies": { "@types/ws": "^8.18.1" }
+}

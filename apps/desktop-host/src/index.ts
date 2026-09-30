@@ -1,6 +1,7 @@
 /** Launch the Desktop profile through the Web application and report its URL to Electron. */
 
 import { delimiter, join } from 'node:path'
+import { readFileSync } from 'node:fs'
 import { inspect } from 'node:util'
 import { loadLayeredEnv, loadProfileDirectory, reportSkippedBundles } from '@deepseek-ai/dsh-app-boot'
 import { runProfile } from '@deepseek-ai/dsh/profile-boot'
@@ -14,32 +15,66 @@ import { installDesktopUpdateTaskControl } from './update-tasks.ts'
 import { installDesktopQuitInspection } from './quit-inspection.ts'
 import { installPlatformSessionPublisher } from './platform-session.ts'
 import { installOfficeEngineResolution } from './office-engine.ts'
+import { serveSharedHost, type SharedApplication } from '@deepseek-ai/dsh-shared-host/server'
 
-async function main(): Promise<void> {
-  const runtimeDir = process.argv[2] as string
-  const projectDir = process.argv[3] as string
+function startApplication(shared: boolean): ReturnType<typeof runProfile> {
+  const runtimeDir = process.argv[2]
+  const projectDir = process.argv[3]
+  if (!runtimeDir || !projectDir) throw new Error('Desktop Host requires runtime and profile directories')
   installOfficeEngineResolution(runtimeDir)
   const installAnchor = join(runtimeDir, 'node_modules', '@deepseek-ai', 'dsh', 'package.json')
+  if (shared) {
+    const manifest: unknown = JSON.parse(readFileSync(installAnchor, 'utf8'))
+    if (typeof manifest !== 'object' || manifest === null || !('version' in manifest)
+      || manifest.version !== process.env.DSH_SHARED_VERSION) throw new Error('Shared backend runtime version differs from its launcher')
+  }
   const profile = loadProfileDirectory('dsh', projectDir, installAnchor)
   reportSkippedBundles('dsh', profile)
-  const application = runProfile({
-    environment: loadLayeredEnv('dsh'),
-    profile: 'desktop',
-    resolvedProfile: { profile, installAnchor },
-    patchFiles: [],
-    args: ['--no-open', '--port', '19387'],
-    ...(process.argv[5] === undefined ? {} : {
-      packageManager: {
-        command: process.execPath,
-        args: ['--expose-internals', process.argv[5]],
-        env: {
-          ELECTRON_RUN_AS_NODE: '1',
-          DSH_DESKTOP_NODE_EXECUTABLE: process.execPath,
-          PATH: `${process.argv[6] ?? ''}${delimiter}${process.env.PATH ?? ''}`,
-        },
+  return runProfile({ environment: loadLayeredEnv('dsh'), profile: 'desktop',
+    resolvedProfile: { profile, installAnchor }, patchFiles: [],
+    args: shared ? ['--no-open', '--host', '127.0.0.1', '--port', '0'] : ['--no-open', '--port', '19387'],
+    ...(process.argv[5] === undefined ? {} : { packageManager: {
+      command: process.execPath, args: ['--expose-internals', process.argv[5]], env: {
+        ELECTRON_RUN_AS_NODE: '1', DSH_DESKTOP_NODE_EXECUTABLE: process.execPath,
+        PATH: `${process.argv[6] ?? ''}${delimiter}${process.env.PATH ?? ''}`,
       },
-    }),
+    } }),
   })
+}
+
+async function installOffice(ctx: Awaited<ReturnType<typeof runProfile>>['ctx']): Promise<void> {
+  const runtimeDir = process.argv[2]
+  if (!runtimeDir) throw new Error('Desktop Host requires a runtime directory')
+  await ctx.plugin(desktopOffice, { runtimeDir,
+    source: process.argv[4] ?? join(runtimeDir, '..', 'runtime', 'primary-runtime'),
+    root: join(resolveDshHome(), 'dsh-runtimes', 'dsh-primary-runtime'),
+  })
+}
+
+async function bootShared(publishPlatform: (session: unknown) => void): Promise<SharedApplication> {
+  const running = await startApplication(true)
+  try {
+    const { ctx } = running
+    await installOffice(ctx)
+    installPlatformSessionPublisher(ctx, publishPlatform)
+    return { ready: { url: ctx.connection.authenticatedUrl(`http://127.0.0.1:${String(ctx.webServer.port)}`),
+      injections: ctx.webServer.collectIndexInjections(), pid: process.pid },
+    shutdown: () => running.shutdown.shutdown(0),
+    updateTasks: installDesktopUpdateTaskControl(ctx), inspectQuit: installDesktopQuitInspection(ctx) }
+  } catch (error) { await running.shutdown.shutdown(1); throw error }
+}
+
+async function main(): Promise<void> {
+  if (process.env.DSH_SHARED_HOST === '1') {
+    const version = process.env.DSH_SHARED_VERSION
+    if (!version) throw new Error('Shared Desktop Host needs a product version')
+    await serveSharedHost({ home: resolveDshHome(), version, start: async (publish) => {
+      const timeout = setTimeout(() => { process.exit(1) }, 120_000)
+      try { return await bootShared(publish) } finally { clearTimeout(timeout) }
+    } })
+    return
+  }
+  const application = startApplication(false)
   let stopping: Promise<void> | undefined
   const control: {
     updateTasks?: ReturnType<typeof installDesktopUpdateTaskControl>
@@ -92,11 +127,7 @@ async function main(): Promise<void> {
   const { ctx } = await application
   control.updateTasks = installDesktopUpdateTaskControl(ctx)
   control.quitInspection = installDesktopQuitInspection(ctx)
-  await ctx.plugin(desktopOffice, {
-    runtimeDir,
-    source: process.argv[4] ?? join(runtimeDir, '..', 'runtime', 'primary-runtime'),
-    root: join(resolveDshHome(), 'dsh-runtimes', 'dsh-primary-runtime'),
-  })
+  await installOffice(ctx)
   installPlatformSessionPublisher(ctx, (session) => {
     if (process.connected) process.send?.({ type: 'platform-session', session })
   })

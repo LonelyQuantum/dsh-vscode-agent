@@ -8,6 +8,7 @@ import type { PreviewDiagnostics } from '../src/extension.ts'
 
 /** Observe same-home refusal or independent-workspace startup in a second Extension Host. @returns Owned runtime shutdown. */
 export async function run(): Promise<void> {
+  await vscode.workspace.getConfiguration('dsh').update('backend', 'isolated', vscode.ConfigurationTarget.Global)
   const root = process.env.DSH_VSCODE_TEST_UI!
   const same = process.env.DSH_VSCODE_PEER_MODE === 'same'
   const extension = vscode.extensions.getExtension<{ diagnostics(): PreviewDiagnostics }>('dsh-local.dsh-vscode-agent')!

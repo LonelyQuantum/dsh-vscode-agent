@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Open a conversation in a narrow editor sidebar, start another conversation, or resume one from the current workspace's history. The last selected Session is restored when it still belongs to that workspace and is not archived. Messages and input controls use the shared Conversation implementation. This presentation requires the VS Code carrier; ordinary Web and Desktop profiles retain their layouts.
+Open the current workspace's conversation list in a narrow editor sidebar. Send a message from the list to begin a conversation, or select a previous conversation to continue it. The upper-left back button returns to the list without stopping running tasks. Messages and input controls use the shared Conversation implementation. This presentation requires the VS Code carrier; ordinary Web and Desktop profiles retain their layouts.
 
 ## Table of Contents
 
@@ -25,19 +25,19 @@ Open a conversation in a narrow editor sidebar, start another conversation, or r
 <a id="use-this-package"></a>
 ## Use this package
 
-Opening History moves keyboard focus to its return control. Escape closes History and restores focus to the toolbar toggle without editing the draft.
+Opening the plugin shows the current workspace's nonblank, unarchived conversations above a bottom-docked new-message composer. If none exist, it shows all conversations instead. Sending starts a conversation in the current workspace. The back button selects that workspace's blank draft; it neither stops background work nor sends subsequent input to the previous conversation. Reopening a listed conversation restores its transcript and unsent draft. Reloading starts at the list rather than restoring the last conversation.
 
 Messages can use the full transcript width with 12 px side clearance in narrow editor columns. The native carrier supplies VS Code colors for messages, input, menus, code, and scrollbars. Editor theme classes select non-persistent light/dark registry entries, including high-contrast variants, so shared cards use the matching palette without changing saved DSH theme preferences. Ordinary browser compositions retain their own theme.
 
-The [VS Code preview](../../../apps/vscode/README.md) adds the [editor bundle](../../bundle/vscode-app/README.md) after the Web bundle. It mounts this row without plugin configuration:
+The [Web bundle](../../bundle/web-app/README.md) mounts this row for the [VS Code preview](../../../apps/vscode/README.md), including shared Desktop-profile clients. It activates only when the native editor bridge is present; ordinary browser and Desktop documents retain their existing layout. No plugin configuration is required:
 
 ```yaml
 - name: '@deepseek-ai/dsh-client-ui-vscode'
 ```
 
-The carrier supplies its trusted local workspace before Client boot. History excludes archived Sessions and other workspaces. New conversation uses the shared workspace navigation policy, including reuse of an existing blank Session. The API key button opens the native password input; no key enters this Client plugin.
+The carrier supplies its trusted local workspace before Client boot. Both list modes exclude archived Sessions, blank drafts, and delegated agents. Its composer uses the shared workspace navigation policy, including reuse of an existing blank Session. API settings opens the carrier's native configuration command; no key enters this Client plugin.
 
-Attach file, selection, or Problems explicitly from the toolbar. Each reference chip contains the carrier's immutable snapshot; clicking it opens a read-only preview of the exact submitted text. Copying or restoring the draft preserves that text. Capture is rejected if the draft revision changes, the Session changes, or the view closes before it finishes.
+The composer's plus menu opens the shared file picker for file and image attachments. The bottom toolbar captures selected text or Problems explicitly, without separate file, History, or new-conversation buttons. Each editor-reference chip contains the carrier's immutable snapshot; clicking it opens a read-only preview of the exact submitted text. Copying or restoring the draft preserves that text. Capture is rejected if the draft revision changes, navigation starts, the Session changes, or the view closes before it finishes.
 
 -----
 

@@ -57,7 +57,7 @@ const experimentalPackageDirectory = /^packages\/experimental\/[^/]+$/
 const experimentalPackageNamePrefix = '@deepseek-ai/dsh-experimental-'
 /** Ordinary directories whose packages this repository publishes: one release member each. */
 const standardReleaseMemberDirectory =
-  /^(?:packages\/(?!experimental\/)[^/]+\/[^/]+|apps\/(?!desktop(?:-host)?$|vscode$)[^/]+|vendor\/[^/]+)$/
+  /^(?:packages\/(?!experimental\/)[^/]+\/[^/]+|apps\/(?!desktop(?:-host)?$|shared-host$|vscode$)[^/]+|vendor\/[^/]+)$/
 /** Installable application carriers assembled outside npm publication. */
 const privateApplicationDirectories = new Set(['apps/desktop', 'apps/vscode'])
 const localArtifactDirs = new Set(['node_modules'])
@@ -66,6 +66,8 @@ const appPackageFiles: Readonly<Record<string, readonly string[]>> = {
   '@deepseek-ai/dsh-desktop-host': [
     'lib/index.js',
   ],
+  // Native-carrier control is bundled privately with Desktop and the VSIX.
+  '@deepseek-ai/dsh-shared-host': ['lib/**/*.js', 'lib/types/**/*.d.ts'],
   // Sourcemaps stay out by payload policy; the worker-preview surface
   // (dist/preview.html and dist/preview/) backs opt-in experimental
   // packages and is not published.

@@ -12,7 +12,6 @@ import { compressZstdFrame, generationLogPath, readSessionLog } from '../lib/ses
 export async function runCompatibilityCheck({ root, workspace, evaluate, request, waitFor, readIfPresent, presetFile, selected }) {
   let phase = 'initialize'
   const ready = () => waitFor(() => evaluate(`return !!doc.defaultView.__DSH_VSCODE__.lastSession()
-    && [...root.querySelectorAll('button')].some(button => button.textContent === 'New conversation' && !button.disabled)
     && root.querySelector('[data-composer-input]')?.getAttribute('contenteditable') === 'true'`))
   const rpc = async (method, args) => {
     const result = await evaluate(`return (async () => {
@@ -42,11 +41,18 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
   const completed = async marker => waitFor(() => evaluate(`return root.innerText.split(${JSON.stringify(marker)}).length >= 3
     && !root.querySelector('[data-streaming="true"]')
     && ![...root.querySelectorAll('button')].some(button => /Stop generat/.test(button.getAttribute('aria-label') ?? ''))`), 120_000)
-  const restart = async () => {
+  const restart = async selectedSession => {
+    const previous = selectedSession ?? await evaluate('return doc.defaultView.__DSH_VSCODE__?.lastSession()')
     await rm(join(root, 'reloaded'), { force: true })
     await writeFile(join(root, 'reload'), 'requested')
     await waitFor(() => readIfPresent(join(root, 'reloaded')))
     await ready()
+    const reopened = await evaluate(`const row = [...root.querySelectorAll('nav button[data-session-id]')]
+      .find(button => button.dataset.sessionId === ${JSON.stringify(previous)}); row?.click(); return !!row`)
+    if (reopened) {
+      await waitFor(() => evaluate(`return doc.defaultView.__DSH_VSCODE__.lastSession() === ${JSON.stringify(previous)}`))
+      await ready()
+    }
   }
   const profiles = await Array.fromAsync(glob('**/homes/*/profiles/vscode/package.json', { cwd: root }))
   assert.equal(profiles.length, 1)
@@ -90,7 +96,6 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
       phase = 'activate historical Session through the bridge'
       const { workspace: current } = await rpc('workspace/create', { request: { path: workspace } })
       await rpc('session/create', { request: { sessionId: id, workspaceId: current.workspaceId } })
-      await click('History')
       await waitFor(() => evaluate('return [...root.querySelectorAll("nav button")].some(button => button.textContent === "V3 migration qualification")'))
       await click('V3 migration qualification')
       await waitFor(() => evaluate('return root.innerText.includes("LEGACY_CONTEXT_42")'))
@@ -135,8 +140,8 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
       phase = 'restore Auto review after a process crash without plugin unload'
       await writeFile(join(root, 'crash'), 'requested')
       await waitFor(() => readIfPresent(join(root, 'crashed')))
-      await restart()
-      assert.equal(await evaluate('return doc.defaultView.__DSH_VSCODE__.lastSession()'), expectedSession, 'Restart must restore the reviewed Session')
+      await restart(expectedSession)
+      assert.equal(await evaluate('return doc.defaultView.__DSH_VSCODE__.lastSession()'), expectedSession, 'The reviewed Session must reopen from the list after restart')
       await waitFor(() => evaluate(`return root.querySelector('[aria-label^="Access mode"]')?.getAttribute('aria-label').includes('Auto review')`))
       phase = 'preserve Auto review during a graceful runtime restart'
       await restart()
@@ -176,9 +181,8 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
       await writeFile(patch, original.replace(/^\[\]\s*$/m, '') + '\n' + override.replace(target, target + '            config:\n'
         + '              thresholdRatio: 0.005\n              retainTokens: 1\n              headroomTokens: 1024\n              maxTokens: 8192\n              auto: true\n'))
       await restart()
-      await waitFor(() => evaluate('return [...root.querySelectorAll("button")].some(button => button.textContent === "New conversation" && !button.disabled)'))
       const previous = await evaluate('return doc.defaultView.__DSH_VSCODE__.lastSession()')
-      await click('New conversation')
+      await evaluate(`root.querySelector('[aria-label="Back to conversations"]').click()`)
       await waitFor(() => evaluate(`return !!doc.defaultView.__DSH_VSCODE__.lastSession()
         && doc.defaultView.__DSH_VSCODE__.lastSession() !== ${JSON.stringify(previous)}`))
       const scratch = 'Disposable scratch: blue triangles repeat; these words contain no lasting task facts. '.repeat(1600)

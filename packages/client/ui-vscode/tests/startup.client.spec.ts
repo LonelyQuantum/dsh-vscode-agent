@@ -32,7 +32,7 @@ async function fixture(saved?: string, delayed = false) {
   // Only startup's controller methods are supplied; no remote protocol is mocked.
   ctx.provide('sessions', { list: sessions } as never)
   ctx.provide('workspaces', { list: workspaces, create } as never)
-  ctx.provide('uiWorkspace', { openSession, openWorkspace, startSession: vi.fn() } as never)
+  ctx.provide('uiWorkspace', { openSession, openWorkspace } as never)
   ctx.provide('uiConversation', {} as never)
   ctx.provide('conversation', {} as never)
   ctx.provide('inputTriggers', { registerSource: () => () => {} } as never)
@@ -48,14 +48,14 @@ async function fixture(saved?: string, delayed = false) {
   return { slots, fiber, original, create, openSession, openWorkspace, sessions, workspaces, injected, ready, complete }
 }
 
-it('restores a saved session only after both remote baselines arrive', async () => {
+it('opens the workspace draft after both baselines, without restoring the saved conversation', async () => {
   const f = await fixture('saved')
   expect(f.create).not.toHaveBeenCalled()
   f.sessions.set({ phase: 'ready' })
   expect(f.create).not.toHaveBeenCalled()
   f.ready()
-  await vi.waitFor(() => { expect(f.openSession).toHaveBeenCalledWith('saved') })
-  expect(f.openWorkspace).not.toHaveBeenCalled()
+  await vi.waitFor(() => { expect(f.openWorkspace).toHaveBeenCalledWith('workspace') })
+  expect(f.openSession).not.toHaveBeenCalled()
   expect(f.injected.hooks.workspaceBoot.getSnapshot().state).toBe('ready')
   expect(f.slots.entries('root')).toHaveLength(2)
   await f.fiber.dispose()
@@ -63,11 +63,36 @@ it('restores a saved session only after both remote baselines arrive', async () 
   f.original()
 })
 
-it.each(['archived', 'another-workspace', undefined])('opens this workspace when saved selection %s is unavailable', async (saved) => {
+it.each(['archived', 'another-workspace', undefined])('opens the workspace draft regardless of saved selection %s', async (saved) => {
   const f = await fixture(saved)
   f.ready()
   await vi.waitFor(() => { expect(f.openWorkspace).toHaveBeenCalledWith('workspace') })
   expect(f.openSession).not.toHaveBeenCalled()
+})
+
+it('returns through workspace navigation without a stop operation and suppresses repeated returns', async () => {
+  const f = await fixture()
+  f.ready()
+  await vi.waitFor(() => { expect(f.injected.hooks.workspaceBoot.getSnapshot().state).toBe('ready') })
+  let complete!: () => void
+  f.openWorkspace.mockImplementationOnce(() => new Promise<void>((resolve) => { complete = resolve }))
+  f.injected.showConversations()
+  f.injected.showConversations()
+  expect(f.openWorkspace).toHaveBeenCalledTimes(2)
+  expect(f.injected.hooks.workspaceBoot.getSnapshot().state).toBe('loading')
+  complete()
+  await vi.waitFor(() => { expect(f.injected.hooks.workspaceBoot.getSnapshot().state).toBe('ready') })
+})
+
+it('allows retry after returning to the list fails', async () => {
+  const f = await fixture()
+  f.ready()
+  await vi.waitFor(() => { expect(f.injected.hooks.workspaceBoot.getSnapshot().state).toBe('ready') })
+  f.openWorkspace.mockRejectedValueOnce(new Error('unavailable'))
+  f.injected.showConversations()
+  await vi.waitFor(() => { expect(f.injected.hooks.workspaceBoot.getSnapshot().state).toBe('error') })
+  f.injected.retry()
+  await vi.waitFor(() => { expect(f.injected.hooks.workspaceBoot.getSnapshot().state).toBe('ready') })
 })
 
 it('does not navigate after disposal while creation is pending', async () => {

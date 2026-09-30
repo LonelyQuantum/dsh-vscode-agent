@@ -70,6 +70,8 @@ describe('desktop development project', () => {
     writeFileSync(join(dependencies, 'plain-dependency', 'package.json'), '{}\n')
     mkdirSync(join(dependencies, '@scope', 'dependency'))
     writeFileSync(join(dependencies, '@scope', 'dependency', 'package.json'), '{}\n')
+    symlinkSync(join(root, 'absent-platform'), join(dependencies, '@scope', 'optional'), process.platform === 'win32' ? 'junction' : 'dir')
+    symlinkSync(join(root, 'absent-platform'), join(dependencies, 'optional'), process.platform === 'win32' ? 'junction' : 'dir')
 
     const project = prepareDevelopmentProject({
       projectDir: join(root, 'development'),

@@ -50,7 +50,8 @@ export const QUIT_INSPECTION_DEADLINE_MS = 2_000
 
 const MAX_HOST_DIAGNOSTIC_CHARS = 64 * 1024
 
-function isDesktopHostEvent(message: unknown): message is DesktopHostEvent {
+/** Validate private Host messages before native shell use. @param message Wire input. @returns Whether every required field is valid. */
+export function isDesktopHostEvent(message: unknown): message is DesktopHostEvent {
   if (typeof message !== 'object' || message === null || !('type' in message)) return false
   const candidate = message as Record<string, unknown>
   switch (candidate.type) {

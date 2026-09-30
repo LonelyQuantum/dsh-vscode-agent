@@ -1,0 +1,34 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write apps/shared-host/README.md
+/:
+  en: c8a8ddccda6c24c4
+  zh: 0bf23d46bd29c28a
+/deepseek-ai-dsh-shared-host:
+  en: 1d6a57703cd7a088
+  zh: e4d190ba0b3007e7
+/deepseek-ai-dsh-shared-host/summary:
+  en: 877bc2a4f6c9d020
+  zh: df38d2c9665e6459
+/deepseek-ai-dsh-shared-host/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: c2e93b1963490da3
+/deepseek-ai-dsh-shared-host/use-this-package:
+  en: 90a30fce0cdafc23
+  zh: 0f19facc95582060
+/deepseek-ai-dsh-shared-host/understand-the-implementation:
+  en: 52208b9ed5ddbc45
+  zh: 87f4af214cff945c
+/deepseek-ai-dsh-shared-host/further-exploration:
+  en: f662f1b83bbd8d2b
+  zh: a8850feca88ae5bc
+/deepseek-ai-dsh-shared-host/model-experience:
+  en: 81bcc430fc358439
+  zh: 50dc93564593a610
+/deepseek-ai-dsh-shared-host/known-limitations-and-deferred-work:
+  en: a6eae63dc25c9ffc
+  zh: 2b109a310e110dcb
+/deepseek-ai-dsh-shared-host/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: 0f97af5d08ee9787

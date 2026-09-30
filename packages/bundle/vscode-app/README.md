@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Use DSH conversations in the VS Code sidebar without replacing the shared agent runtime. The extension adds this layer to its private Web-derived profile. Ordinary Web and Desktop profiles do not include it. Its Client presentation requires the editor's startup bridge.
+Use DSH conversations with an isolated editor profile when you do not want to share Desktop data. The extension adds this layer only in `isolated` mode. Default `shared` mode uses the Desktop profile without this bundle; the Web composition supplies the bridge-gated editor presentation.
 
 ## Table of Contents
 
@@ -25,7 +25,7 @@ Use DSH conversations in the VS Code sidebar without replacing the shared agent 
 <a id="use-this-package"></a>
 ## Use this package
 
-Start the [VS Code development preview](../../../apps/vscode/README.md). Its launcher adds this in-box bundle after `base` and `web-app` in the private `vscode` profile. Do not add it to a browser-only profile: the editor-owned workspace and native credential command are unavailable there.
+Start the [VS Code development preview](../../../apps/vscode/README.md). In `isolated` mode, its launcher adds this in-box bundle after `base` and `web-app` in the private `vscode` profile. Do not add it to a browser-only profile: the editor-owned workspace and native credential command are unavailable there.
 
 -----
 
@@ -35,7 +35,7 @@ Start the [VS Code development preview](../../../apps/vscode/README.md). Its lau
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-The [patch](cordis.patch.yml) inserts the editor layout and a Host prompt contribution. It disables browser opening, URL printing, and the Web-specific model orientation. The Host entry contributes the VS Code surface description through the shared system-prompt registry; disposal removes that section. Runtime and Client dependencies resolve through the shared profile installation.
+The [patch](cordis.patch.yml) inserts a Host prompt contribution; the Web bundle owns the editor layout. It disables browser opening, URL printing, and the Web-specific model orientation. The Host entry contributes the VS Code surface description through the shared system-prompt registry; disposal removes that section. Runtime and Client dependencies resolve through the shared profile installation.
 
 </details>
 

@@ -29,6 +29,18 @@ it('renders explicit editor references and native previews in a narrow conversat
       const root = page.locator('[data-vscode-conversation]')
       const input = root.locator('[data-composer-input][contenteditable="true"]').first()
       await input.waitFor()
+      await root.getByRole('navigation', { name: 'All conversations' }).waitFor()
+      await root.getByRole('button', { name: 'Add files or run commands', exact: true }).click()
+      const fileOption = page.getByRole('option', { name: 'File', exact: true })
+      await fileOption.waitFor()
+      const chooser = page.waitForEvent('filechooser')
+      await fileOption.click({ timeout: 5_000 })
+      await (await chooser).setFiles({ name: 'editor-upload.txt', mimeType: 'text/plain', buffer: Buffer.from('EDITOR_UPLOAD_BYTES') })
+      await root.getByText('editor-upload.txt', { exact: true }).waitFor()
+      await expect.poll(async () => root.getByRole('button', { name: 'Send message', exact: true }).isEnabled()).toBe(true)
+      expect(await root.getByRole('button', { name: 'History', exact: true }).count()).toBe(0)
+      expect(await root.getByRole('button', { name: 'New conversation', exact: true }).count()).toBe(0)
+      expect(await root.getByRole('button', { name: 'Attach file', exact: true }).count()).toBe(0)
       await root.getByRole('button', { name: 'Attach selection', exact: true }).click()
       const chip = input.locator('[data-composer-chip="editor-context"]')
       await chip.waitFor()
@@ -36,18 +48,18 @@ it('renders explicit editor references and native previews in a narrow conversat
       await chip.click()
       await expect.poll(() => page.evaluate(() => (Reflect.get(globalThis, '__DSH_EDITOR_OBSERVATIONS__') as { preview: string }).preview))
         .toBe(snapshot)
-      await root.getByRole('button', { name: 'API key', exact: true }).click()
+      await root.getByRole('button', { name: 'API settings', exact: true }).click()
       expect(await page.evaluate(() => (Reflect.get(globalThis, '__DSH_EDITOR_OBSERVATIONS__') as { configured: boolean }).configured)).toBe(true)
-      await root.getByRole('button', { name: 'History', exact: true }).click()
-      await root.getByRole('navigation', { name: 'Conversations in this workspace' }).waitFor()
-      expect(await page.evaluate(() => document.activeElement?.textContent)).toBe('Back to conversation')
-      await page.keyboard.press('Escape')
-      expect(await page.evaluate(() => document.activeElement?.textContent)).toBe('History')
-      await chip.waitFor({ state: 'visible' })
       for (const width of [320, 420]) {
         await page.setViewportSize({ width, height: 900 })
         const geometry = await root.evaluate(element => ({ width: element.clientWidth, scroll: element.scrollWidth }))
         expect(geometry.scroll).toBeLessThanOrEqual(geometry.width)
+        const listBox = await root.getByRole('navigation').boundingBox()
+        const composerBox = await root.locator('[data-composer-seat]').boundingBox()
+        const footerBox = await root.locator('footer').boundingBox()
+        expect(listBox!.y + listBox!.height).toBeLessThanOrEqual(composerBox!.y + 1)
+        expect(composerBox!.y + composerBox!.height).toBeLessThanOrEqual(footerBox!.y + 1)
+        expect(footerBox!.y + footerBox!.height).toBeCloseTo(900, 0)
         const access = root.getByRole('button', { name: /^Access mode/ })
         await access.focus()
         await page.keyboard.press('Enter')
@@ -62,6 +74,21 @@ it('renders explicit editor references and native previews in a narrow conversat
         await menu.waitFor()
         await root.locator('header strong').click()
         await menu.waitFor({ state: 'hidden' })
+        const add = root.getByRole('button', { name: 'Add files or run commands', exact: true })
+        await add.click()
+        const files = page.getByRole('option', { name: 'File', exact: true })
+        await files.click({ trial: true })
+        const fileMenu = page.locator('[data-trigger-menu]')
+        const fileBounds = await fileMenu.boundingBox()
+        expect(fileBounds!.x).toBeGreaterThanOrEqual(0)
+        expect(fileBounds!.y).toBeGreaterThanOrEqual(0)
+        expect(fileBounds!.x + fileBounds!.width).toBeLessThanOrEqual(width)
+        await input.press('Escape')
+        await fileMenu.waitFor({ state: 'hidden' })
+        await add.click()
+        await files.waitFor()
+        await root.locator('header strong').click()
+        await fileMenu.waitFor({ state: 'hidden' })
       }
       for (const draft of ['unsent draft', '/']) {
         await writeComposerDraft(page, input, draft)
@@ -99,9 +126,10 @@ it('renders explicit editor references and native previews in a narrow conversat
         expect(await root.locator('[data-composer-card]').evaluate(element => getComputedStyle(element).backgroundColor)).toBe(background)
       }
       await compareOrRefreshGolden(fileURLToPath(new URL('./expected/vscode-context/interaction.expected.md', import.meta.url)),
-        ['- Editor layout: single column at 320/420 px', '- Selection reference: context.ts · v7*',
-          '- Preview: exact immutable snapshot', '- Credential gesture: native carrier', '- History return: draft retained',
-          '- Escape: history closes and focus returns', '- Keyboard: modified Enter and IME retain drafts; Shift+Enter inserts a line',
+        ['- Editor layout: single column at 320/420 px', '- Initial layout: all conversations when this workspace is empty, above a bottom-docked new-message composer', '- Selection reference: context.ts · v7*',
+          '- Preview: exact immutable snapshot', '- Credential gesture: native carrier', '- Footer: selection, Problems, API settings; no History, new-conversation or file button',
+          '- Plus menu: file chooser uploads editor-upload.txt; menu stays clickable and viewport-contained; Escape and outside click dismiss',
+          '- Keyboard: modified Enter and IME retain drafts; Shift+Enter inserts a line',
           '- Permission menu: viewport-contained; Escape and outside click dismiss',
           '- Theme: light, dark, high contrast dark/light carrier colors'].join('\n'),
         webSnapshotMode())

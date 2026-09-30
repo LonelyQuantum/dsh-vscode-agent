@@ -12,7 +12,8 @@ it('matches development assets and rejects stale repository overrides', async ()
     await writeFile(join(root, 'package.json'), JSON.stringify({ version: '0.0.1' }))
     await writeFile(join(root, 'development.json'), JSON.stringify({ repository: root, version: 'test' }))
     await writeFile(join(root, 'apps/cli/package.json'), JSON.stringify({ name: '@deepseek-ai/dsh', version: 'test' }))
-    expect(await resolveInstallation(root)).toEqual({ directory: join(root, 'apps/cli'), version: 'test' })
+    expect(await resolveInstallation(root)).toEqual({ directory: join(root, 'apps/cli'), version: 'test',
+      desktopHome: join(root, 'apps/desktop/.desktop-build/development/home') })
     await writeFile(join(root, 'apps/cli/package.json'), JSON.stringify({ name: '@deepseek-ai/dsh', version: 'stale' }))
     await expect(resolveInstallation(root)).rejects.toThrow('differs')
   } finally { await rm(root, { recursive: true, force: true }) }

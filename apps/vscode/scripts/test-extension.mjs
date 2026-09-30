@@ -10,8 +10,11 @@ import { chromium } from 'playwright'
 import * as yaml from 'js-yaml'
 
 const { positionals: [executable], values } = parseArgs({ allowPositionals: true,
-  options: { vsix: { type: 'string' }, 'live-home': { type: 'string' }, interactions: { type: 'boolean' }, faults: { type: 'boolean' }, 'fault-case': { type: 'string' }, 'compat-case': { type: 'string' }, ux: { type: 'boolean' }, security: { type: 'boolean' }, trust: { type: 'boolean' } } })
+  options: { vsix: { type: 'string' }, 'shared-home': { type: 'string' }, 'live-home': { type: 'string' }, interactions: { type: 'boolean' }, faults: { type: 'boolean' }, 'fault-case': { type: 'string' }, 'compat-case': { type: 'string' }, ux: { type: 'boolean' }, security: { type: 'boolean' }, trust: { type: 'boolean' } } })
 if (!executable) throw new Error('Pass the absolute VS Code executable path, not its shell wrapper')
+if (values['shared-home'] && (values['live-home'] || values.faults || values.interactions || values.security || values.trust || values['compat-case'])) {
+  throw new Error('--shared-home supports only keyless smoke and --ux against a test-owned Desktop home')
+}
 if ((values.ux || values.security || values.trust) && (values['live-home'] || values.faults || values.interactions || values['compat-case']
   || [values.ux, values.security, values.trust].filter(Boolean).length > 1)) {
   throw new Error('--ux, --security and --trust are separate keyless checks; select without model, fault, or compatibility options')
@@ -29,9 +32,9 @@ if (values['fault-case'] && (!values.faults || !['plugins', 'reconnect', 'crash'
 const app = fileURLToPath(new URL('..', import.meta.url))
 const ui = values.ux || values.security || values.trust || !!values['live-home'] || values['fault-case'] === 'plugins'
 const root = await mkdtemp(join(tmpdir(), 'dsh-vscode-editor-test-'))
-const userData = join(root, 'user')
+const userData = join(root, 'user-data')
 const extensions = join(root, 'extensions')
-const environment = { ...process.env }
+const environment = { ...process.env, VSCODE_PORTABLE: root }
 delete environment.ELECTRON_RUN_AS_NODE
 let child
 let browser
@@ -65,6 +68,10 @@ async function readIfPresent(path) {
 try {
   const workspace = join(root, 'workspace')
   await mkdir(workspace)
+  await mkdir(join(userData, 'User'), { recursive: true })
+  await writeFile(join(userData, 'User/settings.json'), JSON.stringify({ 'dsh.backend': values['shared-home'] ? 'shared' : 'isolated',
+    ...(values['shared-home'] ? { 'dsh.desktopHome': resolve(values['shared-home']) } : {}),
+    'telemetry.telemetryLevel': 'off', 'workbench.startupEditor': 'none' }))
   let extensionPath = resolve(app, 'lib/extension')
   if (values.vsix) {
     const cliCandidates = [join(dirname(executable), 'resources/app/out/cli.js'),
@@ -92,6 +99,7 @@ try {
     environment.DEEPSEEK_API_KEY = credential
   }
   if (ui) environment.DSH_VSCODE_TEST_UI = root
+  if (values['shared-home']) environment.DSH_VSCODE_TEST_SHARED = '1'
   if (values.security) environment.DSH_VSCODE_TEST_SECURITY = '1'
   if (values.faults || values['compat-case']) environment.DSH_VSCODE_TEST_FAULTS = '1'
   if (values.trust) {
@@ -103,7 +111,7 @@ try {
     await cp(join(app, 'lib/trust-host.cjs'), join(extensionPath, 'probe.cjs'))
     await mkdir(join(userData, 'User'), { recursive: true })
     await writeFile(join(userData, 'User/settings.json'), JSON.stringify({ 'security.workspace.trust.startupPrompt': 'never',
-      'security.workspace.trust.enabled': true, 'telemetry.telemetryLevel': 'off', 'workbench.startupEditor': 'none' }))
+      'security.workspace.trust.enabled': true, 'telemetry.telemetryLevel': 'off', 'workbench.startupEditor': 'none', 'dsh.backend': 'isolated' }))
   }
   child = spawn(executable, [workspace, '--new-window', ...values.trust ? [] : ['--disable-extensions', '--disable-workspace-trust'],
     '--skip-welcome', '--skip-release-notes', '--locale=en', '--user-data-dir', userData, '--shared-data-dir', join(root, 'shared'), '--extensions-dir', extensions,

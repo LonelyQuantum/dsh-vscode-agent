@@ -16,7 +16,7 @@ import { resolveInstallation } from '../src/installation.ts'
 export async function verifyRuntimeOwnership(root: string, extensionPath: string): Promise<void> {
   const workspace = vscode.Uri.file(await realpath(vscode.workspace.workspaceFolders![0].uri.fsPath)).fsPath
   const installation = await resolveInstallation(extensionPath)
-  const home = join(root, 'user/User/globalStorage/dsh-local.dsh-vscode-agent/homes',
+  const home = join(root, 'user-data/User/globalStorage/dsh-local.dsh-vscode-agent/homes',
     createHash('sha256').update(workspace).digest('hex').slice(0, 24))
   const lock = join(home, 'vscode-runtime.lock')
   const owner = Number((await readFile(lock, 'utf8')).trim())

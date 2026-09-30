@@ -1,0 +1,6 @@
+- Open: all conversations when this workspace has no saved conversations, with a new-message draft
+- Send from list: opens the submitted conversation
+- Back during model request: list has an independent empty draft; running request is not aborted
+- Background completion: recorded response persists and is visible after reopening
+- Reload: returns to this workspace’s conversation list; completed conversation remains available
+- Empty workspace: lists conversations from other workspaces; opening and returning selects an empty draft in the editor workspace
