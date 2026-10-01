@@ -15,12 +15,13 @@ import { DESKTOP_HOST_PROTOCOL_VERSION } from '../src/host-protocol.ts'
 
 const primaryRuntime = process.env.DSH_TEST_PRIMARY_RUNTIME
 
-it.skipIf(!primaryRuntime)('shares provider settings and durable Sessions across Desktop, editor-only cold launch, and crash recovery', async () => {
+it.each(['desktop', 'vscode', 'concurrent'] as const)('shares one backend and durable Sessions when %s starts a fresh home', async (first) => {
   const root = await mkdtemp(join(tmpdir(), 'dsh-shared-profile-'))
   const home = join(root, 'home')
   const workspace = join(root, 'workspace')
   const runtime = join(root, 'runtime')
   const repository = resolve(import.meta.dirname, '../../..')
+  const editorRuntime = process.env.DSH_TEST_SHARED_RUNTIME ?? join(repository, 'apps/vscode')
   const manifest = JSON.parse(await readFile(join(repository, 'apps/cli/package.json'), 'utf8')) as { version: string }
   const version = manifest.version
   const clients: SharedHostClient[] = []
@@ -37,11 +38,12 @@ it.skipIf(!primaryRuntime)('shares provider settings and durable Sessions across
     }, { timeout: 30_000 })
     pids.delete(pid)
   }
-  const attach = async (role: 'desktop' | 'vscode', first = false): Promise<SharedHostClient> => {
-    const client = await acquireSharedHost({ home, version, role, ...(first ? {
-      launch: { protocol: 1, version, node: process.execPath, runtime, primaryRuntime: resolve(primaryRuntime!) },
+  const attach = async (role: 'desktop' | 'vscode'): Promise<SharedHostClient> => {
+    const client = await acquireSharedHost({ home, version, role, ...(role === 'desktop' ? {
+      launch: { protocol: 1, version, node: process.execPath, runtime,
+        ...(primaryRuntime ? { primaryRuntime: resolve(primaryRuntime) } : {}) },
       prepare: () => new DesktopProjectManager(resolveDesktopPaths(home), { dsh: runtime }).applyRelease(),
-    } : {}) })
+    } : { launch: { protocol: 1, version, node: process.execPath, runtime: editorRuntime } }) })
     clients.push(client)
     pids.add(client.ready.pid)
     return client
@@ -69,8 +71,12 @@ it.skipIf(!primaryRuntime)('shares provider settings and durable Sessions across
       hostDir: join(repository, 'apps/desktop-host'), dependencyDir: join(repository, 'node_modules/.pnpm/node_modules'),
       target: 'win-x64', release: { schemaVersion: 1, version, hostProtocolVersion: DESKTOP_HOST_PROTOCOL_VERSION,
         nodeVersion: process.versions.node, pnpmVersion: '11.7.0' } })
-    const desktop = await attach('desktop', true)
-    const editor = await attach('vscode')
+    await expect(readFile(join(home, '.shared-host/launch.json'))).rejects.toMatchObject({ code: 'ENOENT' })
+    const [desktop, editor] = first === 'concurrent' ? await Promise.all([attach('desktop'), attach('vscode')])
+      : first === 'desktop' ? [await attach('desktop'), await attach('vscode')]
+        : (await (async () => { const editor = await attach('vscode'); return [await attach('desktop'), editor] })())
+    expect(desktop).toBeDefined()
+    expect(editor).toBeDefined()
     expect(editor.ready.pid).toBe(desktop.ready.pid)
     const desktopApi = await api(desktop)
     const editorApi = await api(editor)
@@ -118,8 +124,12 @@ it.skipIf(!primaryRuntime)('shares provider settings and durable Sessions across
     await vi.waitFor(() => { expect(provider.requests.some(request => request.headers['x-api-key'] === 'fixture-only-rotated-key')).toBe(true) }, { timeout: 20_000 })
     await desktop.close()
     expect(JSON.stringify(await editorApi('session/list', { _request: {} }))).toContain(session.sessionId)
+    const profileBefore = await readFile(join(home, 'profiles/desktop/package.json'))
+    const patchBefore = await readFile(join(home, 'profiles/desktop/cordis.patch.yml'))
     await editor.close()
     const standalone = await attach('vscode')
+    expect(await readFile(join(home, 'profiles/desktop/package.json'))).toEqual(profileBefore)
+    expect(await readFile(join(home, 'profiles/desktop/cordis.patch.yml'))).toEqual(patchBefore)
     await waitForExit(editor.ready.pid)
     expect(standalone.ready.pid).not.toBe(editor.ready.pid)
     const standaloneApi = await api(standalone)

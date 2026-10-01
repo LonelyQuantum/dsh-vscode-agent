@@ -3,7 +3,7 @@
 import { delimiter, join } from 'node:path'
 import { readFileSync } from 'node:fs'
 import { inspect } from 'node:util'
-import { loadLayeredEnv, loadProfileDirectory, reportSkippedBundles } from '@deepseek-ai/dsh-app-boot'
+import { initProfile, PROFILE_TEMPLATES, loadLayeredEnv, loadProfileDirectory, reportSkippedBundles, type ProfileTemplate } from '@deepseek-ai/dsh-app-boot'
 import { runProfile } from '@deepseek-ai/dsh/profile-boot'
 import type {} from '@deepseek-ai/dsh-client-connection'
 import type {} from '@deepseek-ai/dsh-host-webserver'
@@ -27,6 +27,8 @@ function startApplication(shared: boolean): ReturnType<typeof runProfile> {
     const manifest: unknown = JSON.parse(readFileSync(installAnchor, 'utf8'))
     if (typeof manifest !== 'object' || manifest === null || !('version' in manifest)
       || manifest.version !== process.env.DSH_SHARED_VERSION) throw new Error('Shared backend runtime version differs from its launcher')
+    // The shared owner lock protects initialization; initProfile preserves every existing profile file.
+    initProfile(projectDir, (PROFILE_TEMPLATES.web as ProfileTemplate).bundles)
   }
   const profile = loadProfileDirectory('dsh', projectDir, installAnchor)
   reportSkippedBundles('dsh', profile)
@@ -55,7 +57,7 @@ async function bootShared(publishPlatform: (session: unknown) => void): Promise<
   const running = await startApplication(true)
   try {
     const { ctx } = running
-    await installOffice(ctx)
+    if (process.argv[4] !== '') await installOffice(ctx)
     installPlatformSessionPublisher(ctx, publishPlatform)
     return { ready: { url: ctx.connection.authenticatedUrl(`http://127.0.0.1:${String(ctx.webServer.port)}`),
       injections: ctx.webServer.collectIndexInjections(), pid: process.pid },

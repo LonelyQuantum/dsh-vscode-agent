@@ -3,6 +3,7 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import { readFile, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { acquireSharedHost, SharedHostError, type SharedHostClient } from '@deepseek-ai/dsh-shared-host/client'
+import { resolveSharedLaunch } from './shared-launch.ts'
 
 /** Child boot information, never forwarded verbatim to the Webview. */
 export interface RuntimeReady { url: string; injections: unknown[]; pid: number }
@@ -17,6 +18,8 @@ export interface RuntimeOptions {
   apiKey?: string
   /** Shared Desktop backend home; private home is unused in shared mode. */
   desktopHome?: string
+  /** Extension-owned dependency directory, required for shared cold startup. */
+  sharedRuntime?: string
 }
 
 /** The child's Harness home could not be locked; no profile was started. */
@@ -44,7 +47,11 @@ export class AgentRuntime {
   async start(options: RuntimeOptions): Promise<RuntimeReady> {
     if (this.child || this.shared) throw new Error('DSH runtime is already started')
     if (options.desktopHome !== undefined) {
-      this.shared = acquireSharedHost({ home: options.desktopHome, version: options.version, role: 'vscode' }).catch(() => {
+      this.shared = acquireSharedHost({ home: options.desktopHome, version: options.version, role: 'vscode', launch: async () => {
+        if (this.stopping) throw new Error('DSH startup was cancelled')
+        if (!options.sharedRuntime) throw new Error('Shared runtime installation is missing')
+        return resolveSharedLaunch(options.node, options.sharedRuntime, options.version)
+      } }).catch(() => {
         throw new SharedHostError('Shared Desktop backend is unavailable')
       })
       const client = await this.shared

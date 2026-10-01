@@ -15,6 +15,8 @@
     "ws": "8.21.0"
   },
   "devDependencies": {
+    "@deepseek-ai/dsh": "workspace:*",
+    "@deepseek-ai/dsh-desktop-host": "workspace:*",
     "@deepseek-ai/dsh-shared-host": "workspace:*",
     "@deepseek-ai/dsh-llm-replay": "workspace:*",
     "@deepseek-ai/dsh-session-persistence-jsonl": "workspace:*",

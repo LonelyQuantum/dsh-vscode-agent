@@ -1,14 +1,14 @@
 /** Native-carrier leases over one authenticated local Desktop profile process. */
 import { spawn } from 'node:child_process'
 import { join } from 'node:path'
-import { mkdir, realpath } from 'node:fs/promises'
+import { access, mkdir, realpath } from 'node:fs/promises'
 import { setTimeout as delay } from 'node:timers/promises'
 import { withFileLock } from '@deepseek-ai/dsh-atomic-write'
 import WebSocket from 'ws'
 import { controlDirectory, parseEndpoint, parseLaunch, readRecord, writeRecord } from './files.ts'
-import { MAX_CONTROL_BYTES, SHARED_PROTOCOL, record, controlText, type ClientRole, type ControlAction, type DesktopLaunch, type Endpoint, type SharedReady } from './protocol.ts'
+import { MAX_CONTROL_BYTES, SHARED_PROTOCOL, record, controlText, type ClientRole, type ControlAction, type SharedLaunch, type Endpoint, type SharedReady } from './protocol.ts'
 
-export type { DesktopLaunch, SharedReady } from './protocol.ts'
+export type { SharedLaunch, SharedReady } from './protocol.ts'
 
 /** Shared startup cannot safely reuse another backend version or incomplete discovery data. */
 export class SharedHostError extends Error {}
@@ -140,12 +140,12 @@ export class SharedHostClient {
   }
 }
 
-/** Inputs to native shared-host acquisition; launch and preparation belong exclusively to Desktop. */
+/** Each native carrier supplies its own cold-start runtime; live connections need no local executable. */
 export interface AcquireSharedHost {
   home: string
   version: string
   role: ClientRole
-  launch?: DesktopLaunch
+  launch: SharedLaunch | (() => Promise<SharedLaunch>)
   /** Desktop development only; never persisted or applied to an existing backend. */
   inspectPort?: number | undefined
   /** Runs under the startup lock only when no backend is listening. */
@@ -154,13 +154,13 @@ export interface AcquireSharedHost {
 }
 
 /**
- * Reuse one backend or launch Desktop's saved Node entry, serialized across native clients.
+ * Reuse one backend or launch a carrier's Node runtime, serialized across native clients.
  * No secret or arbitrary environment value is persisted in the launch record.
  * @param options Trusted native-carrier choices, never Webview input.
  * @returns One lease with authenticated boot data.
  */
 export async function acquireSharedHost(options: AcquireSharedHost): Promise<SharedHostClient> {
-  if (options.launch) await mkdir(options.home, { recursive: true, mode: 0o700 })
+  await mkdir(options.home, { recursive: true, mode: 0o700 })
   const home = await realpath(options.home)
   const directory = await controlDirectory(home)
   const connect = async (): Promise<SharedHostClient | undefined> => SharedHostClient.connect(
@@ -169,9 +169,26 @@ export async function acquireSharedHost(options: AcquireSharedHost): Promise<Sha
     const existing = await connect()
     if (existing) return existing
     await options.prepare?.()
-    const launch = parseLaunch(options.launch ?? await readRecord(join(directory, 'launch.json')))
+    let launch: SharedLaunch | undefined
+    // Prefer a complete Desktop payload when installed, but never require its registration for editor startup.
+    if (options.role === 'vscode') {
+      const saved = await readRecord(join(directory, 'launch.json'))
+      if (saved !== undefined) {
+        const candidate = parseLaunch(saved)
+        if (candidate.version === options.version && candidate.primaryRuntime !== undefined) {
+          try {
+            await Promise.all([candidate.node, candidate.primaryRuntime,
+              join(candidate.runtime, 'node_modules/@deepseek-ai/dsh-desktop-host/lib/index.js'),
+              ...(candidate.pnpm === undefined ? [] : [candidate.pnpm])].map(path => access(path)))
+            launch = candidate
+          } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
+        }
+      }
+    }
+    launch ??= typeof options.launch === 'function' ? await options.launch() : options.launch
     if (launch.version !== options.version) throw new SharedHostError('Desktop and VS Code must use the same DSH version')
-    if (options.launch) await writeRecord(join(directory, 'launch.json'), launch)
+    await writeRecord(join(directory, 'launch.json'), launch)
+    await mkdir(join(home, 'profiles/desktop'), { recursive: true, mode: 0o700 })
     const env: NodeJS.ProcessEnv = { ...process.env, DSH_HOME: home, DSH_SHARED_HOST: '1',
       DSH_SHARED_VERSION: launch.version, ELECTRON_RUN_AS_NODE: '1' }
     delete env.NODE_OPTIONS
@@ -179,7 +196,7 @@ export async function acquireSharedHost(options: AcquireSharedHost): Promise<Sha
     const child = spawn(launch.node, ['--expose-internals',
       ...(options.inspectPort === undefined ? [] : [`--inspect=127.0.0.1:${String(options.inspectPort)}`]),
       join(launch.runtime, 'node_modules/@deepseek-ai/dsh-desktop-host/lib/index.js'),
-      launch.runtime, join(home, 'profiles/desktop'), launch.primaryRuntime,
+      launch.runtime, join(home, 'profiles/desktop'), launch.primaryRuntime ?? '',
       ...(launch.pnpm === undefined ? [] : [launch.pnpm, launch.nodeBin ?? ''])], {
       cwd: join(home, 'profiles/desktop'), env, detached: true, windowsHide: true, stdio: 'ignore',
     })

@@ -11,13 +11,14 @@ export type ControlAction = 'inspect-quit' | 'inspect-update' | 'lock-update' | 
 export interface SharedReady { url: string; injections: unknown[]; pid: number }
 /** Authenticated endpoint persisted only inside the user-private control directory. */
 export interface Endpoint { protocol: number; version: string; port: number; token: string; pid: number }
-/** Desktop-owned launch facts contain paths and versions, never environment credentials. */
-export interface DesktopLaunch {
+/** Native-carrier launch facts contain paths and versions, never environment credentials. */
+export interface SharedLaunch {
   protocol: number
   version: string
   node: string
   runtime: string
-  primaryRuntime: string
+  /** Optional Desktop Office/Python payload; an explicit path must be complete. */
+  primaryRuntime?: string
   pnpm?: string
   nodeBin?: string
 }

@@ -3,7 +3,7 @@ import { readFile, realpath } from 'node:fs/promises'
 import { join } from 'node:path'
 
 /** Runtime package directory and the version shared by the client assets. */
-export interface Installation { directory: string; version: string; desktopHome?: string }
+export interface Installation { directory: string; version: string; sharedRuntime: string; desktopHome?: string }
 
 /**
  * Resolve packaged metadata first, or explicit source-development metadata when no package exists.
@@ -19,6 +19,7 @@ export async function resolveInstallation(extension: string, repositoryOverride?
   let directory: string
   let version: unknown
   let desktopHome: string | undefined
+  let sharedRuntime: string
   if (packaged !== undefined) {
     const metadata = JSON.parse(packaged) as Record<string, unknown>
     if (metadata.schemaVersion !== 1 || metadata.extensionVersion !== manifest.version
@@ -27,11 +28,13 @@ export async function resolveInstallation(extension: string, repositoryOverride?
     }
     version = metadata.dshVersion
     directory = join(extension, 'runtime/node_modules/@deepseek-ai/dsh')
+    sharedRuntime = join(extension, 'runtime')
   } else {
     const metadata = JSON.parse(await readFile(join(extension, 'development.json'), 'utf8')) as Record<string, unknown>
     if (typeof metadata.repository !== 'string') throw new Error('DSH development repository is missing')
     version = metadata.version
     directory = join(repositoryOverride || metadata.repository, 'apps/cli')
+    sharedRuntime = join(repositoryOverride || metadata.repository, 'apps/vscode')
     desktopHome = join(repositoryOverride || metadata.repository, 'apps/desktop/.desktop-build/development/home')
   }
   if (typeof version !== 'string' || version.length === 0) throw new Error('DSH runtime version is missing')
@@ -39,5 +42,6 @@ export async function resolveInstallation(extension: string, repositoryOverride?
   if (installed.name !== '@deepseek-ai/dsh' || installed.version !== version) {
     throw new Error('DSH runtime version differs from the built client assets; rebuild the extension')
   }
-  return { directory: await realpath(directory), version, ...(desktopHome === undefined ? {} : { desktopHome }) }
+  return { directory: await realpath(directory), sharedRuntime: await realpath(sharedRuntime), version,
+    ...(desktopHome === undefined ? {} : { desktopHome }) }
 }

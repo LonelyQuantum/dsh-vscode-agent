@@ -1,10 +1,10 @@
-/** Private discovery files and the immutable, credential-free Desktop launch record. */
+/** Private discovery files and credential-free native launch records. */
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { lstat, mkdir, readFile, realpath, chmod } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
 import { writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
-import { record, SHARED_PROTOCOL, type DesktopLaunch, type Endpoint } from './protocol.ts'
+import { record, SHARED_PROTOCOL, type SharedLaunch, type Endpoint } from './protocol.ts'
 
 const execute = promisify(execFile)
 
@@ -53,18 +53,18 @@ export async function readRecord(path: string): Promise<unknown> {
   }
 }
 
-/** Validate fixed Desktop launcher fields. @param value Disk input. @returns Validated launch record. */
-export function parseLaunch(value: unknown): DesktopLaunch {
+/** Validate native launcher fields. @param value Disk input. @returns Validated launch record. */
+export function parseLaunch(value: unknown): SharedLaunch {
   if (!record(value) || value.protocol !== SHARED_PROTOCOL || typeof value.version !== 'string'
     || typeof value.node !== 'string' || !isAbsolute(value.node)
     || typeof value.runtime !== 'string' || !isAbsolute(value.runtime)
-    || typeof value.primaryRuntime !== 'string' || !isAbsolute(value.primaryRuntime)
+    || (value.primaryRuntime !== undefined && (typeof value.primaryRuntime !== 'string' || !isAbsolute(value.primaryRuntime)))
     || (value.pnpm !== undefined && (typeof value.pnpm !== 'string' || !isAbsolute(value.pnpm)))
     || (value.nodeBin !== undefined && (typeof value.nodeBin !== 'string' || !isAbsolute(value.nodeBin)))) {
-    throw new Error('Start the updated Desktop application once to initialize its shared backend')
+    throw new Error('Invalid shared backend launcher; rebuild or reinstall the native client')
   }
   return { protocol: SHARED_PROTOCOL, version: value.version, node: value.node, runtime: value.runtime,
-    primaryRuntime: value.primaryRuntime,
+    ...(typeof value.primaryRuntime === 'string' ? { primaryRuntime: value.primaryRuntime } : {}),
     ...(typeof value.pnpm === 'string' ? { pnpm: value.pnpm } : {}),
     ...(typeof value.nodeBin === 'string' ? { nodeBin: value.nodeBin } : {}) }
 }

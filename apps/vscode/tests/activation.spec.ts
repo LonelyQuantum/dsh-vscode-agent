@@ -17,7 +17,7 @@ vi.mock('../src/runtime.ts', () => ({ RuntimeOwnershipError: class extends Error
   onExit = vi.fn()
 } }))
 vi.mock('../src/native-context.ts', () => ({ SnapshotDocuments: class { dispose() {} } }))
-vi.mock('../src/installation.ts', () => ({ resolveInstallation: vi.fn(async () => ({ directory: '/installation', version: 'fixture' })) }))
+vi.mock('../src/installation.ts', () => ({ resolveInstallation: vi.fn(async () => ({ directory: '/installation', version: 'fixture', sharedRuntime: '/runtime' })) }))
 vi.mock('../src/desktop-home.ts', () => ({ DesktopHomeError: class extends Error {}, resolveDesktopHome: state.desktop }))
 vi.mock('vscode', () => ({
   env: { language: 'en', get remoteName() { return state.remote } },
@@ -47,7 +47,7 @@ beforeEach(() => {
   state.start.mockReset()
   state.stop.mockReset()
   state.secret.mockReset().mockResolvedValue(undefined)
-  state.desktop.mockReset().mockResolvedValue(undefined)
+  state.desktop.mockReset().mockResolvedValue('/new-shared-home')
   state.realpath.mockReset().mockResolvedValue('/workspace')
 })
 afterEach(async () => { await deactivate() })
@@ -102,4 +102,10 @@ it('rechecks trust after resolving Desktop configuration', async () => {
   release('/desktop')
   await opening
   expect(state.start).not.toHaveBeenCalled()
+})
+
+it('supplies its own runtime for a new shared home without requiring Desktop registration', async () => {
+  state.start.mockRejectedValueOnce(new Error('Fixture ends at runtime startup'))
+  await open()
+  expect(state.start).toHaveBeenCalledWith(expect.objectContaining({ desktopHome: '/new-shared-home', sharedRuntime: '/runtime' }))
 })

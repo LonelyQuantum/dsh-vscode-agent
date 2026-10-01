@@ -10,8 +10,11 @@ import { chromium } from 'playwright'
 import * as yaml from 'js-yaml'
 
 const { positionals: [executable], values } = parseArgs({ allowPositionals: true,
-  options: { vsix: { type: 'string' }, 'shared-home': { type: 'string' }, 'live-home': { type: 'string' }, interactions: { type: 'boolean' }, faults: { type: 'boolean' }, 'fault-case': { type: 'string' }, 'compat-case': { type: 'string' }, ux: { type: 'boolean' }, security: { type: 'boolean' }, trust: { type: 'boolean' } } })
+  options: { vsix: { type: 'string' }, 'fresh-shared': { type: 'boolean' }, 'shared-home': { type: 'string' }, 'live-home': { type: 'string' }, interactions: { type: 'boolean' }, faults: { type: 'boolean' }, 'fault-case': { type: 'string' }, 'compat-case': { type: 'string' }, ux: { type: 'boolean' }, security: { type: 'boolean' }, trust: { type: 'boolean' } } })
 if (!executable) throw new Error('Pass the absolute VS Code executable path, not its shell wrapper')
+if (values['fresh-shared'] && (values['shared-home'] || values['live-home'] || values.faults || values.interactions || values.security || values.trust || values['compat-case'])) {
+  throw new Error('--fresh-shared supports only keyless smoke and --ux in a new test-owned home')
+}
 if (values['shared-home'] && (values['live-home'] || values.faults || values.interactions || values.security || values.trust || values['compat-case'])) {
   throw new Error('--shared-home supports only keyless smoke and --ux against a test-owned Desktop home')
 }
@@ -35,6 +38,7 @@ const root = await mkdtemp(join(tmpdir(), 'dsh-vscode-editor-test-'))
 const userData = join(root, 'user-data')
 const extensions = join(root, 'extensions')
 const environment = { ...process.env, VSCODE_PORTABLE: root }
+if (values['fresh-shared']) environment.DSH_HOME = join(root, 'fresh-shared-home')
 delete environment.ELECTRON_RUN_AS_NODE
 let child
 let browser
@@ -69,7 +73,8 @@ try {
   const workspace = join(root, 'workspace')
   await mkdir(workspace)
   await mkdir(join(userData, 'User'), { recursive: true })
-  await writeFile(join(userData, 'User/settings.json'), JSON.stringify({ 'dsh.backend': values['shared-home'] ? 'shared' : 'isolated',
+  await writeFile(join(userData, 'User/settings.json'), JSON.stringify({
+    ...values['fresh-shared'] ? {} : { 'dsh.backend': values['shared-home'] ? 'shared' : 'isolated' },
     ...(values['shared-home'] ? { 'dsh.desktopHome': resolve(values['shared-home']) } : {}),
     'telemetry.telemetryLevel': 'off', 'workbench.startupEditor': 'none' }))
   let extensionPath = resolve(app, 'lib/extension')
@@ -100,6 +105,7 @@ try {
   }
   if (ui) environment.DSH_VSCODE_TEST_UI = root
   if (values['shared-home']) environment.DSH_VSCODE_TEST_SHARED = '1'
+  if (values['fresh-shared']) environment.DSH_VSCODE_TEST_FRESH_SHARED = '1'
   if (values.security) environment.DSH_VSCODE_TEST_SECURITY = '1'
   if (values.faults || values['compat-case']) environment.DSH_VSCODE_TEST_FAULTS = '1'
   if (values.trust) {

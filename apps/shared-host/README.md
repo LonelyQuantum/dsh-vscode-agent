@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Desktop and VS Code attach to one Desktop-profile process per canonical Harness home. They share provider configuration, credential storage, installed plugins, workspaces, and Session persistence without copying data. Either application can start the backend after Desktop registers its launcher. Closing one application releases its lease; the last lease shuts down the profile.
+Desktop and VS Code attach to one Desktop-profile process per canonical Harness home. They share provider configuration, credential storage, installed plugins, workspaces, and Session persistence without copying data. Either application can initialize an empty home and start the backend. Closing one application releases its lease; the last lease shuts down the profile.
 
 ## Table of Contents
 
@@ -25,9 +25,9 @@ Desktop and VS Code attach to one Desktop-profile process per canonical Harness 
 <a id="use-this-package"></a>
 ## Use this package
 
-The native Desktop carrier and Extension Host call `acquireSharedHost` from `./client`. Desktop supplies the trusted executable paths and profile preparation callback; VS Code reuses the saved launcher. The private Desktop Host calls `serveSharedHost` from `./server` and boots the normal `dsh` profile runner. This library is not a Cordis plugin or an application entry point.
+The native Desktop carrier and Extension Host call `acquireSharedHost` from `./client`. Both supply their own trusted runtime locations; VS Code resolves its Node executable only for cold startup. The shared Node Host calls `serveSharedHost` from `./server`, initializes missing profile files under the owner lock, and boots the normal `dsh` profile runner. This library is not a Cordis plugin or an application entry point.
 
-Start the updated Desktop application once before connecting VS Code. Both clients must use the same DSH version and Harness home. Existing isolated extension homes remain separate and are never moved, merged, or deleted automatically. See the [extension setup](../vscode/README.md) for selection and private-mode commands.
+Neither client requires the other to run first. Both clients must use the same DSH version and Harness home. Existing profile files are preserved; isolated extension homes remain separate and are never moved, merged, or deleted automatically. See the [extension setup](../vscode/README.md) for selection and private-mode commands.
 
 -----
 
@@ -67,7 +67,7 @@ None. This library adds no model prompt, tool, or Session event; the shared Desk
 ## Known Limitations and Deferred Work
 
 - Local, same-account clients only; remote extension hosts are unsupported.
-- Desktop must register an installed launcher before editor-only cold launch. Moving or upgrading Desktop requires registering its launcher again.
+- A compatible saved Desktop launcher with its Office payload takes priority for editor cold startup. Without that payload, the editor starts its own runtime; attaching Desktop later does not hot-install its optional Office/Python resources. Close both clients and start Desktop to enable those resources.
 - Backend crashes require an explicit reconnect or application restart. This is not an always-running background service.
 - Earlier isolated extension history is not automatically imported.
 

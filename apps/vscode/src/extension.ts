@@ -109,7 +109,6 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
             join(homedir(), '.dsh'),
           ])
           : undefined
-        if (shared && desktopHome === undefined) throw new DesktopHomeError('Desktop home is not initialized')
         if (isClosed() || !trusted()) return
         runtime = new AgentRuntime()
         const owner = runtime
@@ -124,6 +123,7 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
         })
         booting = runtime.start({ node: config.get<string>('nodePath') || 'node', installation: installation.directory,
           version: installation.version,
+          sharedRuntime: installation.sharedRuntime,
           entry: join(context.extensionPath, 'host.mjs'), workspace,
           ...(desktopHome === undefined ? apiKey === undefined ? {} : { apiKey } : { desktopHome }),
           home: join(context.globalStorageUri.fsPath, 'homes', createHash('sha256').update(workspace).digest('hex').slice(0, 24)) })

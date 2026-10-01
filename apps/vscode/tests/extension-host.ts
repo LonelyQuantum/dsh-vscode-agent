@@ -56,7 +56,8 @@ async function verifyEditorContext(): Promise<void> {
 /** Exercise Webview boot, native stream forwarding and shutdown in a real Extension Host. @returns Completion after the runtime stops. */
 export async function run(): Promise<void> {
   const shared = process.env.DSH_VSCODE_TEST_SHARED === '1'
-  await vscode.workspace.getConfiguration('dsh').update('backend', shared ? 'shared' : 'isolated', vscode.ConfigurationTarget.Global)
+  const freshShared = process.env.DSH_VSCODE_TEST_FRESH_SHARED === '1'
+  if (!freshShared) await vscode.workspace.getConfiguration('dsh').update('backend', shared ? 'shared' : 'isolated', vscode.ConfigurationTarget.Global)
   await verifyEditorContext()
   const extension = vscode.extensions.getExtension<{ diagnostics(): PreviewDiagnostics }>('dsh-local.dsh-vscode-agent')
   assert.ok(extension)
@@ -88,10 +89,16 @@ export async function run(): Promise<void> {
     assert.ok(previous)
     await vscode.commands.executeCommand('dsh.restart')
     if (shared) assert.doesNotThrow(() => process.kill(previous, 0))
-    else assert.throws(() => process.kill(previous, 0))
+    else if (!freshShared) assert.throws(() => process.kill(previous, 0))
     await connected()
     console.log('VSCODE_WEBVIEW_SMOKE_OK ' + JSON.stringify(api.diagnostics()))
     if (shared) assert.equal(api.diagnostics().pid, previous)
+    if (freshShared) {
+      assert.notEqual(api.diagnostics().pid, previous)
+      assert.throws(() => process.kill(previous, 0))
+      const profile: unknown = JSON.parse(await readFile(join(process.env.DSH_HOME!, 'profiles/desktop/package.json'), 'utf8'))
+      assert.ok(typeof profile === 'object' && profile !== null && 'dsh' in profile)
+    }
     if (!shared) {
       const crashed = api.diagnostics().pid
       assert.ok(crashed)
@@ -169,7 +176,14 @@ export async function run(): Promise<void> {
     await vscode.commands.executeCommand('dsh.stop')
     if (pid !== undefined) {
       if (shared) assert.doesNotThrow(() => process.kill(pid, 0))
-      else assert.throws(() => process.kill(pid, 0))
+      else {
+        const deadline = Date.now() + 15_000
+        while (freshShared && Date.now() < deadline) {
+          try { process.kill(pid, 0) } catch { break }
+          await delay(50)
+        }
+        assert.throws(() => process.kill(pid, 0))
+      }
     }
   }
 }

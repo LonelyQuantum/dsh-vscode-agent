@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, expect, it, vi } from 'vitest'
 import WebSocket from 'ws'
-import { SharedHostClient } from '../src/client.ts'
+import { acquireSharedHost, SharedHostClient } from '../src/client.ts'
 import { parseEndpoint, parseLaunch } from '../src/files.ts'
 import { serveSharedHost } from '../src/server.ts'
 import { controlText, record } from '../src/protocol.ts'
@@ -136,10 +136,24 @@ it('rejects incorrect tokens and incompatible clients without creating another o
   await desktop.close()
 })
 
-it('accepts only absolute Desktop launch locations and drops extra disk fields', () => {
+it('connects before resolving an executable and never launches over an incompatible live backend', async () => {
+  const fixtureState = await fixture()
+  const desktop = await fixtureState.attach('desktop')
+  const launch = vi.fn(async (): Promise<never> => { throw new Error('No local Node installation') })
+  const editor = await acquireSharedHost({ home: fixtureState.home, version: 'fixture', role: 'vscode', launch })
+  try {
+    expect(editor.ready.pid).toBe(desktop.ready.pid)
+    await expect(acquireSharedHost({ home: fixtureState.home, version: 'different', role: 'vscode', launch })).rejects.toThrow('refused')
+    expect(launch).not.toHaveBeenCalled()
+  } finally { await editor.close() }
+})
+
+it('accepts an editor runtime without Office payload and rejects relative launch locations', () => {
   const location = tmpdir()
   expect(parseLaunch({ protocol: 1, version: 'fixture', node: location, runtime: location, primaryRuntime: location,
     environment: { DEEPSEEK_API_KEY: 'fixture-only' } })).not.toHaveProperty('environment')
   expect(() => parseLaunch({ protocol: 1, version: 'fixture', node: 'relative', runtime: location, primaryRuntime: location })).toThrow()
+  expect(parseLaunch({ protocol: 1, version: 'fixture', node: location, runtime: location })).not.toHaveProperty('primaryRuntime')
+  expect(() => parseLaunch({ protocol: 1, version: 'fixture', node: location, runtime: location, primaryRuntime: 'relative' })).toThrow()
   expect(() => parseEndpoint({ port: 65536 })).toThrow()
 })

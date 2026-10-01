@@ -764,6 +764,12 @@ importers:
         specifier: 8.21.0
         version: 8.21.0
     devDependencies:
+      '@deepseek-ai/dsh':
+        specifier: workspace:*
+        version: link:../cli
+      '@deepseek-ai/dsh-desktop-host':
+        specifier: workspace:*
+        version: link:../desktop-host
       '@deepseek-ai/dsh-llm-replay':
         specifier: workspace:*
         version: link:../../packages/test-support/llm-replay

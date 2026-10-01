@@ -9,7 +9,7 @@ kind: "package-library"
 
 ## 摘要
 
-Desktop 和 VS Code 为每个规范化 Harness 主目录连接同一个 Desktop profile 进程。两端共享模型提供方配置、凭据存储、已安装插件、工作区和会话持久化，不复制数据。Desktop 注册启动器后，任一应用都能启动后台。关闭一个应用只释放其租约；最后一个租约释放后关闭 profile。
+Desktop 和 VS Code 为每个规范化 Harness 主目录连接同一个 Desktop profile 进程。两端共享模型提供方配置、凭据存储、已安装插件、工作区和会话持久化，不复制数据。任一应用都能初始化空主目录并启动后台。关闭一个应用只释放其租约；最后一个租约释放后关闭 profile。
 
 ## 目录
 
@@ -25,9 +25,9 @@ Desktop 和 VS Code 为每个规范化 Harness 主目录连接同一个 Desktop 
 <a id="use-this-package"></a>
 ## 使用本包
 
-原生 Desktop 宿主和 Extension Host 调用 `./client` 的 `acquireSharedHost`。Desktop 提供可信的可执行文件路径和 profile 准备回调；VS Code 复用保存的启动器。私有 Desktop Host 调用 `./server` 的 `serveSharedHost`，并通过正常的 `dsh` profile 运行器启动。本库不是 Cordis 插件，也不是应用入口。
+原生 Desktop 宿主和 Extension Host 调用 `./client` 的 `acquireSharedHost`。两端均提供自身可信的运行时位置；VS Code 仅在冷启动时解析 Node 可执行文件。共享 Node Host 调用 `./server` 的 `serveSharedHost`，在所有者锁内初始化缺失的 profile 文件，再通过正常的 `dsh` profile 运行器启动。本库不是 Cordis 插件，也不是应用入口。
 
-连接 VS Code 前先启动一次更新后的 Desktop。两端必须使用相同 DSH 版本和 Harness 主目录。已有扩展隔离主目录仍保持独立，不会被自动移动、合并或删除。目录选择和独立模式命令见[扩展设置](../vscode/README.zh.md)。
+任一客户端均无需等待另一端先运行。两端必须使用相同 DSH 版本和 Harness 主目录。已有 profile 文件保持不变；扩展隔离主目录仍保持独立，不会被自动移动、合并或删除。目录选择和独立模式命令见[扩展设置](../vscode/README.zh.md)。
 
 -----
 
@@ -67,7 +67,7 @@ Desktop 更新保留独占访问权，其他原生客户端仍连接时拒绝更
 ## 已知限制与待办事项
 
 - 仅支持本地同账户客户端；不支持远程扩展宿主。
-- 仅启动编辑器前，Desktop 必须注册已安装的启动器。移动或升级 Desktop 后需重新注册。
+- 编辑器冷启动优先使用已保存且兼容、Office 载荷仍存在的 Desktop 启动器。没有该载荷时，编辑器启动自身运行时；随后连接 Desktop 不会热安装其可选 Office/Python 资源。关闭两端后启动 Desktop 可启用这些资源。
 - 后台崩溃后需要显式重新连接或重启应用。本库不是常驻后台服务。
 - 不自动导入旧版扩展的隔离历史。
 

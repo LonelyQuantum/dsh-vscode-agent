@@ -1,13 +1,13 @@
 /** Desktop lifecycle adapter for the home-wide shared backend. */
-import { acquireSharedHost, type DesktopLaunch, type SharedHostClient } from '@deepseek-ai/dsh-shared-host/client'
+import { acquireSharedHost, type SharedLaunch, type SharedHostClient } from '@deepseek-ai/dsh-shared-host/client'
 import type { PlatformSession } from '@deepseek-ai/dsh-deepseek-account'
 import { isDesktopHostEvent, type DesktopHostReady, type DesktopQuitInspection } from './host-process.ts'
 
-/** Desktop alone can prepare its profile and publish trusted launch locations. */
+/** Desktop supplies its runtime and optional Office payload when it starts the shared profile. */
 export interface SharedDesktopOptions {
   home: string
   version: string
-  launch: DesktopLaunch
+  launch: SharedLaunch
   inspectPort?: number | undefined
   prepare(): Promise<void>
   failure(error: Error): void

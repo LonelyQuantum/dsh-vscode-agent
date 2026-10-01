@@ -24,7 +24,7 @@ for await (const path of glob(workspace.packages.map(pattern => `${pattern}/pack
   const manifest = JSON.parse(await readFile(join(repository, path), 'utf8')) as RuntimePackage['manifest']
   available.set(manifest.name, { directory: join(repository, dirname(path)), manifest })
 }
-const selected = runtimeClosure(available, ['@deepseek-ai/dsh', '@deepseek-ai/dsh-vscode-app'])
+const selected = runtimeClosure(available, ['@deepseek-ai/dsh', '@deepseek-ai/dsh-desktop-host', '@deepseek-ai/dsh-vscode-app'])
 const temporary = await mkdtemp(join(tmpdir(), 'dsh-vscode-pack-'))
 async function pnpm(args: string[], cwd: string): Promise<void> {
   const invocation = pnpmInvocation(args)

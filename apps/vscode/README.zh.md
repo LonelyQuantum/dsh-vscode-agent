@@ -8,7 +8,7 @@
 
 源码基线为 DSH `0.1.7-rc.2`。更新后须重新构建；已有 `0.1.6-alpha.2` VSIX 不包含新运行时。开发计划分别记录源码模型及恢复验证与打包产物验收。保留现有会话代际；用新写入器打开重要历史前，先在隔离 Harness 主目录中验证升级。
 
-需要桌面版 VS Code 1.106 或更新版本，以及一个已信任的本地文件夹；独立模式还需要满足 `^22.19.0 || >=24.0.0` 的 Node。在仓库根目录先构建共享应用，再构建扩展：
+需要桌面版 VS Code 1.106 或更新版本，以及一个已信任的本地文件夹；编辑器自行冷启动或独立模式还需要满足 `^22.19.0 || >=24.0.0` 的 Node。在仓库根目录先构建共享应用，再构建扩展：
 
 ```powershell
 pnpm.cmd install
@@ -20,18 +20,18 @@ pnpm.cmd run dev:vscode
 
 此预览复用当前仓库已构建的 Host 包、已安装的依赖及复制的 Web 资源，不会另行下载一份 Node 或 pnpm。上游更新后需重新构建共享应用和扩展；移动仓库目录后需重新构建扩展或设置 `dsh.repositoryPath`。如果扩展宿主无法在 PATH 中找到兼容的 `node`，请将机器级设置 `dsh.nodePath` 指向 Node 可执行文件的绝对路径。
 
-先启动一次更新后的 Desktop 注册后台启动器，再选择 `DSH: 连接桌面版共享后台`。机器级设置 `dsh.desktopHome` 指向包含 `profiles/desktop` 的 Harness 主目录；自动发现检查 `DSH_HOME`、当前仓库的开发版 Desktop 主目录及账户的 `.dsh` 目录。两端需要相同 DSH 版本。Desktop 无需保持打开：VS Code 可以独立启动已注册的后台。
+打开扩展即可连接共享后台，或使用扩展自身运行时初始化并启动后台；无需先安装或打开 Desktop。机器级设置 `dsh.desktopHome` 选择已有或新的 Harness 主目录。未设置时按优先级使用第一个可用配置：`DSH_HOME`、当前仓库的开发主目录、账户的 `.dsh` 目录。缺失目录在受信任启动时创建，不会跳过并改用其他主目录。`DSH: 连接桌面版共享后台` 可选择其他主目录。两端需要相同 DSH 版本和主目录；已有 profile 文件及历史保持不变。
 
 `DSH: 配置 API` 选择共享后台，或显式切换到 `dsh.backend = isolated` 并在 SecretStorage 中保存独立密钥。共享模式使用 Desktop profile 的凭据及模型提供方配置，不复制密钥。删除扩展保存的密钥不会删除 Desktop 凭据。已有私有历史仍可在独立模式访问，不会自动合并。
 
 <a id="windows-vsix"></a>
 ## Windows VSIX 预览
 
-构建共享应用后，运行 `pnpm.cmd run package:vscode`。本地产物为 `apps/vscode/lib/dsh-vscode-agent-0.0.6-win32-x64.vsix`；通过 VS Code 的 **扩展: 从 VSIX 安装** 命令安装。打包使用本地 npm tarball 和隔离的生产依赖安装，包含必需的 peer 和 Client 注入包。包内包含共享 Web 组合及其 Office 转换依赖，不包含 Desktop 的 Electron 外壳、Python/Office skills 载荷、Node 或 pnpm 分发。打包运行时清单记录生产依赖集合。客户端 JavaScript 不包含构建机器的调试路径注释，但保留许可证文本；Windows VSIX 不包含 source map、本机 pnpm 记录或 POSIX 启动脚本。仍需兼容的外部 Node。不执行 Marketplace 发布或签名。
+构建共享应用后，运行 `pnpm.cmd run package:vscode`。本地产物为 `apps/vscode/lib/dsh-vscode-agent-0.0.7-win32-x64.vsix`；通过 VS Code 的 **扩展: 从 VSIX 安装** 命令安装。打包使用本地 npm tarball 和隔离的生产依赖安装，包含必需的 peer 和 Client 注入包。包内包含共享 Node Host、Web 组合及 Office 转换依赖，不包含 Desktop 的 Electron 外壳、Python/Office skills 载荷、Node 或 pnpm 分发。打包运行时清单记录生产依赖集合。客户端 JavaScript 不包含构建机器的调试路径注释，但保留许可证文本；Windows VSIX 不包含 source map、本机 pnpm 记录或 POSIX 启动脚本。仍需兼容的外部 Node。不执行 Marketplace 发布或签名。
 
 打包的客户端资源与 DSH 包记录匹配版本。`runtime.json` 记录平台、架构、包版本和生产锁文件摘要。启动器拒绝版本或平台不匹配，打包元数据无效时不会回退到源码仓库。启动器在加载模块前规范化安装路径，使 Windows 盘符别名共享 DSH 的模块状态。`dsh.repositoryPath` 仅适用于源码开发。构建只替换自己生成的扩展暂存目录；重新构建前请停止开发窗口。
 
-产物冒烟测试将 VSIX 安装到仓库外的临时扩展目录并检查已安装文件：`node apps/vscode/scripts/test-extension.mjs "C:/path/to/Microsoft VS Code/Code.exe" --vsix apps/vscode/lib/dsh-vscode-agent-0.0.6-win32-x64.vsix`。它不会修改用户日常使用的 VS Code 安装。
+产物冒烟测试将 VSIX 安装到仓库外的临时扩展目录并检查已安装文件：`node apps/vscode/scripts/test-extension.mjs "C:/path/to/Microsoft VS Code/Code.exe" --vsix apps/vscode/lib/dsh-vscode-agent-0.0.7-win32-x64.vsix --fresh-shared`。它在未注册 Desktop 的空测试主目录中启动默认共享后台，再检查重启、崩溃恢复和最终进程退出。它不会修改用户日常使用的 VS Code 安装。
 
 <a id="editor-context"></a>
 ## 编辑器上下文

@@ -6,22 +6,26 @@ import { isAbsolute, join } from 'node:path'
 export class DesktopHomeError extends Error {}
 
 /**
- * Resolve an explicit Desktop home or the first initialized automatic candidate.
- * @param selected Machine-scoped user choice; a missing explicit choice fails instead of falling back.
- * @param candidates Trusted application-owned locations, never paths inferred from workspace content.
- * @returns Canonical Desktop home, or undefined when no automatic candidate is initialized.
+ * Resolve the selected or highest-priority shared home without creating directories.
+ * @param selected Machine-scoped user choice; a new directory is initialized only during trusted startup.
+ * @param candidates Ordered application-owned defaults, never paths inferred from workspace content.
+ * @returns Canonical existing home or an absolute location for first-run initialization.
  */
-export async function resolveDesktopHome(selected: string | undefined, candidates: readonly string[]): Promise<string | undefined> {
-  for (const home of selected ? [selected] : candidates) {
-    if (!isAbsolute(home)) throw new DesktopHomeError('Desktop home must be an absolute directory')
+export async function resolveDesktopHome(selected: string | undefined, candidates: readonly string[]): Promise<string> {
+  const home = selected || candidates[0]
+  if (!home || !isAbsolute(home)) throw new DesktopHomeError('Shared home must be an absolute directory')
+  try {
+    const directory = await stat(home)
+    if (!directory.isDirectory()) throw new DesktopHomeError('Shared home must be a directory')
     try {
       const profile = await stat(join(home, 'profiles/desktop/package.json'))
       if (!profile.isFile()) throw new DesktopHomeError('Desktop profile is unavailable')
-      return await realpath(home)
     } catch (error) {
-      if (!selected && (error as NodeJS.ErrnoException).code === 'ENOENT') continue
-      throw new DesktopHomeError('Desktop profile is unavailable')
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     }
+    return await realpath(home)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return home
+    throw new DesktopHomeError('Shared home is unavailable')
   }
-  return undefined
 }
