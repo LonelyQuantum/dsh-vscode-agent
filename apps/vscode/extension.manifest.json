@@ -2,7 +2,7 @@
   "name": "dsh-vscode-agent",
   "displayName": "DSH Agent (Community Preview)",
   "description": "%description%",
-  "version": "0.0.8",
+  "version": "0.0.1",
   "publisher": "dsh-local",
   "license": "MIT",
   "preview": true,
