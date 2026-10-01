@@ -8,6 +8,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "package": "tsx scripts/package.ts",
+    "verify:release": "tsx scripts/verify-release.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
@@ -28,6 +29,7 @@
     "@types/vscode": "1.100.0",
     "@types/ws": "8.18.1",
     "esbuild": "0.28.1",
+    "sharp": "0.35.3",
     "typescript": "6.0.3"
   }
 }

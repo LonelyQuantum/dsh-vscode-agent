@@ -3,6 +3,7 @@ import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { relative, resolve } from 'node:path'
 import { build } from 'esbuild'
+import sharp from 'sharp'
 
 const app = fileURLToPath(new URL('..', import.meta.url))
 const repository = resolve(app, '../..')
@@ -31,6 +32,9 @@ await Promise.all([
   cp(resolve(app, 'package.nls.zh-cn.json'), resolve(output, 'package.nls.zh-cn.json')),
   cp(resolve(app, 'resources'), resolve(output, 'resources'), { recursive: true }),
 ])
+const icon = (await readFile(resolve(app, 'resources/agent.svg'), 'utf8')).replaceAll('currentColor', '#dbeafe')
+await sharp(Buffer.from(icon), { density: 768 }).resize(256, 256).flatten({ background: '#172554' })
+  .png().toFile(resolve(output, 'resources/marketplace.png'))
 const version = JSON.parse(await readFile(resolve(repository, 'apps/cli/package.json'), 'utf8')).version
 await writeFile(resolve(output, 'development.json'), JSON.stringify({ repository, version }) + '\n')
 console.log(`VS Code development extension: ${output}`)

@@ -27,6 +27,7 @@
     "build:web": "pnpm --filter @deepseek-ai/dsh-web-frontend run build",
     "build:vscode": "pnpm --filter @deepseek-ai/dsh-vscode run build",
     "package:vscode": "pnpm run build:vscode && pnpm --filter @deepseek-ai/dsh-vscode run package",
+    "verify:vscode-release": "pnpm --filter @deepseek-ai/dsh-vscode run verify:release",
     "dev:vscode": "pnpm run build:vscode && pnpm run start:vscode",
     "start:vscode": "code --extensionDevelopmentPath=apps/vscode/lib/extension .",
     "build:desktop": "pnpm --filter @deepseek-ai/dsh-desktop run build",

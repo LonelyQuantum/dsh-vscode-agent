@@ -1,0 +1,16 @@
+# Bilingual-pair consistency record for RELEASING.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write apps/vscode/RELEASING.md
+/community-preview-release-checklist:
+  en: 7d1b8089fe4ff76f
+  zh: c32d33ff275de5eb
+/community-preview-release-checklist/build-and-inspect:
+  en: ad8fac8252c1ea17
+  zh: e6a2910f2bc2d284
+/community-preview-release-checklist/installed-artifact-acceptance:
+  en: 7415c1791da366ff
+  zh: d47002ca452e813c
+/community-preview-release-checklist/distribution-decisions:
+  en: ed1229a8a032b73a
+  zh: 18e97fc003571e01

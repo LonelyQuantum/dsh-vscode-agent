@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for PRIVACY.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write apps/vscode/PRIVACY.md
+/privacy-and-data-handling:
+  en: 33ea78d068dc5339
+  zh: 955b198fcee82248
+/privacy-and-data-handling/local-storage-and-access:
+  en: 6b6b348329c761a5
+  zh: 512c6de73b07ab41
+/privacy-and-data-handling/model-requests-and-tools:
+  en: 9c0fd9cffb6761f3
+  zh: 69da28f9c133402e
+/privacy-and-data-handling/feedback-sharing:
+  en: 182a80b17c943c16
+  zh: 0bc512a551517a7b
+/privacy-and-data-handling/support-and-disclosure:
+  en: 0d114030883a3a2c
+  zh: f243170919202c53

@@ -1,19 +1,26 @@
 /** Build a source-independent, current-platform VSIX with the shared profile runtime and an external Node. */
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { cp, glob, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as yaml from 'js-yaml'
-import { createVSIX } from '@vscode/vsce'
+import { createVSIX, listFiles, PackageManager } from '@vscode/vsce'
 import { pnpmInvocation } from '../../../scripts/pnpm-invocation.ts'
 import { runtimeClosure, type RuntimePackage } from './package-closure.ts'
 import { windowsArtifactIgnores } from './package-files.ts'
+import { artifactProblems, manifestProblems } from './release-policy.ts'
 
 const app = fileURLToPath(new URL('..', import.meta.url))
 const repository = resolve(app, '../..')
 const output = join(app, 'lib/packaged-extension')
+const sourceManifest: unknown = JSON.parse(await readFile(join(app, 'extension.manifest.json'), 'utf8'))
+const metadataProblems = manifestProblems(sourceManifest, false)
+if (metadataProblems.length) throw new Error(metadataProblems.join('\n'))
+const sourceBranch = execFileSync('git', ['branch', '--show-current'], { cwd: repository, encoding: 'utf8' }).trim()
+if (!sourceBranch) throw new Error('Package the community preview from its published source branch')
+const sourceUrl = `https://github.com/LonelyQuantum/dsh-vscode-agent/blob/${sourceBranch}/apps/vscode`
 if (process.platform !== 'win32' || process.arch !== 'x64') throw new Error('Only Windows x64 packaging is qualified by this preview')
 const workspace = yaml.load(await readFile(join(repository, 'pnpm-workspace.yaml'), 'utf8')) as {
   packages: string[]
@@ -82,14 +89,21 @@ try {
     packages: selected.map(({ manifest: { name, version } }) => ({ name, version })),
   }, null, 2) + '\n')
   await cp(join(repository, 'LICENSE'), join(output, 'LICENSE'))
-  await cp(join(app, 'README.md'), join(output, 'README.md'))
-  await cp(join(app, 'README.zh.md'), join(output, 'README.zh.md'))
+  await cp(join(repository, 'THIRD_PARTY_NOTICES.md'), join(output, 'THIRD_PARTY_NOTICES.md'))
+  await cp(join(app, 'MARKETPLACE.md'), join(output, 'README.md'))
+  await cp(join(app, 'MARKETPLACE.zh.md'), join(output, 'README.zh.md'))
+  for (const file of ['PRIVACY.md', 'PRIVACY.zh.md', 'CHANGELOG.md', 'CHANGELOG.zh.md']) await cp(join(app, file), join(output, file))
   const binFiles = (await Array.fromAsync(glob('runtime/node_modules/**/.bin/*', { cwd: output })))
     .map(path => path.replaceAll('\\', '/'))
   await writeFile(join(output, '.vscodeignore'), windowsArtifactIgnores(binFiles))
+  const files = await listFiles({ cwd: output, packageManager: PackageManager.None })
+  const problems = artifactProblems(files)
+  if (problems.length) throw new Error(problems.join('\n'))
   const packagePath = join(app, `lib/dsh-vscode-agent-${manifest.version}-win32-x64.vsix`)
   await createVSIX({ cwd: output, packagePath, target: 'win32-x64', dependencies: false,
-    allowMissingRepository: true, rewriteRelativeLinks: false })
+    preRelease: true, baseContentUrl: sourceUrl, baseImagesUrl: sourceUrl.replace('/blob/', '/raw/') })
+  const sha256 = createHash('sha256').update(await readFile(packagePath)).digest('hex')
+  await writeFile(`${packagePath}.sha256`, `${sha256}  dsh-vscode-agent-${manifest.version}-win32-x64.vsix\n`)
   console.log(`VSIX: ${packagePath}`)
 } finally {
   await rm(temporary, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
