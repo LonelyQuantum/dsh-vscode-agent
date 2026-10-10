@@ -42,7 +42,8 @@ export async function runEditorUxCheck({ evaluate, request, waitFor }) {
   assert.equal(await evaluate('return root.querySelector("[data-composer-input]").innerText'), draft)
   assert.equal(await evaluate('return root.querySelectorAll("[data-user-message]").length'), 0)
   await evaluate('[...root.querySelectorAll("button")].find(button => button.textContent === "Attach selection").click()')
-  await waitFor(() => evaluate('return root.querySelector("[data-composer-input]") === doc.activeElement'))
+  await waitFor(() => evaluate('return root.querySelectorAll("[data-composer-chip=editor-context]").length === 1\n'
+    + '&& root.querySelector("[data-composer-input]") === doc.activeElement'))
   assert.equal(await evaluate('return root.querySelectorAll("[data-composer-chip=editor-context]").length'), 1)
   console.log('VSCODE_EDITOR_UX_OK ' + JSON.stringify({ keyboard: true, conversationList: true, fileMenu: true, captureFocus: true, submitted: 0 }))
 }
