@@ -14,7 +14,7 @@ For a public release, choose the release version, update the manifest, change lo
 
 ## Build and inspect
 
-Build the repository with `pnpm.cmd run build`, then run `pnpm.cmd run package:vscode` from the repository root. The package command includes community-facing documentation, preserves license notices, marks the VSIX as pre-release and creates a `.vsix.sha256` sidecar. `pnpm.cmd run verify:vscode-release` checks staged metadata and the actual file list selected by vsce; it does not replace installed-artifact testing or a security audit.
+Build the repository with `pnpm.cmd run build`, then run `pnpm.cmd run package:vscode` from the repository root. Finish Host-emitting builds, including `doc-typecheck`, before starting installed-editor or built-runtime checks. The package command includes community-facing documentation, preserves license notices, marks the VSIX as pre-release and creates a `.vsix.sha256` sidecar. `pnpm.cmd run verify:vscode-release` checks staged metadata and the actual file list selected by vsce; it does not replace installed-artifact testing or a security audit.
 
 Keep the VSIX and its checksum together. Verify the SHA-256 value before sharing the artifact. The package links documentation to the packaging branch in this fork: push its source before distributing, and do not package from a temporary private branch. The build does not send keys to any registry.
 
@@ -22,7 +22,7 @@ Keep the VSIX and its checksum together. Verify the SHA-256 value before sharing
 
 Use the existing [artifact smoke](README.md#windows-vsix) with `--fresh-shared --ux` to test a fresh home without Desktop. Run `--security` and `--trust` separately against the same VSIX. Use a temporary home and sanitized data; verify shared credentials/models/history, both startup orders, crash recovery and final process exit. A successful package command is not editor acceptance.
 
-Record the exact artifact checksum with the observed checks. The shared-backend implementation has local backend-level evidence; real-editor cold-start acceptance remains pending while the local VS Code update lock prevents launch. First-time shared-provider configuration has no native setup form yet. Do not mark either item complete based only on packaging or unit tests.
+Record the exact artifact checksum with the observed checks. Fresh shared cold startup, restart, crash recovery, final exit, and keyless UX have local installed-editor evidence. Complete shared-mode interaction, security, and trust qualification remain pending, and first-time shared-provider configuration has no native setup form yet. Do not mark those items complete based only on packaging, unit tests, or isolated-mode checks.
 
 ## Distribution decisions
 

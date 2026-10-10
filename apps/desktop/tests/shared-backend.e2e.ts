@@ -12,6 +12,7 @@ import { prepareDevelopmentProject } from '../scripts/development-project.ts'
 import { DesktopProjectManager } from '../src/project-manager.ts'
 import { resolveDesktopPaths } from '../src/paths.ts'
 import { DESKTOP_HOST_PROTOCOL_VERSION } from '../src/host-protocol.ts'
+import { sharedBackendApi } from './shared-backend-harness.ts'
 
 const primaryRuntime = process.env.DSH_TEST_PRIMARY_RUNTIME
 
@@ -49,23 +50,6 @@ it.each(['desktop', 'vscode', 'concurrent'] as const)('shares one backend and du
     pids.add(client.ready.pid)
     return client
   }
-  const api = async (client: SharedHostClient) => {
-    const authenticated = await fetch(client.ready.url, { redirect: 'manual' })
-    await authenticated.body?.cancel()
-    const cookie = authenticated.headers.getSetCookie().map(value => value.split(';')[0]).join('; ')
-    expect(cookie).not.toBe('')
-    return async (method: string, args: object): Promise<unknown> => {
-      const rpcId = randomUUID()
-      const response = await fetch(new URL(`/api/${method}`, client.ready.url), { method: 'POST',
-        headers: { cookie, 'content-type': 'application/json' },
-        body: JSON.stringify({ type: 'client-request', rpcId, method, payload: { args } }),
-      })
-      expect(response.status).toBe(200)
-      const envelope = await response.json() as { result: { ok: boolean; value: unknown } }
-      expect(envelope.result.ok, `${method}: ${JSON.stringify(envelope.result)}`).toBe(true)
-      return envelope.result.value
-    }
-  }
   try {
     await mkdir(workspace)
     prepareDevelopmentProject({ projectDir: runtime, cliDir: join(repository, 'apps/cli'),
@@ -79,8 +63,8 @@ it.each(['desktop', 'vscode', 'concurrent'] as const)('shares one backend and du
     expect(desktop).toBeDefined()
     expect(editor).toBeDefined()
     expect(editor.ready.pid).toBe(desktop.ready.pid)
-    const desktopApi = await api(desktop)
-    const editorApi = await api(editor)
+    const desktopApi = await sharedBackendApi(desktop)
+    const editorApi = await sharedBackendApi(editor)
     expect(await desktopApi('productAnalytics/enabled', {})).toBe(false)
     expect(await editorApi('productAnalytics/enabled', {})).toBe(false)
     const launchRecord: unknown = JSON.parse(await readFile(join(home, '.shared-host/launch.json'), 'utf8'))
@@ -138,14 +122,14 @@ it.each(['desktop', 'vscode', 'concurrent'] as const)('shares one backend and du
     expect(await readFile(join(home, 'profiles/desktop/cordis.patch.yml'))).toEqual(patchBefore)
     await waitForExit(editor.ready.pid)
     expect(standalone.ready.pid).not.toBe(editor.ready.pid)
-    const standaloneApi = await api(standalone)
+    const standaloneApi = await sharedBackendApi(standalone)
     await standaloneApi('session/create', { request: { sessionId: session.sessionId, workspaceId: created.workspace.workspaceId } })
     expect(JSON.stringify(await standaloneApi('session/list', { _request: {} }))).toContain('Shared fixture history')
     expect(await history(standaloneApi)).toContain('Shared transcript fixture reply')
     process.kill(standalone.ready.pid, 'SIGKILL')
     await waitForExit(standalone.ready.pid)
     const recovered = await attach('vscode')
-    const recoveredApi = await api(recovered)
+    const recoveredApi = await sharedBackendApi(recovered)
     expect(JSON.stringify(await recoveredApi('session/list', { _request: {} }))).toContain(session.sessionId)
     expect(await history(recoveredApi)).toContain('Shared transcript fixture reply')
     const returning = await attach('desktop')
