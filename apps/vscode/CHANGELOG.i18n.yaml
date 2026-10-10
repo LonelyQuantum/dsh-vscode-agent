@@ -1,0 +1,10 @@
+# Bilingual-pair consistency record for CHANGELOG.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write apps/vscode/CHANGELOG.md
+/change-log:
+  en: d59b35659519f1f0
+  zh: 65cd32f125d57b24
+/change-log/unreleased:
+  en: 1603aa63e886d7e0
+  zh: cec52f58e1827633

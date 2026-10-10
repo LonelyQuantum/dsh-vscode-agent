@@ -78,12 +78,16 @@ function mirrorDependencyLinks(sourceRoot: string, destinationRoot: string): str
       mkdirSync(join(destinationRoot, entry.name), { recursive: true })
       for (const scoped of readdirSync(source, { withFileTypes: true })) {
         if (!scoped.isDirectory() && !scoped.isSymbolicLink()) continue
-        linkDirectory(join(source, scoped.name), join(destinationRoot, entry.name, scoped.name))
+        const dependency = join(source, scoped.name)
+        // pnpm can retain hoist links for optional packages excluded on this platform.
+        if (scoped.isSymbolicLink() && !existsSync(dependency)) continue
+        linkDirectory(dependency, join(destinationRoot, entry.name, scoped.name))
         names.push(`${entry.name}/${scoped.name}`)
       }
       continue
     }
     if (entry.isDirectory() || entry.isSymbolicLink()) {
+      if (entry.isSymbolicLink() && !existsSync(source)) continue
       linkDirectory(source, join(destinationRoot, entry.name))
       names.push(entry.name)
     }

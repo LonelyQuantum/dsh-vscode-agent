@@ -1,0 +1,17 @@
+{
+  "contextMaxBytes": "每个显式编辑器上下文快照的最大 UTF-8 字节数。超限会被拒绝，不会截断。",
+  "contextMaxProblems": "此工作区每次 Problems 快照的最大诊断条数。",
+  "description": "基于 DeepSeek Harness 的社区 coding agent（编程智能体），不是 DeepSeek 官方扩展。",
+  "trust": "DSH 会执行工具并加载工作区指令，请先信任工作区。",
+  "virtual": "此预览需要本地文件系统工作区。",
+  "open": "打开 Agent",
+  "configure": "配置 API",
+  "useDesktopApi": "连接桌面版共享后台",
+  "backend": "shared 允许任一客户端启动同一个后台，共享凭据、模型和会话；isolated 保留扩展原有的独立工作区运行时和历史记录。",
+  "desktopHome": "包含 profiles/desktop 的共享 Harness 主目录，首次使用时初始化。留空时按优先级使用 DSH_HOME、开发目录或 ~/.dsh。Desktop 与 VS Code 必须选择相同目录和版本。",
+  "clearApiKey": "删除已保存的 API 密钥",
+  "restart": "重启 Agent 运行时",
+  "stop": "停止 Agent 运行时",
+  "nodePath": "Node 可执行文件（Node 22.19+ 或 Node 24+），不支持附加 shell 参数。",
+  "repositoryPath": "已构建的 DSH 源码仓库；留空使用开发构建记录的仓库路径。"
+}

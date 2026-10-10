@@ -42,6 +42,8 @@ Mount the plugin beside the tool registry with the payload directory. Configurat
 
 ### Payload layout
 
+Development payloads can link `dependencies/pnpm` to the workspace installation. Copies retain that link, and replacement unlinks it without deleting its target. Release payloads contain an independent pnpm directory. Keep the workspace installation available while using a development payload.
+
 `runtime.json` records `desktopVersion`, `platform` (`win32`, `darwin`, or `linux`), `arch`, optional `payloadDigest`, top-level `python`, optional `node`/`pnpm` versions, and the complete `pythonPackages` distribution-version map. A pnpm entry requires Node.js. Python libraries, including numpy and pandas, appear only in `pythonPackages`. Entries live under `dependencies/`: `python/bin/python3` (`python/python.exe` on Windows) with `site-packages` beneath it, and, when declared, `node/bin/node` with `node/node_modules` and `pnpm/bin/pnpm.mjs`. A manifest whose platform or architecture differs from the running process is rejected.
 
 On macOS and Linux, the builder retains `python` and `python3` as relative links to the sibling versioned interpreter (for example, `python3.12`). Installation preserves these two aliases and materializes other links. Alias validation requires the exact sibling filename and a regular target file; carriers that cannot preserve links, including Python wheels, retain supported regular command files. Windows keeps its ordinary `python.exe` file.

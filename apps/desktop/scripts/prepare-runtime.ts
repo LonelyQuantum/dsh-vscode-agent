@@ -13,6 +13,7 @@ import { packagingStep } from './packaging-step.mjs'
 import { preparePrimaryRuntime } from './prepare-primary-runtime.ts'
 import { prepareDesktopCli } from './prepare-cli.ts'
 import { prepareCommandLink } from './prepare-command-link.ts'
+import { removePrimaryRuntime } from '../../../packages/skill/tool-workspace-dependencies/src/index.ts'
 
 const BUILD_PATHS = resolveDesktopTargetBuildPaths()
 const RUNTIME_ROOT = BUILD_PATHS.runtime
@@ -51,6 +52,7 @@ function prepareCli({ platform, arch }: DesktopTarget): void {
 async function main(): Promise<void> {
   const { values } = parseArgs({ options: { 'defer-primary-runtime-smoke': { type: 'boolean', default: false } } })
   const target = desktopTargetPlatform(resolveDesktopBuildTarget())
+  await removePrimaryRuntime(join(RUNTIME_ROOT, 'primary-runtime'))
   rmSync(RUNTIME_ROOT, { recursive: true, force: true })
   mkdirSync(RUNTIME_ROOT, { recursive: true })
   const nodeVersion = await prepareElectron(target)

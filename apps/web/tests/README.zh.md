@@ -16,6 +16,10 @@ pnpm --filter @deepseek-ai/dsh-web-frontend exec playwright install --with-deps 
 
 ## 完成状态观察
 
+Auto-review 与 VS Code 场景接受 `DSH_VSCODE_TEST_BROWSER=msedge`，以安装的 Edge 进行 Windows 本地验证。ARIA 捕获按宿主平台路径规则提取工作区目录名；各平台仍共享已提交的预期输出。
+
+可跨平台回放的编辑器上下文录制通过技能注册表的调用策略，在模型目录中排除 Windows 专用 ACL 诊断技能。沙箱所属测试验证该技能；生产 profile 仍保留它。工具分组场景先从默认列表打开已保存的对话，再检查工具结果。
+
 依赖状态的用例使用 Workspace、接纳、附件和模型流屏障，区分可见中间状态与已完成操作。模型选择器的持久化断言等待默认设置保存完成，不以菜单关闭作为完成信号。详情关闭等待框架过渡结束；归档验证为 seed Session 设置显式标题，并跨重载跟踪该身份。[CI 测试可靠性工作流](../../../.agents/skills/dsh-ci-test-reliability/SKILL.md#synchronize-on-state)负责这些同步规则。
 
 [空闲提交交接](idle-submission-handoff.e2e.ts)对 Host 帧和浏览器中的消息归位的等待使用 scaffold 的 30 秒 Turn 完成预算。Vitest 负责 scaffold 清理，使 replay 消耗检查错误不会覆盖场景中失败的断言。

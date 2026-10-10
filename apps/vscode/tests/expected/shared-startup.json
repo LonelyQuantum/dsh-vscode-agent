@@ -1,0 +1,12 @@
+{
+  "en": {
+    "folder": "Select a shared Harness home (existing or empty)",
+    "configured": "Shared home selected. Restart DSH to connect or initialize it; Desktop does not need to be opened first.",
+    "failed": "Shared backend is unavailable. Check the Harness home and Node executable, and use matching client versions. Then run DSH: Restart Agent Runtime."
+  },
+  "zh-CN": {
+    "folder": "选择共享 Harness 主目录（已有目录或空目录）",
+    "configured": "已选择共享主目录，重启 DSH 后连接或初始化；无需先打开桌面版。",
+    "failed": "共享后台不可用。请检查 Harness 主目录和 Node 可执行文件，并使用版本一致的客户端，然后运行“DSH: 重启 Agent 运行时”。"
+  }
+}

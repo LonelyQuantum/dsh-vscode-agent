@@ -108,11 +108,29 @@ type WorkspaceFileDiff =
   | { kind: 'oversized'; path: string; display: string }
 ```
 
+## `WorkspaceFileContents`：完整的捕获版本
+
+```ts type-equiv
+/** Bounded complete captured versions; null distinguishes an absent file from an empty file. */
+type WorkspaceFileContents =
+  | { kind: 'text'; path: string; display: string; before: string | null; after: string | null }
+  | Exclude<WorkspaceFileDiff, { kind: 'text' }>
+```
+
 ## `WorkspaceChanges`：提供摘要与对比的 Host 服务
 
 ```ts type-equiv
 /** Serves the summaries and file comparisons the recorder keeps for live Sessions. */
 interface WorkspaceChanges {
+  /**
+   * Read both complete captured versions without consulting the current workspace.
+   * @param sessionId - Session that owns the capture.
+   * @param seq - announcing event sequence.
+   * @param index - original file index in the summary.
+   * @param signal - cancels the reads.
+   * @returns bounded text (null means absent), a refusal, or undefined when unavailable.
+   */
+  contents(sessionId: SessionId, seq: number, index: number, signal: AbortSignal): Promise<WorkspaceFileContents | undefined>
   /**
    * The summary announced by one `workspace/changes` event.
    * @param sessionId - the Session that appended the event.
@@ -152,6 +170,16 @@ Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnp
 Serves the summaries and file comparisons the recorder keeps for live Sessions.
 
 ```ts cordis-catalog
+/**
+ * Read both complete captured versions without consulting the current workspace.
+ * @param sessionId - Session that owns the capture.
+ * @param seq - announcing event sequence.
+ * @param index - original file index in the summary.
+ * @param signal - cancels the reads.
+ * @returns bounded text (null means absent), a refusal, or undefined when unavailable.
+ */
+contents(sessionId: SessionId, seq: number, index: number, signal: AbortSignal): Promise<WorkspaceFileContents | undefined>
+
 /**
  * The summary announced by one `workspace/changes` event.
  * @param sessionId - the Session that appended the event.

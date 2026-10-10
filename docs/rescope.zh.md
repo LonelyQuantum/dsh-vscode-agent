@@ -41,6 +41,8 @@ Cordis 框架及其基础库以源码形式 vendored 在 [`vendor/`](../vendor/R
 
 ## 施加、核验与回退
 
+`cordis/inspect-query` 等 Cordis 检查事件名是线协议标识，不是包导入。脚本的文件级例外使生产者和夹具保留这些名称。
+
 上面这份映射由 [`scripts/rescope-vendor.ts`](../scripts/rescope-vendor.ts) 承载并执行改名，任何引用都不靠手改：
 
 ```sh

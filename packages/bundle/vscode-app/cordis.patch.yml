@@ -1,0 +1,9 @@
+- id: web-runtime
+  config:
+    openBrowser: false
+    printUrl: false
+    surfaceContext: false
+    trustedHosts: []
+- insert:
+    - id: vscode-runtime
+      name: '@deepseek-ai/dsh-vscode-app'
