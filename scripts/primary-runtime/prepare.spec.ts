@@ -46,6 +46,13 @@ it('invalidates payload identity for shared wheels, package versions and package
   expect(primaryRuntimePayloadDigest('mac-arm64', lock, '11.7.1')).not.toBe(original)
 })
 
+it('separates standalone payloads from development links and changed workspace locations', () => {
+  const standalone = primaryRuntimePayloadDigest('win-x64', lock, '11.7.0')
+  const development = primaryRuntimePayloadDigest('win-x64', lock, '11.7.0', '/workspace/pnpm')
+  expect(development).not.toBe(standalone)
+  expect(primaryRuntimePayloadDigest('win-x64', lock, '11.7.0', '/other/pnpm')).not.toBe(development)
+})
+
 it('reports missing distribution metadata before trying to execute a stale native payload', async () => {
   const root = await mkdtemp(join(tmpdir(), 'desktop-stale-runtime-'))
   try {

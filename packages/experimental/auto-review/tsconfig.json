@@ -9,6 +9,12 @@
   ],
   "references": [
     {
+      "path": "../../preset/agent-preset-registry"
+    },
+    {
+      "path": "../../terminal/terminal"
+    },
+    {
       "path": "../../../vendor/cosmokit"
     },
     {

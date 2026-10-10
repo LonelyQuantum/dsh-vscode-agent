@@ -14,6 +14,7 @@ import {
   writeSync,
 } from 'node:fs'
 import { join } from 'node:path'
+import { initializeCommunityProfile } from '@deepseek-ai/dsh-shared-host/profile'
 import {
   DESKTOP_HOST_PACKAGE,
   desktopCorePackageOverrides,
@@ -172,5 +173,5 @@ export function createDevelopmentProjectMetadata(projectDir: string, release: De
 
 /** Create the first external plugin profile without running a package manager. */
 export function createPluginProfile(projectDir: string): void {
-  initProfile(projectDir, WEB_PROFILE.bundles)
+  initializeCommunityProfile(projectDir, () => { initProfile(projectDir, WEB_PROFILE.bundles) })
 }

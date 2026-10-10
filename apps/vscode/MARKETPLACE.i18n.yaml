@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for MARKETPLACE.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write apps/vscode/MARKETPLACE.md
+/dsh-agent-community-preview:
+  en: 0ee1c9ea1ea4ffca
+  zh: abeaac86e85eead4
+/dsh-agent-community-preview/requirements-and-installation:
+  en: d824825b62b94c8f
+  zh: f754d54f85ec6bbe
+/dsh-agent-community-preview/configure-a-provider:
+  en: f999b01db3a34d42
+  zh: 4fc7f84444db2392
+/dsh-agent-community-preview/work-with-conversations:
+  en: c0a4d71795d53fd0
+  zh: 8c187b3165324bb2
+/dsh-agent-community-preview/preview-limits-and-support:
+  en: 2a7bf6d493c38719
+  zh: 47501eeae5f0f9b7

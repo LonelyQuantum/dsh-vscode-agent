@@ -9,7 +9,7 @@ import {
   blobText, diffTrees, gitlinkPaths, ignoredPaths, locateGitWorkspace, snapshotTree, treeBlob, type GitRunner, type GitWorkspace,
 } from './git.ts'
 import { canonicalPath, compareDisplay, displayPathOf, durablePathOf, isInside, isTemporaryPath, temporaryRoots, toPosix } from './paths.ts'
-import type { WorkspaceChangedFile, WorkspaceChangesSummary, WorkspaceFileDiff } from './types.ts'
+import type { WorkspaceChangedFile, WorkspaceChangesSummary, WorkspaceFileContents, WorkspaceFileDiff } from './types.ts'
 
 /** Facts shared by every recorder of one plugin instance. */
 export interface RecorderEnvironment {
@@ -220,6 +220,21 @@ export class TurnRecorder {
    * @throws when a read fails while the recorder lives.
    */
   async diff(seq: number, index: number, signal: AbortSignal): Promise<WorkspaceFileDiff | undefined> {
+    const contents = await this.contents(seq, index, signal)
+    if (contents === undefined || contents.kind !== 'text') return contents
+    const { path, display, before, after } = contents
+    const { hunks, coarse } = compareText(before, after, this.env.diffTimeoutMs)
+    return { kind: 'text', path, display, before: before !== null, after: after !== null, hunks, coarse }
+  }
+
+  /**
+   * Read complete captured versions, never current workspace files.
+   * @param seq - announcing event sequence.
+   * @param index - file index in the summary.
+   * @param signal - cancels both reads.
+   * @returns bounded contents, a refusal, or undefined after disposal or for unknown coordinates.
+   */
+  async contents(seq: number, index: number, signal: AbortSignal): Promise<WorkspaceFileContents | undefined> {
     const record = this.records.get(seq)
     const file = record?.summary.files[index]
     const sources = record?.sources[index]
@@ -230,8 +245,7 @@ export class TurnRecorder {
     try {
       const [before, after] = await Promise.all([this.readSide(sources.before, combined), this.readSide(sources.after, combined)])
       if (before === OVERSIZED || after === OVERSIZED) return { kind: 'oversized', path, display }
-      const { hunks, coarse } = compareText(before, after, this.env.diffTimeoutMs)
-      return { kind: 'text', path, display, before: before !== null, after: after !== null, hunks, coarse }
+      return { kind: 'text', path, display, before, after }
     } catch (error: unknown) {
       // Disposal removes the temporary directory under a running read; the Session is gone either way.
       if (this.lifetime.signal.aborted) return undefined

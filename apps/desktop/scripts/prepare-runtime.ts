@@ -12,6 +12,7 @@ import { resolveDesktopBuildTarget, resolveDesktopTargetBuildPaths } from './des
 import { preparePrimaryRuntime } from './prepare-primary-runtime.ts'
 import { prepareDesktopCli } from './prepare-cli.ts'
 import { prepareCommandLink } from './prepare-command-link.ts'
+import { removePrimaryRuntime } from '../../../packages/skill/tool-workspace-dependencies/src/index.ts'
 
 const BUILD_PATHS = resolveDesktopTargetBuildPaths()
 const RUNTIME_ROOT = BUILD_PATHS.runtime
@@ -45,6 +46,7 @@ async function main(): Promise<void> {
   }).trim()
   const macosMinimumVersion = platform === 'darwin' ? execFileSync('/usr/libexec/PlistBuddy',
     ['-c', 'Print LSMinimumSystemVersion', join(BUILD_PATHS.electron, 'Electron.app', 'Contents', 'Info.plist')], { encoding: 'utf8' }).trim() : undefined
+  await removePrimaryRuntime(join(RUNTIME_ROOT, 'primary-runtime'))
   rmSync(RUNTIME_ROOT, { recursive: true, force: true })
   mkdirSync(RUNTIME_ROOT, { recursive: true })
   const pnpmVersion = preparePnpm()

@@ -74,6 +74,8 @@ export function apply(ctx: ClientContext): void {
         openPresented: (sessionId, seq, index, action, application) => opener.open(sessionId, seq, index, action, application),
         openChanged: (sessionId, seq, index, action, application) => opener.openChanged(sessionId, seq, index, action, application),
         openChangesReview: (coordinates, index) => {
+          const editor = ctx.get('conversationEditor')
+          if (editor !== undefined) { editor.openChanges(coordinates.sessionId, coordinates.seq, index); return }
           ctx.sidebarRight.openResource(changesReviewAddress(coordinates), { params: { index } })
         },
       }),

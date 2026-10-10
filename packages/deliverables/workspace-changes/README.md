@@ -25,6 +25,8 @@ This plugin summarizes which files each top-level turn changed, with per-file li
 <a id="use-this-package"></a>
 ## Use this package
 
+`ctx.workspaceChanges.contents(sessionId, seq, index, signal)` returns the complete captured strings with original line endings and final newline, or `null` for an absent side. It shares `diff`'s byte caps, binary/oversized refusals, cancellation, and Session lifetime. Renames read the old path before and new path after. Later workspace edits do not affect either side.
+
 The shipped Web bundle mounts this plugin. Mount it in any composition with the `subprocess` capability and a git executable on the Host:
 
 ```yaml

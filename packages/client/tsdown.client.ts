@@ -7,6 +7,8 @@
  * and injects a tagged style at factory execution, while `x.css?inline`
  * exports compiled text for a plugin-owned lifecycle effect. The virtual
  * loaders register each real stylesheet as a watch dependency.
+ * Client JavaScript omits module-path debug comments; separate source maps
+ * and license comments remain available.
  * Non-experimental client outputs reject experimental module and stylesheet
  * inputs, including origins recorded by chained source maps.
  */
@@ -45,6 +47,8 @@ function styleInjectionModule(
     `const tagId = ${JSON.stringify(`${id}/${basename(fileId)}`)};`,
     'if (typeof document !== \'undefined\' && document.querySelector(\'style[data-plugin-css=\' + JSON.stringify(tagId) + \']\') === null) {',
     '  const tag = document.createElement(\'style\');',
+    '  const nonce = document.querySelector(\'script[nonce]\')?.nonce;',
+    '  if (nonce) tag.nonce = nonce;',
     `  tag.dataset.plugin = ${JSON.stringify(id)};`,
     '  tag.dataset.pluginCss = tagId;',
     '  tag.textContent = css;',
@@ -502,6 +506,7 @@ function clientConfig(id: string, entry: string, clientBanner?: (fileName: strin
     // a CJS bundle cannot carry) resolve their static flavor matching the
     // NODE_ENV the defines below bake in.
     inputOptions: {
+      experimental: { attachDebugInfo: 'none' },
       resolve: {
         conditionNames: [
           (process.env.NODE_ENV ?? 'production') === 'development' ? 'development' : 'production',

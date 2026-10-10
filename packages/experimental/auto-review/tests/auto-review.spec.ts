@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import type { Agent } from '@deepseek-ai/dsh-agent'
+import AgentRegistry, { type Agent } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-agent-instructions'
 import { compactCheckpointSource, CompactionId } from '@deepseek-ai/dsh-compaction'
 import LlmRuntime, {
@@ -25,6 +25,7 @@ import SessionStore, {
   type Session,
 } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
+import TerminalSessionService, { TerminalSessionId } from '@deepseek-ai/dsh-terminal'
 import SubagentRuntime, {
   NO_START_CAPABILITIES,
   resolveChildCwd,
@@ -132,6 +133,7 @@ async function harness(
 ): Promise<{ ctx: Context; adapter: RecordingAdapter; auto: PluginFiber }> {
   const ctx = new Context()
   contexts.push(ctx)
+  await ctx.plugin(AgentRegistry)
   await ctx.plugin(LlmRuntime)
   await ctx.plugin(SessionStore)
   await ctx.plugin(SessionProjectionRegistry)
@@ -1345,7 +1347,7 @@ describe('cancellation and integration teardown', () => {
   })
 
   it.each(['allow', 'deny', 'failure'] as const)(
-    'migrates live sessions to Full access and cancels a late lifecycle %s before removal',
+    'migrates live sessions to Read Only and cancels a late lifecycle %s before removal',
     async (outcome) => {
       const entered = Promise.withResolvers<undefined>()
       const release = Promise.withResolvers<undefined>()
@@ -1369,7 +1371,7 @@ describe('cancellation and integration teardown', () => {
 
       const disposal = auto.dispose()
       await until(() => adapter.requests[0]?.signal?.aborted === true)
-      expect(ctx.permissionPresets.current(session)).toBe('danger-full-access')
+      expect(ctx.permissionPresets.current(session)).toBe('read-only')
       expect(ctx.permissionPresets.names).toContain(AUTO_PRESET)
 
       const afterClose = await ctx.tools.execute({
@@ -1379,14 +1381,14 @@ describe('cancellation and integration teardown', () => {
         arguments: {},
         agent,
       })
-      expect(afterClose).toMatchObject({ isError: false })
+      expect(afterClose).toMatchObject({ isError: true, error: { info: { code: TOOL_ABORTED_BEFORE_DISPATCH } } })
       expect(adapter.requests).toHaveLength(1)
 
       release.resolve(undefined)
       const result = await pending
       await disposal
 
-      expect(probe.runs()).toBe(1)
+      expect(probe.runs()).toBe(0)
       expect(result).toMatchObject({
         isError: true,
         error: { info: { name: 'AbortError', code: TOOL_ABORTED_BEFORE_DISPATCH } },
@@ -1410,7 +1412,7 @@ describe('cancellation and integration teardown', () => {
     let competingCall: ReturnType<typeof ctx.tools.execute> | undefined
     ctx.on('session/event', (session, event) => {
       if (session !== first.session || event.type !== 'permission/preset'
-        || event.data.preset !== 'danger-full-access') return
+        || event.data.preset !== 'read-only') return
       observedPreset = ctx.permissionPresets.current(second.session)
       try {
         ctx.permissionPresets.set(second.session, AUTO_PRESET)
@@ -1436,8 +1438,8 @@ describe('cancellation and integration teardown', () => {
     })
     expect(adapter.requests).toHaveLength(0)
     expect(probe.runs()).toBe(0)
-    expect(ctx.permissionPresets.current(first.session)).toBe('danger-full-access')
-    expect(ctx.permissionPresets.current(second.session)).toBe('danger-full-access')
+    expect(ctx.permissionPresets.current(first.session)).toBe('read-only')
+    expect(ctx.permissionPresets.current(second.session)).toBe('read-only')
     expect(ctx.permissionPresets.names).not.toContain(AUTO_PRESET)
   })
 
@@ -1465,8 +1467,8 @@ describe('cancellation and integration teardown', () => {
     await downstreamEntered.promise
 
     const disposal = auto.dispose()
-    await until(() => ctx.permissionPresets.current(session) === 'danger-full-access')
-    expect(ctx.permissionPresets.current(session)).toBe('danger-full-access')
+    await until(() => ctx.permissionPresets.current(session) === 'read-only')
+    expect(ctx.permissionPresets.current(session)).toBe('read-only')
     releaseDownstream.resolve(undefined)
 
     await expect(pending).resolves.toMatchObject({
@@ -1509,18 +1511,94 @@ describe('cancellation and integration teardown', () => {
     const { session } = autoSession(ctx, 'reinstall-after-dispose')
 
     await auto.dispose()
-    expect(ctx.permissionPresets.current(session)).toBe('danger-full-access')
+    expect(ctx.permissionPresets.current(session)).toBe('read-only')
     expect(ctx.permissionPresets.names).not.toContain(AUTO_PRESET)
 
     const reinstalled = await ctx.plugin(AutoReview)
     expect(ctx.permissionPresets.names).toContain(AUTO_PRESET)
-    expect(ctx.permissionPresets.current(session)).toBe('danger-full-access')
+    expect(ctx.permissionPresets.current(session)).toBe('read-only')
     await reinstalled.dispose()
   })
 
-  it('publishes Auto without validating the preset table at load', async () => {
+  it('preserves selected Auto and non-Auto permission facts during application shutdown', async () => {
+    const { ctx } = await harness([])
+    const { session } = autoSession(ctx, 'graceful-shutdown-auto')
+    const ordinary = ctx.sessions.create(SessionId('graceful-shutdown-ordinary'), { meta: { cwd: '/workspace' } })
+    const appendAuto = vi.spyOn(session, 'append')
+    const appendOrdinary = vi.spyOn(ordinary, 'append')
+    await ctx.fiber.dispose()
+    for (const append of [appendAuto, appendOrdinary]) {
+      expect(append.mock.calls.filter(([type]) => ['permission/preset', 'sandbox/mode', 'approval/policy'].includes(type)))
+        .toEqual([])
+    }
+  })
+
+  it.each([false, true])('drains owned terminals before changing permissions (cleanup failure: %s)', async (fail) => {
+    const { ctx, auto } = await harness([])
+    await ctx.plugin(TerminalSessionService)
+    const { session, agent: original } = autoSession(ctx, `terminal-drain-${fail}`)
+    const release = Promise.withResolvers<undefined>()
+    const cancel = vi.fn()
+    const agent: Agent = { ...original, ctx, cancel, whenIdle: () => Promise.resolve(),
+      runMaintenance: task => task(new AbortController().signal) }
+    const unregister = ctx.agents.enter(agent, undefined)
+    const id = TerminalSessionId('owned-terminal')
+    vi.spyOn(ctx.terminals, 'list').mockReturnValue([{ sessionId: id, type: 'shell', status: { kind: 'running' } }])
+    const kill = vi.spyOn(ctx.terminals, 'kill').mockImplementation(async () => {
+      await release.promise
+      if (fail) throw new Error('terminal cleanup failed')
+      return true
+    })
+    const probe = registerProbe(ctx)
+    const disposal = auto.dispose()
+    try {
+      await until(() => kill.mock.calls.length === 1)
+      expect(cancel).toHaveBeenCalledOnce()
+      expect(ctx.permissionPresets.current(session)).toBe('auto')
+      expect(kill).toHaveBeenCalledWith(agent, id, 'Auto review removed')
+      release.resolve(undefined)
+      await disposal
+      expect(ctx.permissionPresets.current(session)).toBe(fail ? 'auto' : 'read-only')
+      if (fail) {
+        const result = await ctx.tools.execute({ signal: new AbortController().signal,
+          callId: ToolCallId('after-terminal-cleanup-failure'), name: 'probe', arguments: {}, agent })
+        expect(result).toMatchObject({ isError: true, error: { info: { code: TOOL_ABORTED_BEFORE_DISPATCH } } })
+        expect(probe.runs()).toBe(0)
+      }
+    } finally {
+      release.resolve(undefined)
+      await disposal
+      unregister()
+    }
+  })
+
+  it('refuses a fallback preset that grants writes or suppresses approval', async () => {
+    for (const readOnly of [PRESETS['danger-full-access'], { sandbox: 'read-only' as const, approval: 'never' as const }]) {
+      await expect(harness([], { presets: { ...PRESETS, 'read-only': readOnly }, defaultPreset: 'workspace-write' }))
+        .rejects.toThrow('must use read-only sandbox and ask approval')
+    }
+  })
+
+  it('downgrades an idle registered agent without a terminal service', async () => {
+    const { ctx, auto } = await harness([])
+    const { session, agent: original } = autoSession(ctx, 'idle-without-terminals')
+    const cancel = vi.fn()
+    const agent: Agent = { ...original, ctx, cancel, whenIdle: () => Promise.resolve(),
+      runMaintenance: task => task(new AbortController().signal) }
+    const unregister = ctx.agents.enter(agent, undefined)
+    try {
+      await auto.dispose()
+      expect(ctx.permissionPresets.current(session)).toBe('read-only')
+      expect(cancel).toHaveBeenCalledWith({ kind: 'hook', reason: 'Auto review removed' })
+    } finally {
+      unregister()
+    }
+  })
+
+  it('refuses to advertise Auto without its safe unload preset', async () => {
     const invalid = new Context()
     contexts.push(invalid)
+    await invalid.plugin(AgentRegistry)
     await invalid.plugin(LlmRuntime)
     await invalid.plugin(SessionStore)
     await invalid.plugin(SessionProjectionRegistry)
@@ -1534,9 +1612,8 @@ describe('cancellation and integration teardown', () => {
     })
     invalid.provide('approval', { config: { policy: 'ask' } })
     await invalid.plugin(PermissionPresetService, {})
-    const auto = await invalid.plugin(AutoReview)
-    expect(invalid.permissionPresets.names).toContain(AUTO_PRESET)
-    await auto.dispose()
+    await expect(invalid.plugin(AutoReview)).rejects.toThrow('unknown preset "read-only"')
+    expect(invalid.permissionPresets.names).not.toContain(AUTO_PRESET)
   })
 })
 

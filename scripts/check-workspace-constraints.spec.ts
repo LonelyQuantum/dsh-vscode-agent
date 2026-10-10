@@ -27,6 +27,18 @@ const experimental = {
   },
 } satisfies WorkspaceManifest
 
+it.each(['vscode', 'shared-host'])('keeps the native %s package private while requiring its shared family version', (directory) => {
+  const dir = `apps/${directory}`
+  const manifest = JSON.parse(readFileSync(new URL(`../${dir}/package.json`, import.meta.url), 'utf8')) as WorkspaceManifest['manifest']
+  expect(checkWorkspaceManifest({ dir, manifest })).toEqual([])
+  expect(checkWorkspaceManifest({ dir, manifest: { ...manifest, private: false } }))
+    .toEqual([expect.stringContaining(`@deepseek-ai/dsh-${directory}: package.json must set "private": true`)])
+  expect(checkWorkspaceManifest({ dir, manifest: { ...manifest, version: '0.0.0' } })).not.toEqual([])
+  if (directory === 'shared-host') {
+    expect(checkWorkspaceManifest({ dir, manifest: { ...manifest, files: ['src'] } })).not.toEqual([])
+  }
+})
+
 describe('workspace dependency ranges', () => {
   const dependency = { dir: 'packages/core/runtime', manifest: { name: '@deepseek-ai/dsh-runtime' } }
   const cli = { dir: 'apps/cli', manifest: { name: '@deepseek-ai/dsh' } }

@@ -1,0 +1,17 @@
+{
+  "contextMaxBytes": "Maximum UTF-8 bytes per explicit editor-context snapshot. Oversized snapshots are rejected, not truncated.",
+  "contextMaxProblems": "Maximum Problems entries per snapshot of this workspace.",
+  "description": "Community coding agent built on DeepSeek Harness. Not an official DeepSeek extension.",
+  "trust": "DSH executes tools and loads workspace instructions. Trust the workspace before starting it.",
+  "virtual": "This preview requires a local filesystem workspace.",
+  "open": "Open Agent",
+  "configure": "Configure API",
+  "useDesktopApi": "Connect Shared Desktop Backend",
+  "backend": "Shared lets either client start one backend for credentials, models and conversations. Isolated retains this extension's private workspace runtime and history.",
+  "desktopHome": "Shared Harness home containing profiles/desktop, initialized on first use. Empty uses DSH_HOME, the development home, or ~/.dsh in that priority order. Desktop and VS Code must select the same home and version.",
+  "clearApiKey": "Remove Saved API Key",
+  "restart": "Restart Agent Runtime",
+  "stop": "Stop Agent Runtime",
+  "nodePath": "Node executable (22.19+ on Node 22, or Node 24+). No shell arguments.",
+  "repositoryPath": "Built DSH source checkout. Empty uses the checkout recorded by the development build."
+}

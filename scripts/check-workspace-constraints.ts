@@ -56,15 +56,18 @@ const experimentalPackageDirectory = /^packages\/experimental\/[^/]+$/
 /** npm namespace reserved for experimental packages. */
 const experimentalPackageNamePrefix = '@deepseek-ai/dsh-experimental-'
 /** Ordinary directories whose packages this repository publishes: one release member each. */
-const standardReleaseMemberDirectory = /^(?:packages\/(?!experimental\/)[^/]+\/[^/]+|apps\/(?!desktop(?:-host)?$)[^/]+|vendor\/[^/]+)$/
-/** Installable application assembled by electron-builder rather than published to npm. */
-const desktopApplicationDirectory = 'apps/desktop'
+const standardReleaseMemberDirectory =
+  /^(?:packages\/(?!experimental\/)[^/]+\/[^/]+|apps\/(?!desktop(?:-host)?$|shared-host$|vscode$)[^/]+|vendor\/[^/]+)$/
+/** Installable application carriers assembled outside npm publication. */
+const privateApplicationDirectories = new Set(['apps/desktop', 'apps/vscode'])
 const localArtifactDirs = new Set(['node_modules'])
 const appPackageFiles: Readonly<Record<string, readonly string[]>> = {
   '@deepseek-ai/dsh': ['lib/*.js', 'lib/types/*.d.ts'],
   '@deepseek-ai/dsh-desktop-host': [
     'lib/index.js', 'lib/cli.js',
   ],
+  // Native-carrier control is bundled privately with Desktop and the VSIX.
+  '@deepseek-ai/dsh-shared-host': ['lib/**/*.js', 'lib/types/**/*.d.ts'],
   // Sourcemaps stay out by payload policy; the worker-preview surface
   // (dist/preview.html and dist/preview/) backs opt-in experimental
   // packages and is not published.
@@ -443,7 +446,7 @@ export function checkWorkspaceManifest({ dir, manifest }: WorkspaceManifest): st
     }
   }
 
-  if (dir.startsWith('apps/') && dir !== desktopApplicationDirectory && manifest.name?.startsWith('@deepseek-ai/')) {
+  if (dir.startsWith('apps/') && !privateApplicationDirectories.has(dir) && manifest.name?.startsWith('@deepseek-ai/')) {
     const expectedFiles = appPackageFiles[manifest.name]
     if (expectedFiles === undefined) {
       errors.push(`${label}: app package has no publication files policy`)

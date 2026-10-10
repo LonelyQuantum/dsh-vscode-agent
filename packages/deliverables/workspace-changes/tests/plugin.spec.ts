@@ -149,6 +149,17 @@ describe('workspace-changes in a repository', () => {
     expect(await diff(5)).toEqual({ kind: 'text', path: 'moved.txt', display: 'moved.txt', before: true, after: true, coarse: false, hunks: [] })
     expect(await diff(6)).toMatchObject({ kind: 'text', path: 'new.txt', before: false, after: true, hunks: [{ lines: ['+n1'] }] })
     expect(await diff(7)).toBeUndefined()
+    await writeFile(join(cwd, 'a.txt'), 'later user edits\n')
+    const contents = (index: number) => ctx.workspaceChanges.contents(session.id, seq, index, signal)
+    const captured = await Promise.all(Array.from({ length: 8 }, (_, index) => contents(index)))
+    expect(captured[0]).toMatchObject({ kind: 'text', before: null, after: 'A=1\nB=2\n' })
+    expect(captured[1]).toMatchObject({ kind: 'text', before: 'l1\nl2\nl3\n', after: 'l1\nl2 model\nl3\n' })
+    expect(captured[2]).toMatchObject({ kind: 'text', before: 'x\n', after: null })
+    expect(captured[3]).toMatchObject({ kind: 'binary' })
+    expect(captured[4]).toMatchObject({ kind: 'oversized' })
+    expect(captured[5]).toMatchObject({ kind: 'text', path: 'moved.txt', before: 'same\n', after: 'same\n' })
+    expect(captured[6]).toMatchObject({ kind: 'text', before: null, after: 'n1\n' })
+    expect(captured[7]).toBeUndefined()
     expect(await ctx.workspaceChanges.diff(session.id, seq + 1, 0, signal)).toBeUndefined()
     expect(await ctx.workspaceChanges.diff(SessionId('elsewhere'), seq, 0, signal)).toBeUndefined()
     // A caller's abort fails the read while the Session lives; disposal under a running read answers undefined.
@@ -159,6 +170,7 @@ describe('workspace-changes in a repository', () => {
     ctx.emit('session/disposed', session)
     expect(await pending).toBeUndefined()
     expect(await diff(0)).toBeUndefined()
+    expect(await contents(0)).toBeUndefined()
   })
 
   it('records nothing and stays quiet about captures for a working directory that no longer exists', async () => {

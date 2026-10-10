@@ -1,6 +1,6 @@
 /** Model-facing query for a bundled Python, Node.js, and pnpm payload, in place or installed under the Harness home. */
 
-import { cp, lstat, mkdir, mkdtemp, readFile, rename, rm, stat } from 'node:fs/promises'
+import { cp, lstat, mkdir, mkdtemp, readFile, realpath, rename, rm, stat, symlink, unlink } from 'node:fs/promises'
 import { dirname, isAbsolute, join } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -196,6 +196,44 @@ export async function resolvePrimaryRuntime(source: string): Promise<WorkspaceDe
 }
 
 /**
+ * Copy a payload, retaining its development-only pnpm directory link.
+ * @param source - Prepared payload; packaged pnpm is a real directory.
+ * @param destination - New payload directory owned by the caller.
+ * @returns Resolves after copying the runtime and copying or linking pnpm.
+ */
+export async function copyPrimaryRuntime(source: string, destination: string): Promise<void> {
+  const sourcePnpm = join(source, 'dependencies', 'pnpm')
+  const destinationPnpm = join(destination, 'dependencies', 'pnpm')
+  await cp(source, destination, { recursive: true, dereference: true, filter: path => path !== sourcePnpm })
+  let pnpmStat: Awaited<ReturnType<typeof lstat>>
+  try { pnpmStat = await lstat(sourcePnpm) } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return
+    throw error
+  }
+  if (pnpmStat.isSymbolicLink()) {
+    await symlink(await realpath(sourcePnpm), destinationPnpm, process.platform === 'win32' ? 'junction' : 'dir')
+  } else {
+    await cp(sourcePnpm, destinationPnpm, { recursive: true, dereference: true })
+  }
+}
+
+/**
+ * Remove an owned payload without traversing its shared development pnpm link.
+ * @param root - Payload directory, never a link to another directory.
+ * @returns Resolves after removal; rejects a linked payload root.
+ */
+export async function removePrimaryRuntime(root: string): Promise<void> {
+  if (!await exists(root)) return
+  const pnpm = join(root, 'dependencies', 'pnpm')
+  let pnpmStat: Awaited<ReturnType<typeof lstat>> | undefined
+  try { pnpmStat = await lstat(pnpm) } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+  }
+  if (pnpmStat?.isSymbolicLink()) await unlink(pnpm)
+  await rm(root, { recursive: true, force: true })
+}
+
+/**
  * Install the application-owned payload locally, retaining a complete previous tree on copy failure.
  * @param source - Payload carried by the current installation.
  * @param root - Fixed primary runtime directory under the Harness home.
@@ -215,19 +253,19 @@ export async function installPrimaryRuntime(source: string, root: string): Promi
   }
   const staging = await mkdtemp(join(dirname(root), '.primary-runtime-'))
   try {
-    await cp(source, staging, { recursive: true, dereference: true })
+    await copyPrimaryRuntime(source, staging)
     const paths = workspaceDependencyPaths(staging, manifest)
     await validatePayloadEntries(paths)
-    await rm(previous, { recursive: true, force: true })
+    await removePrimaryRuntime(previous)
     const replacing = await exists(root)
     if (replacing) await rename(root, previous)
     try { await rename(staging, root) } catch (error) {
       if (replacing) await rename(previous, root)
       throw error
     }
-    await rm(previous, { recursive: true, force: true })
+    await removePrimaryRuntime(previous)
   } finally {
-    await rm(staging, { recursive: true, force: true })
+    await removePrimaryRuntime(staging)
   }
   return workspaceDependencyPaths(root, manifest)
 }

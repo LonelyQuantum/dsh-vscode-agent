@@ -75,8 +75,22 @@ export type WorkspaceFileDiff =
   /** A side larger than the plugin's `maxFileBytes`; no lines are served. */
   | { kind: 'oversized'; path: string; display: string }
 
+/** Bounded complete captured versions; null distinguishes an absent file from an empty file. */
+export type WorkspaceFileContents =
+  | { kind: 'text'; path: string; display: string; before: string | null; after: string | null }
+  | Exclude<WorkspaceFileDiff, { kind: 'text' }>
+
 /** Serves the summaries and file comparisons the recorder keeps for live Sessions. */
 export interface WorkspaceChanges {
+  /**
+   * Read both complete captured versions without consulting the current workspace.
+   * @param sessionId - Session that owns the capture.
+   * @param seq - announcing event sequence.
+   * @param index - original file index in the summary.
+   * @param signal - cancels the reads.
+   * @returns bounded text (null means absent), a refusal, or undefined when unavailable.
+   */
+  contents(sessionId: SessionId, seq: number, index: number, signal: AbortSignal): Promise<WorkspaceFileContents | undefined>
   /**
    * The summary announced by one `workspace/changes` event.
    * @param sessionId - the Session that appended the event.

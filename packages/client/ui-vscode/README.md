@@ -1,0 +1,97 @@
+---
+description: "Single-column DSH conversations for the VS Code carrier; read this for workspace selection, history, and shared Conversation composition."
+kind: "package-reference"
+---
+
+# @deepseek-ai/dsh-client-ui-vscode
+
+English | [中文](README.zh.md)
+
+## Summary
+
+Open the current workspace's conversation list in a narrow editor sidebar. Send a message from the list to begin a conversation, or select a previous conversation to continue it. The upper-left back button returns to the list without stopping running tasks. Messages and input controls use the shared Conversation implementation. This presentation requires the VS Code carrier; ordinary Web and Desktop profiles retain their layouts.
+
+## Table of Contents
+
+- [Use this package](#use-this-package)
+- [Understand the implementation](#understand-the-implementation)
+- [Further Exploration](#further-exploration)
+- [Model Experience](#model-experience)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [Dev Note](#dev-note)
+
+-----
+
+<a id="use-this-package"></a>
+## Use this package
+
+Opening the plugin shows the current workspace's nonblank, unarchived conversations above a bottom-docked new-message composer. If none exist, it shows all conversations instead. Sending starts a conversation in the current workspace. The back button selects that workspace's blank draft; it neither stops background work nor sends subsequent input to the previous conversation. Reopening a listed conversation restores its transcript and unsent draft. Reloading starts at the list rather than restoring the last conversation.
+
+Messages can use the full transcript width with 12 px side clearance in narrow editor columns. The native carrier supplies VS Code colors for messages, input, menus, code, and scrollbars. Editor theme classes select non-persistent light/dark registry entries, including high-contrast variants, so shared cards use the matching palette without changing saved DSH theme preferences. Ordinary browser compositions retain their own theme.
+
+Conversation rows use the shared DSH radius and focus-ring tokens, including keyboard focus and pointer-modality suppression.
+
+The [Web bundle](../../bundle/web-app/README.md) mounts this row for the [VS Code preview](../../../apps/vscode/README.md), including shared Desktop-profile clients. It activates only when the native editor bridge is present; ordinary browser and Desktop documents retain their existing layout. No plugin configuration is required:
+
+```yaml
+- name: '@deepseek-ai/dsh-client-ui-vscode'
+```
+
+The carrier supplies its trusted local workspace before Client boot. Both list modes exclude archived Sessions, blank drafts, and delegated agents. Its composer uses the shared workspace navigation policy, including reuse of an existing blank Session. API settings opens the carrier's native configuration command; no key enters this Client plugin.
+
+The composer's plus menu opens the shared file picker for file and image attachments. The bottom toolbar captures selected text or Problems explicitly, without separate file, History, or new-conversation buttons. Each editor-reference chip contains the carrier's immutable snapshot; clicking it opens a read-only preview of the exact submitted text. Copying or restoring the draft preserves that text. Capture is rejected if the draft revision changes, navigation starts, the Session changes, or the view closes before it finishes.
+
+-----
+
+<a id="understand-the-implementation"></a>
+## Understand the implementation
+
+<details>
+<summary>Implementation internals — click to expand</summary>
+
+The plugin selects a higher-priority root occupant while retaining the Web layout's declarations and services. Its session-optional child renders `conversation.content`; it does not duplicate Session projection, tool rendering, or the composer. Startup waits for both remote baselines before resolving workspace membership. Disposal detaches subscriptions and prevents a late workspace result from changing navigation. Failed startup remains visible until retry.
+
+The carrier stores only the selected Session id in Webview state. The Session controller remains authoritative for conversation data. See [registration](src/client/index.ts) and [presentation](src/client/Conversation.tsx).
+
+</details>
+
+-----
+
+<a id="further-exploration"></a>
+## Further Exploration
+
+- [Conversation](../ui-conversation/README.md) — shared content and input.
+- [Workspace navigation](../ui-workspace/README.md) — Session creation and selection.
+- [Slot architecture](../../../docs/subsystems/slots.md) — declarations and factories.
+
+-----
+
+<a id="model-experience"></a>
+## Model Experience
+
+Indirectly, through the [editor carrier's explicit snapshots](../../../apps/vscode/README.md#editor-context), serialized unchanged into the shared composer's logged user input.
+
+#### KV Cache effect
+
+Only submitted snapshots add user-input tokens; capture and preview alone send nothing to the model. Existing request prefixes are unchanged.
+
+## Known Limitations and Deferred Work
+
+<a id="known-limitations-and-deferred-work"></a>
+
+The editor carrier defines the supported workspace types.
+
+- Native files are admitted only inside the carrier's workspace; captured diffs require the original live Host Session.
+- No independent settings panel is rendered; credential setup uses the carrier's native command.
+
+<a id="dev-note"></a>
+### Dev Note
+
+<details>
+<summary>Working context for maintainers — click to expand</summary>
+
+None.
+
+</details>
+
+**Runtime invariant:** No companion is published. This presentation owns no Session events or independently produced runtime observations; its startup and rendering tests check navigation and disposal directly.
