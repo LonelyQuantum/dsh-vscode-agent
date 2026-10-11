@@ -5,6 +5,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import type { PreviewDiagnostics } from '../src/extension.ts'
+import { EXTENSION_ID } from '../scripts/extension-identity.mjs'
 
 /** Observe same-home refusal or independent-workspace startup in a second Extension Host. @returns Owned runtime shutdown. */
 export async function run(): Promise<void> {
@@ -12,7 +13,7 @@ export async function run(): Promise<void> {
   await vscode.workspace.getConfiguration('dsh').update('backend', shared ? 'shared' : 'isolated', vscode.ConfigurationTarget.Global)
   const root = process.env.DSH_VSCODE_TEST_UI!
   const same = process.env.DSH_VSCODE_PEER_MODE === 'same'
-  const extension = vscode.extensions.getExtension<{ diagnostics(): PreviewDiagnostics }>('dsh-local.dsh-vscode-agent')!
+  const extension = vscode.extensions.getExtension<{ diagnostics(): PreviewDiagnostics }>(EXTENSION_ID)!
   const api = await extension.activate()
   const deadline = Date.now() + 90_000
   try {
