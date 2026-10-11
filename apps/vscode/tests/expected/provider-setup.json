@@ -1,0 +1,30 @@
+{
+  "en": {
+    "provider": "Shared provider",
+    "key": "API key (saved by the shared backend, never in workspace settings)",
+    "endpoint": "API endpoint (blank keeps the current or provider default)",
+    "model": "Model for new conversations",
+    "save": "Save shared provider settings? This does not test the endpoint or send a model request.",
+    "saved": "Shared provider saved. Reconnect to start new conversations with this model; existing conversations keep their selection. No connection test was run.",
+    "conflict": "Another client changed these settings. Reopen Configure API to read the current values; the credential was not rotated.",
+    "partial": "Some shared settings were saved, but setup did not finish. Reopen Configure API to check the current provider and model before sending a message. No request was automatically retried.",
+    "shared": "Shared backend",
+    "isolated": "Isolated backend",
+    "node": "DSH needs Node ^22.19.0 or >=24.0.0. Select a compatible Node executable, then reconnect.",
+    "home": "The shared Harness home is not a usable directory. Select an existing or empty local folder; history is not moved."
+  },
+  "zh-CN": {
+    "provider": "共享提供方",
+    "key": "API 密钥（由共享后台保存，不写入工作区设置）",
+    "endpoint": "API 地址（留空保留当前地址或提供方默认值）",
+    "model": "新会话使用的模型",
+    "save": "保存共享提供方设置？此操作不会测试 API 地址或发送模型请求。",
+    "saved": "共享提供方已保存，重新连接后新会话使用此模型，已有会话保留原选择。未执行连接测试。",
+    "conflict": "另一客户端已修改这些设置。请重新配置 API 以读取当前值；密钥未被替换。",
+    "partial": "部分共享设置已保存，但配置尚未完成。发送消息前请重新配置 API，检查当前提供方和模型。不会自动重试请求。",
+    "shared": "共享后台",
+    "isolated": "独立后台",
+    "node": "DSH 需要 Node ^22.19.0 或 >=24.0.0。请选择兼容的 Node 可执行文件，然后重新连接。",
+    "home": "共享 Harness 主目录不是可用目录。请选择已有或空的本地文件夹；不会移动聊天记录。"
+  }
+}

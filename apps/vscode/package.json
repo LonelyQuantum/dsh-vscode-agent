@@ -20,6 +20,8 @@
     "@deepseek-ai/dsh-desktop-host": "workspace:*",
     "@deepseek-ai/dsh-shared-host": "workspace:*",
     "@deepseek-ai/dsh-llm-replay": "workspace:*",
+    "@deepseek-ai/dsh-llm-mock-server": "workspace:*",
+    "@deepseek-ai/dsh-session": "workspace:*",
     "@deepseek-ai/dsh-session-persistence-jsonl": "workspace:*",
     "@vscode/vsce": "4.0.0",
     "js-yaml": "4.2.0",

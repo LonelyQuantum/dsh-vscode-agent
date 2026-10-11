@@ -13,7 +13,7 @@ it('resolves Node to an absolute executable and rejects a different host version
     await writeFile(join(host, 'package.json'), JSON.stringify({ version: 'fixture' }))
     expect(await resolveSharedLaunch(process.execPath, runtime, 'fixture')).toEqual({ protocol: 1,
       version: 'fixture', node: await realpath(process.execPath), runtime: await realpath(runtime) })
-    await expect(resolveSharedLaunch(process.execPath, runtime, 'other')).rejects.toThrow('differs')
-    await expect(resolveSharedLaunch(join(runtime, 'missing-node'), runtime, 'fixture')).rejects.toThrow()
+    await expect(resolveSharedLaunch(process.execPath, runtime, 'other')).rejects.toMatchObject({ kind: 'runtime' })
+    await expect(resolveSharedLaunch(join(runtime, 'missing-node'), runtime, 'fixture')).rejects.toMatchObject({ kind: 'node' })
   } finally { await rm(runtime, { recursive: true, force: true }) }
 })

@@ -9,8 +9,10 @@ import { compressZstdFrame, generationLogPath, readSessionLog } from '../lib/ses
  * @param harness Test-owned paths, CDP operations, and bounded readiness helpers.
  * @returns Completion after UI, durable events, and owned files agree.
  */
-export async function runCompatibilityCheck({ root, workspace, evaluate, request, waitFor, readIfPresent, presetFile, selected }) {
+export async function runCompatibilityCheck({ root, workspace, evaluate, request, waitFor, readIfPresent, presetFile, sharedHome, selected }) {
   let phase = 'initialize'
+  let reviewedSession
+  let removalObservation
   const ready = () => waitFor(() => evaluate(`return !!doc.defaultView.__DSH_VSCODE__.lastSession()
     && root.querySelector('[data-composer-input]')?.getAttribute('contenteditable') === 'true'`))
   const rpc = async (method, args) => {
@@ -54,9 +56,9 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
       await ready()
     }
   }
-  const profiles = await Array.fromAsync(glob('**/homes/*/profiles/vscode/package.json', { cwd: root }))
-  assert.equal(profiles.length, 1)
-  const home = dirname(dirname(dirname(join(root, profiles[0]))))
+  const profiles = sharedHome ? [] : await Array.fromAsync(glob('**/homes/*/profiles/vscode/package.json', { cwd: root }))
+  if (!sharedHome) assert.equal(profiles.length, 1)
+  const home = sharedHome ?? dirname(dirname(dirname(join(root, profiles[0]))))
   const currentEvents = async () => {
     const id = await evaluate('return doc.defaultView.__DSH_VSCODE__.lastSession()')
     const logs = await Array.fromAsync(glob(`sessions/*/${id}/session.v4.jsonl*`, { cwd: home }))
@@ -137,6 +139,7 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
       assert.ok(events.some(event => event.type === 'permission/preset' && event.data.preset === 'auto'))
       assert.ok(events.some(event => event.type === 'tool/result' && event.data.error === undefined))
       const expectedSession = await evaluate('return doc.defaultView.__DSH_VSCODE__.lastSession()')
+      reviewedSession = expectedSession
       phase = 'restore Auto review after a process crash without plugin unload'
       await writeFile(join(root, 'crash'), 'requested')
       await waitFor(() => readIfPresent(join(root, 'crashed')))
@@ -151,7 +154,13 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
       phase = 'fall back to Read Only when Auto review unloads'
       const disabled = await rpc('pluginManager/setBundleEnabled', { name: '@deepseek-ai/dsh-experimental-auto-review', enabled: false })
       assert.equal(disabled.application, 'applied')
-      await waitFor(() => evaluate(`return root.querySelector('[aria-label^="Access mode"]')?.getAttribute('aria-label').includes('Read Only')`))
+      await waitFor(async () => {
+        removalObservation = await evaluate(`return { hasRoot: !!root,
+          sameSession: doc.defaultView.__DSH_VSCODE__?.lastSession() === ${JSON.stringify(expectedSession)},
+          access: root?.querySelector('[aria-label^="Access mode"]')?.getAttribute('aria-label') ?? null,
+          listVisible: !!root?.querySelector('nav') }`)
+        return removalObservation.sameSession && removalObservation.access?.includes('Read Only')
+      })
       await waitFor(async () => (await currentEvents()).filter(event => event.type === 'permission/preset').at(-1)?.data.preset === 'read-only')
       phase = 'require human approval for a write after reviewer removal'
       await send('Create unreviewed.txt containing UNREVIEWED using a file-writing tool, not shell or run_code. If approval is denied, do not retry or use another tool. Then reply AUTO_FALLBACK_DONE.')
@@ -170,7 +179,7 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
       await send('Reply only PRESET_SETUP_DONE. Do not call tools.')
       await completed('PRESET_SETUP_DONE')
       phase = 'configure automatic compaction in the isolated profile'
-      const patch = join(home, 'profiles/vscode/cordis.patch.yml')
+      const patch = join(home, sharedHome ? 'profiles/desktop/cordis.patch.yml' : 'profiles/vscode/cordis.patch.yml')
       const original = await readFile(patch, 'utf8')
       const preset = await readFile(presetFile, 'utf8')
       const start = preset.indexOf('    - id: preset-standard\n')
@@ -210,7 +219,14 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
     }
     console.log('VSCODE_COMPAT_RESULT ' + JSON.stringify({ name: selected, passed: true }))
   } catch (error) {
-    console.log('VSCODE_COMPAT_RESULT ' + JSON.stringify({ name: selected, passed: false, phase, error: error.message }))
+    let durablePreset
+    if (reviewedSession) {
+      const logs = await Array.fromAsync(glob(`sessions/*/${reviewedSession}/session.v4.jsonl*`, { cwd: home }))
+      if (logs.length === 1) durablePreset = (await readSessionLog(join(home, logs[0])))
+        .filter(event => event.type === 'permission/preset').at(-1)?.data.preset
+    }
+    console.log('VSCODE_COMPAT_RESULT ' + JSON.stringify({ name: selected, passed: false, phase,
+      error: error.message, removalObservation, durablePreset }))
     throw error
   }
 }

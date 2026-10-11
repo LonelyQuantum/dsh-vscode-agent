@@ -33,7 +33,7 @@ async function replace(path, text) {
  * @param harness Isolated test paths, CDP operations, and bounded readiness checks.
  * @returns One result without credentials or model response contents.
  */
-export async function runFaultChecks({ root, evaluate, request, contextId, waitFor, selected }) {
+export async function runFaultChecks({ root, evaluate, request, contextId, waitFor, selected, sharedHome }) {
   let phase = 'setup'
   let patch
   let originalPatch
@@ -67,9 +67,9 @@ export async function runFaultChecks({ root, evaluate, request, contextId, waitF
   }
   try {
     if (selected === 'rebuild') {
-      const patches = await Array.fromAsync(glob('**/profiles/vscode/cordis.patch.yml', { cwd: root }))
-      assert.equal(patches.length, 1, 'Expected one isolated VS Code profile')
-      patch = join(root, patches[0])
+      const patches = sharedHome ? [] : await Array.fromAsync(glob('**/profiles/vscode/cordis.patch.yml', { cwd: root }))
+      if (!sharedHome) assert.equal(patches.length, 1, 'Expected one isolated VS Code profile')
+      patch = sharedHome ? join(sharedHome, 'profiles/desktop/cordis.patch.yml') : join(root, patches[0])
       originalPatch = await readFile(patch, 'utf8')
       pluginPath = join(dirname(patch), 'node_modules', ...packageName.split('/'))
       await mkdir(pluginPath, { recursive: true })
@@ -140,7 +140,8 @@ export async function runFaultChecks({ root, evaluate, request, contextId, waitF
     const { readSessionLog } = await import('../lib/session-log.mjs')
     let receipts = 0
     phase = 'verify one durable user input'
-    for await (const file of glob(['**/homes/*/sessions/**/*.jsonl', '**/homes/*/sessions/**/*.jsonl.zstd'], { cwd: root })) {
+    for await (const file of glob(['**/homes/*/sessions/**/*.jsonl', '**/homes/*/sessions/**/*.jsonl.zstd',
+      ...sharedHome ? ['fresh-shared-home/sessions/**/*.jsonl', 'fresh-shared-home/sessions/**/*.jsonl.zstd'] : []], { cwd: root })) {
       const events = await readSessionLog(join(root, file))
       receipts += events.filter(event => event.type === 'user/message'
         && event.data.content.some(block => block.type === 'text' && block.text === prompt)).length

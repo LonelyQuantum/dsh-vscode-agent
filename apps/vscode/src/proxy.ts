@@ -1,5 +1,16 @@
 /** Authenticated, route-limited byte transport between one Webview and its owned DSH Host. */
 import WebSocket from 'ws'
+import { randomUUID } from 'node:crypto'
+
+/** Native configuration calls never forward their replies or secret inputs to the Webview. */
+export type NativeMethod = 'settings/describe' | 'settings/mutate' | 'credentials/describe' | 'credentials/set'
+  | 'session/modelCatalog' | 'llm/listConfigurableProviders'
+
+/** Sanitized configuration refusal; backend error text may contain user-supplied values. */
+export class NativeRequestError extends Error {
+  /** @param code Machine-readable refusal without raw diagnostics or credential values. */
+  constructor(readonly code: string) { super('Native DSH configuration request failed') }
+}
 
 /** Shared envelope marker prevents accidental handling of unrelated editor messages. */
 export const CHANNEL = 'dsh-vscode'
@@ -44,6 +55,39 @@ export class HostProxy {
     await response.body?.cancel()
     if (response.status !== 303 || !cookie) throw new Error('DSH authentication failed')
     return new HostProxy(url.origin, cookie, send)
+  }
+
+  /**
+   * Call an admitted configuration method from native UI, outside the page transport.
+   * @param method Fixed configuration operation.
+   * @param args Named Remote arguments; secrets are allowed only on this native path.
+   * @returns Decoded response value; refusal exposes its code, never its diagnostic or inputs.
+   */
+  nativeRequest(method: NativeMethod, args: object): Promise<unknown> {
+    const work = (async () => {
+      const signal = AbortSignal.any([this.nativeLifetime.signal, AbortSignal.timeout(15_000)])
+      signal.throwIfAborted()
+      const response = await fetch(new URL('/api/' + method, this.origin), {
+        method: 'POST', headers: { cookie: this.cookie, 'content-type': 'application/json' }, redirect: 'manual', signal,
+        body: JSON.stringify({ type: 'client-request', rpcId: randomUUID(), method, payload: { args } }),
+      })
+      if (!response.ok) { await response.body?.cancel(); throw new NativeRequestError('transport') }
+      const envelope: unknown = await response.json()
+      if (typeof envelope !== 'object' || envelope === null || !('result' in envelope)
+        || typeof envelope.result !== 'object' || envelope.result === null || !('ok' in envelope.result)) {
+        throw new NativeRequestError('response')
+      }
+      if (envelope.result.ok !== true) {
+        const error = 'error' in envelope.result ? envelope.result.error : undefined
+        throw new NativeRequestError(typeof error === 'object' && error !== null && 'code' in error
+          && typeof error.code === 'string' ? error.code : 'rejected')
+      }
+      return 'value' in envelope.result ? envelope.result.value : undefined
+    })()
+    const settled = work.then(() => {}, () => {})
+    this.tasks.add(settled)
+    void settled.then(() => { this.tasks.delete(settled) })
+    return work
   }
 
   /**

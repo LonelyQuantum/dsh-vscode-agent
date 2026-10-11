@@ -8,6 +8,16 @@ it('denies active content in lifecycle notices and escapes message text', () => 
   expect(html).toContain('&lt;script&gt;unexpected()&lt;/script&gt; &amp; notice')
 })
 
+it('offers only fixed recovery actions through a nonced offline sender', () => {
+  const html = statusDocument('Stopped', [{ action: 'restart', label: '<Reconnect>' }])
+  expect(html).toContain('data-action="restart"')
+  expect(html).toContain('&lt;Reconnect&gt;')
+  expect(html).toMatch(/script-src 'nonce-[a-f0-9]+'/)
+  expect(html).toMatch(/<script nonce="[a-f0-9]+">/)
+  expect(html).toContain('channel:"dsh-status"')
+  expect(html).not.toMatch(/command:|unsafe-inline|unsafe-eval|127\.0\.0\.1/)
+})
+
 it('maps static assets and installs a non-inline carrier before the Web entry', () => {
   const html = webviewDocument('<head><script type="module" src="./assets/main.js"></script><link href="./assets/main.css"></head>',
     path => `https://local.example/${path}`, 'https://local.example', 'nonce123')
