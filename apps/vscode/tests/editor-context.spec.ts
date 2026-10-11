@@ -3,7 +3,7 @@ import { afterEach, expect, it } from 'vitest'
 import { mkdtemp, mkdir, rm, writeFile, symlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { boundedCapture, documentCapture, workspaceFile } from '../src/editor-context.ts'
+import { boundedCapture, documentCapture, workspaceFile, workspaceNavigation } from '../src/editor-context.ts'
 
 const roots: string[] = []
 afterEach(async () => {
@@ -47,4 +47,19 @@ it('counts UTF-8 bytes and rejects rather than clipping captured content', () =>
   const bytes = Buffer.byteLength(capture.text)
   expect(boundedCapture('file', value, bytes)).toEqual(capture)
   expect(() => boundedCapture('file', value, bytes - 1)).toThrow('context-too-large')
+})
+
+it('resolves subdirectory links from the Session directory without widening native access', async () => {
+  const f = await fixture()
+  const nested = join(f.workspace, 'src')
+  await mkdir(nested)
+  await writeFile(join(nested, 'file.ts'), 'nested')
+  expect(await workspaceNavigation(f.workspace, nested, 'file.ts')).toBe(join(nested, 'file.ts'))
+  expect(await workspaceNavigation(f.workspace, nested, '../file.ts')).toBe(f.path)
+  await expect(workspaceNavigation(f.workspace, f.outside, f.path)).rejects.toThrow('outside-workspace')
+  await expect(workspaceNavigation(f.workspace, nested, '../../outside/secret.txt')).rejects.toThrow('outside-workspace')
+  await expect(workspaceNavigation(f.workspace, join(f.workspace, 'missing'), f.path)).rejects.toThrow()
+  const worktree = join(f.workspace, 'worktree')
+  await symlink(f.outside, worktree, process.platform === 'win32' ? 'junction' : 'dir')
+  await expect(workspaceNavigation(f.workspace, worktree, 'secret.txt')).rejects.toThrow('outside-workspace')
 })

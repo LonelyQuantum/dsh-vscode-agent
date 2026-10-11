@@ -1,11 +1,9 @@
 /** Explicit VS Code document and Problems capture; never scans source files in the background. */
 import * as vscode from 'vscode'
 import { randomUUID } from 'node:crypto'
-import { realpath } from 'node:fs/promises'
-import { resolve } from 'node:path'
 import type { CapturedPair } from './review.ts'
 import { extensionCopy } from './locale.ts'
-import { boundedCapture, documentCapture, workspaceFile, type EditorCapture } from './editor-context.ts'
+import { boundedCapture, documentCapture, workspaceFile, workspaceNavigation, type EditorCapture } from './editor-context.ts'
 
 /**
  * Capture one explicit editor-context action.
@@ -96,16 +94,14 @@ export class SnapshotDocuments implements vscode.Disposable {
  * @param workspace Trusted local execution directory.
  * @param path Session-relative or absolute file path.
  * @param line Optional one-based line; positions beyond the document are clamped by VS Code.
- * @param cwd Viewed Session directory, required to identify the same canonical workspace.
+ * @param cwd Viewed Session directory inside the trusted workspace, used to resolve relative links.
  * @param signal Cancels navigation when its Webview is disposed.
  * @returns Completion after native navigation.
  */
 export async function openWorkspaceFile(
   workspace: string, path: string, line?: number, cwd = workspace, signal?: AbortSignal,
 ): Promise<void> {
-  if (await realpath(cwd) !== await realpath(workspace)) throw new Error('workspace-mismatch')
-  const canonical = await realpath(resolve(workspace, path))
-  await workspaceFile(workspace, canonical)
+  const canonical = await workspaceNavigation(workspace, cwd, path)
   signal?.throwIfAborted()
   const document = await vscode.workspace.openTextDocument(vscode.Uri.file(canonical))
   signal?.throwIfAborted()
