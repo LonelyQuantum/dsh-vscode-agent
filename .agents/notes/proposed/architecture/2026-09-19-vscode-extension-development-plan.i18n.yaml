@@ -1,0 +1,64 @@
+# Bilingual-pair consistency record for 2026-09-19-vscode-extension-development-plan.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/proposed/architecture/2026-09-19-vscode-extension-development-plan.md
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application:
+  en: 5690f1c03cfe99b0
+  zh: 89ab22f9ae2ac04c
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/problem:
+  en: 094a4f98959cd54e
+  zh: aff4cbaa775dcb66
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/proposal:
+  en: 33191d31d88d1c1f
+  zh: cf28ca6087d47f14
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/proposal/long-lived-development-branches-2026-10-10:
+  en: fa48af4688e1f0ea
+  zh: a75ce1d75d86dac7
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/proposal/release-based-adaptation-2026-10-10:
+  en: 35d67c19a4b9e9f5
+  zh: 527c90a34a20323c
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/proposal/rc-integration-progress-2026-10-11:
+  en: 57fc3571d8aa39a4
+  zh: df17f78c867b2e9a
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/proposal/publisher-identity-artifact-2026-10-11:
+  en: 4bf391bdc3af6508
+  zh: e5769acfdcef62a8
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/proposal/alpha-integration-progress-2026-10-11:
+  en: 84a3e12ca1c7cd70
+  zh: 18ed19e45d4650e1
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/proposal/next-development-sequence-2026-10-01:
+  en: ab8c5aa8a23d7d66
+  zh: 1c13d36ed336baad
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/proposal/upstream-findings-and-plan-changes:
+  en: 9195495e8f5a0fd6
+  zh: c80e151b314fe074
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/proposal/integration-priorities-after-this-update:
+  en: ac21e93806c9e8aa
+  zh: 236aadbe34b4537a
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/proposal/r4-security-decisions:
+  en: 32c56a6c4601fad2
+  zh: 66043b9dfd977228
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/proposal/process-and-data-ownership:
+  en: ea2760aad0ee9b8c
+  zh: e16de1480bec5137
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/proposal/proposed-code-placement:
+  en: 808ae668e66cf4fe
+  zh: 1d0ddf6cb3a9a609
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/proposal/p0-progress-and-open-decisions:
+  en: 7a6d1bb9232fbffd
+  zh: 0ec6e3009d022e08
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/proposal/delivery-sequence:
+  en: ea86a5b76a105f34
+  zh: 1cad176810e97eb0
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/proposal/reuse-and-upstream-maintenance:
+  en: b506fae34fbea408
+  zh: 404e6768cb30481c
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/alternatives-considered:
+  en: c08f3cbb0fd07f8d
+  zh: 2c2fc726b845ec88
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/acceptance-criteria:
+  en: 1c80c341b2668b64
+  zh: 7f20aa5350b3f27b
+/agent-note-build-a-codex-style-vs-code-extension-on-the-shared-dsh-application/risks:
+  en: 182d7786129c8e9e
+  zh: 6f10cbdfd9769123

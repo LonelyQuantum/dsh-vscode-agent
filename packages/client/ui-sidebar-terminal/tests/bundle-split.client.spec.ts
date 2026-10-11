@@ -16,7 +16,11 @@ describe('terminal client artifacts', () => {
     expect(entry).not.toMatch(/\brequire\("\.\/client[^"/]*\.js"\)/u)
     expect([...terminal.matchAll(/require\("(\.\/client[^"/]*\.js)"\)/gu)].map(match => match[1]))
       .toEqual([])
-    expect(entry).not.toContain('/@xterm+xterm@')
-    expect(terminal).toContain('/@xterm+xterm@')
+    const entryMap = JSON.parse(readFileSync(`${entryPath}.map`, 'utf8')) as { sources: string[] }
+    const terminalMap = JSON.parse(readFileSync(`${terminalPath}.map`, 'utf8')) as { sources: string[] }
+    const xtermSource = (source: string): boolean => /\/node_modules\/@xterm\/(?:xterm|addon-fit)\//u.test(source.replaceAll('\\', '/'))
+    expect(entryMap.sources.some(xtermSource)).toBe(false)
+    expect(terminalMap.sources.some(source => source.replaceAll('\\', '/').includes('/node_modules/@xterm/xterm/'))).toBe(true)
+    expect(terminalMap.sources.some(source => source.replaceAll('\\', '/').includes('/node_modules/@xterm/addon-fit/'))).toBe(true)
   })
 })

@@ -43,7 +43,7 @@ Host 在相对于应用根目录的 `inspector/devtools/devtools_app.html` 路�
 
 [分发构建](scripts/build-devtools.ts)将 ESM 入口、共享 chunk、显式 Worker、注入脚本与运行时资源输出到 `lib/devtools`，保留原始模块相对资源 URL，包括部署子路径。CSS 文本模块、图片变量和最小英文 locale 常量替代 GN 生成输入，不修改 npm 源码。前端直接使用上游模块内的英文 UIStrings，不包含翻译文件或词条生成器，其他语言偏好回退英文。所有上游面板均保留，包括 Lighthouse。Memory 带有解析 Worker，Performance 记录 Host CPU。发布包包含构建资源、完整性清单和 Chromium license，不包含构建用 npm 源码或 Vite 依赖。
 
-前端在构建时选择浏览器运行时适配器、排除 Node 专用传输，不使用 import map。同源连接 bootstrap 先于应用入口执行。底部面板添加 `disableLocaleInfoBar=true`，bootstrap 设置 DevTools 自己的 `disable-locale-info-bar` 偏好，不改变语言。升级前端时，需要一起调整 npm 版本和源码配置，然后重跑面板和 Worker 检查；不兼容的源码变动会使构建失败。
+前端在构建时选择浏览器运行时适配器、排除 Node 专用传输，不使用 import map。CSS 虚拟模块标识符相对于前端根目录；生成 chunk 的注释不含构建宿主的绝对路径。同源连接 bootstrap 先于应用入口执行。底部面板添加 `disableLocaleInfoBar=true`，bootstrap 设置 DevTools 自己的 `disable-locale-info-bar` 偏好，不改变语言。升级前端时，需要一起调整 npm 版本和源码配置，然后重跑面板和 Worker 检查；不兼容的源码变动会使构建失败。
 
 <a id="runtime-layout"></a>
 ## 运行时布局

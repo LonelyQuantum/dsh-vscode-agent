@@ -41,6 +41,8 @@ Subpath exports keep their path: `@cordisjs/plugin-loader/repository` becomes `@
 
 ## Applying, verifying, and reverting
 
+Cordis inspection event names such as `cordis/inspect-query` are wire identifiers, not package imports. The script's file-local exceptions preserve them in producers and fixtures.
+
 [`scripts/rescope-vendor.ts`](../scripts/rescope-vendor.ts) owns the mapping above and performs the rename, so no reference is renamed by hand:
 
 ```sh

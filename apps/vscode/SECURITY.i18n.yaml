@@ -1,0 +1,13 @@
+# Bilingual-pair consistency record for SECURITY.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write apps/vscode/SECURITY.md
+/community-extension-security:
+  en: 69b94c12ce245852
+  zh: 1752722d1bd485d3
+/community-extension-security/report-a-vulnerability-privately:
+  en: cb38a604605fbb0c
+  zh: 892fe667a26c08b9
+/community-extension-security/support-scope:
+  en: b7b6ca94cf2e27ae
+  zh: 621b2b2c65e5d62d

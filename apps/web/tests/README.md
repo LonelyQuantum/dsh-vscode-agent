@@ -16,6 +16,10 @@ Ordinary scenarios begin with no registered Workspace or Session and a durable m
 
 ## Completion observations
 
+Auto-review and VS Code scenarios accept `DSH_VSCODE_TEST_BROWSER=msedge` for local Windows qualification with installed Edge. ARIA captures derive the workspace basename with the host platform's path rules; the committed expectations remain shared across platforms.
+
+The portable editor-context recording excludes the Windows-only ACL diagnosis skill from its model catalog through the skill registry's invocation policy. The sandbox owner's tests qualify that skill; production profiles retain it. Tool-group scenarios open a saved conversation from the default list before inspecting its results.
+
 State-sensitive cases use Workspace, admission, attachment, and model-stream barriers to separate visible intermediate states from completed operations. Model-picker persistence assertions wait for the saved default, independently of menu closure. Details close waits for frame transitions; archive verification assigns an explicit title to the seeded Session and follows that identity across reload. The [CI test reliability workflow](../../../.agents/skills/dsh-ci-test-reliability/SKILL.md#synchronize-on-state) owns these synchronization rules.
 
 [Idle-submission handoff](idle-submission-handoff.e2e.ts) waits up to the scaffold's 30-second turn-completion budget for Host frames and browser placement. Vitest owns scaffold teardown so a replay-consumption error does not replace the failed scenario assertion.

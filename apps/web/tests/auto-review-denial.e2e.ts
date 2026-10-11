@@ -4,6 +4,7 @@
 // projection, conversation assembler, Tool row, and Trajectory all participate.
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
+import { SessionId } from '@deepseek-ai/dsh-session'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
@@ -53,7 +54,7 @@ describe.skipIf(MODE === 'record')('web e2e: cold Auto-review denial', () => {
 
     scaffold = await launchWebScaffold(AUTO_REVIEW_FIXTURE)
     await seedSession(scaffold, fixture, SEED_ID, undefined, { createdAt: WEB_FIXTURE_TIME })
-    browser = await chromium.launch()
+    browser = await chromium.launch(process.env.DSH_VSCODE_TEST_BROWSER === 'msedge' ? { channel: 'msedge' } : {})
     page = await newEnglishPage(browser)
     await page.clock.setFixedTime(WEB_FIXTURE_TIME)
     tripwire = watchConsole(page)
@@ -140,4 +141,20 @@ describe.skipIf(MODE === 'record')('web e2e: cold Auto-review denial', () => {
       'ui.expected.md', 'session.v3.jsonl',
     ])
   })
+
+  it('moves the restored Auto recording to Read Only when its reviewer unloads', async () => {
+    const ctx = scaffold.ctx
+    const session = ctx.sessions.get(SessionId(SEED_ID))
+    if (session === undefined) throw new Error('Recorded Session is not active')
+    expect(ctx.permissionPresets.current(session)).toBe('auto')
+    const entry = [...ctx.loader.entries()].find(row => row.options.id === 'auto-review')
+    if (entry === undefined) throw new Error('Auto review Loader entry is missing')
+    await entry.update({ disabled: true })
+    await ctx.loader.await()
+    expect(ctx.permissionPresets.current(session)).toBe('read-only')
+    expect(ctx.sandboxPolicy.overrideOf(session)).toBe('read-only')
+    expect(ctx.approval.overrideOf(session)).toBe('ask')
+    await expect.poll(() => page.locator('button[aria-label^="Access mode"]').first().getAttribute('aria-label'))
+      .toBe('Access mode, current: Read Only')
+  }, 60_000)
 })

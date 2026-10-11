@@ -8,6 +8,9 @@ export const CHANGED_FILES_PATH = '/api/changes.summary'
 /** Authenticated GET route serving one listed file's turn-start and turn-end comparison while its Session lives. */
 export const CHANGES_DIFF_PATH = '/api/changes.diff'
 
+/** Authenticated GET route for bounded complete captured versions, not current files. */
+export const CHANGES_CONTENTS_PATH = '/api/changes.contents'
+
 /** Authenticated POST route for opening a changed file on the Host desktop. */
 export const CHANGES_OPEN_PATH = '/api/changes.open'
 

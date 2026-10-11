@@ -51,6 +51,8 @@ allowBuilds:
   # install script only selects its bundled 7-Zip executable. Desktop ships
   # Windows through NSIS, so that mutation is not part of our build.
   electron-winstaller: false
+  # VSIX packaging does not use the optional signing binary.
+  '@vscode/vsce-sign': false
   # Store-index rewriting only needs msgpackr's portable JavaScript codec.
   msgpackr-extract: false
 

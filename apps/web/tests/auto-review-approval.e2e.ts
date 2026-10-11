@@ -32,7 +32,7 @@ describe.skipIf(MODE === 'record')('web e2e: cold Auto-review user rejection and
     const fixture = await readFile(FIXTURE, 'utf8')
     scaffold = await launchWebScaffold(AUTO_REVIEW_FIXTURE)
     await seedSession(scaffold, fixture, SEED_ID, undefined, { createdAt: WEB_FIXTURE_TIME })
-    browser = await chromium.launch()
+    browser = await chromium.launch(process.env.DSH_VSCODE_TEST_BROWSER === 'msedge' ? { channel: 'msedge' } : {})
     page = await newEnglishPage(browser)
     await page.clock.setFixedTime(WEB_FIXTURE_TIME)
     tripwire = watchConsole(page)

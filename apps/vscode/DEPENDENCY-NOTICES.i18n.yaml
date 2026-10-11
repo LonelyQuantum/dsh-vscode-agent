@@ -1,0 +1,13 @@
+# Bilingual-pair consistency record for DEPENDENCY-NOTICES.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write apps/vscode/DEPENDENCY-NOTICES.md
+/bundled-native-dependency-notices:
+  en: 08b69c87252d2603
+  zh: 57048dc1dd5f7159
+/bundled-native-dependency-notices/sharp-and-libvips:
+  en: ab8088732ef4246e
+  zh: 4693438f9076a03f
+/bundled-native-dependency-notices/libreoffice-conversion-kit:
+  en: 99136d0a6357a117
+  zh: c09761a86e1ddb81

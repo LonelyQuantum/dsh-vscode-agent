@@ -3,14 +3,14 @@
 import { execFileSync } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import { cpSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, renameSync, rmSync, writeFileSync } from 'node:fs'
-import { cp } from 'node:fs/promises'
+import { cp, realpath, symlink } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import extractZip from 'extract-zip'
 import { x as extractTar } from 'tar'
-import { copyPrimaryRuntime, parsePrimaryRuntime, workspaceDependencyPaths, type PrimaryRuntimeManifest } from '@deepseek-ai/dsh-tool-workspace-dependencies'
+import { copyPrimaryRuntime, removePrimaryRuntime, parsePrimaryRuntime, workspaceDependencyPaths, type PrimaryRuntimeManifest } from '@deepseek-ai/dsh-tool-workspace-dependencies'
 import lock from './lock.json' with { type: 'json' }
 import { prunePrimaryRuntimePythonTests } from './prune-python-tests.ts'
 
@@ -116,10 +116,12 @@ async function pythonArchive(target: keyof typeof lock.targets, cache: string): 
  * @param target - Runtime target whose archives are installed.
  * @param runtimeLock - Locked interpreter and wheel inputs.
  * @param pnpmVersion - Package-manager version copied into the payload.
+ * @param developmentPnpm - Workspace pnpm path for a development-only linked payload.
  * @returns SHA-256 payload identity for installation reuse.
  */
 export function primaryRuntimePayloadDigest(
   target: keyof typeof lock.targets, runtimeLock: typeof lock, pnpmVersion: string | undefined,
+  developmentPnpm?: string,
 ): string {
   const { pythonVersion, pythonRelease, nodeVersion, wheels, pythonPackages } = runtimeLock
   // Identity preserves key order within the selected target, wheel records and distribution map, plus wheel-entry order.
@@ -127,6 +129,7 @@ export function primaryRuntimePayloadDigest(
   return createHash('sha256').update(JSON.stringify({
     format: 7, target, pythonVersion, pythonRelease, nodeVersion: pnpmVersion === undefined ? undefined : nodeVersion,
     artifact: runtimeLock.targets[target], wheels, pythonPackages, pnpm: pnpmVersion,
+    ...(developmentPnpm === undefined ? {} : { developmentPnpm }),
   })).digest('hex')
 }
 
@@ -178,6 +181,8 @@ export interface PreparePrimaryRuntimeOptions {
   readonly skillSource?: string
   /** Omit Node.js and pnpm for carriers providing only Python. */
   readonly pythonOnly?: boolean
+  /** Link workspace pnpm instead of copying it; development carriers only. */
+  readonly development?: boolean
 }
 
 /**
@@ -191,11 +196,12 @@ export async function preparePrimaryRuntime(options: PreparePrimaryRuntimeOption
   mkdirSync(paths.runtime, { recursive: true })
   mkdirSync(paths.downloads, { recursive: true })
   const staging = mkdtempSync(join(tmpdir(), 'dsh-primary-'))
+  const output = join(staging, 'payload')
   try {
-    const output = join(staging, 'payload')
     const dependencies = join(output, 'dependencies')
     mkdirSync(dependencies, { recursive: true })
     let pnpmVersion: string | undefined
+    let developmentPnpm: string | undefined
     if (!options.pythonOnly) {
       const node = join(dependencies, 'node')
       await downloadNodeRuntime(target, node, paths.downloads)
@@ -207,7 +213,12 @@ export async function preparePrimaryRuntime(options: PreparePrimaryRuntimeOption
       } else {
         const pnpmManifest = createRequire(import.meta.url).resolve('pnpm')
         pnpmVersion = (JSON.parse(readFileSync(pnpmManifest, 'utf8')) as { version: string }).version
-        await cp(dirname(pnpmManifest), join(dependencies, 'pnpm'), { recursive: true, dereference: true })
+        developmentPnpm = options.development ? await realpath(dirname(pnpmManifest)) : undefined
+        if (developmentPnpm === undefined) {
+          await cp(dirname(pnpmManifest), join(dependencies, 'pnpm'), { recursive: true, dereference: true })
+        } else {
+          await symlink(developmentPnpm, join(dependencies, 'pnpm'), process.platform === 'win32' ? 'junction' : 'dir')
+        }
       }
     }
     await extractTar({ file: await pythonArchive(target, paths.downloads), cwd: dependencies })
@@ -215,7 +226,7 @@ export async function preparePrimaryRuntime(options: PreparePrimaryRuntimeOption
       desktopVersion: options.version,
       platform: target === 'win-x64' ? 'win32' : target.startsWith('linux-') ? 'linux' : 'darwin',
       arch: target.endsWith('-arm64') ? 'arm64' : 'x64',
-      payloadDigest: primaryRuntimePayloadDigest(target, lock, pnpmVersion),
+      payloadDigest: primaryRuntimePayloadDigest(target, lock, pnpmVersion, developmentPnpm),
       python: lock.pythonVersion,
       ...(pnpmVersion === undefined ? {} : { node: lock.nodeVersion, pnpm: pnpmVersion }),
       pythonPackages: lock.pythonPackages,
@@ -227,9 +238,10 @@ export async function preparePrimaryRuntime(options: PreparePrimaryRuntimeOption
     prunePrimaryRuntimePythonTests(entries.pythonPackages)
     writeFileSync(join(output, 'runtime.json'), `${JSON.stringify(manifest, undefined, 2)}\n`)
     const destination = join(paths.runtime, 'primary-runtime')
-    rmSync(destination, { recursive: true, force: true })
+    await removePrimaryRuntime(destination)
     await copyPrimaryRuntime(output, destination, manifest)
   } finally {
+    await removePrimaryRuntime(output)
     rmSync(staging, { recursive: true, force: true })
   }
   const assets = options.skillSource ?? join(dirname(createRequire(import.meta.url).resolve('@deepseek-ai/dsh-skill-office/package.json')), 'assets')

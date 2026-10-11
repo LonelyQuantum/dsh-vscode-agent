@@ -12,6 +12,9 @@
     "apps/web/tests/notice-wake-tail.e2e.ts",
     "apps/web/tests/fold-blank-matrix.e2e.ts",
     "apps/web/tests/chat-flow-layout.e2e.ts",
+    "apps/web/tests/vscode-context.e2e.ts",
+    "apps/web/tests/vscode-submission.e2e.ts",
+    "apps/web/tests/vscode-tools.e2e.ts",
     "apps/web/product-isolation.ts",
     "apps/web/katex-fonts.ts",
     "apps/web/tests/connection-recovery.e2e.ts",
@@ -206,6 +209,7 @@
     "apps/desktop/scripts/**/*.ts",
     "apps/desktop/tests/**/*.ts",
     "apps/desktop-host/tests/**/*.ts",
+    "apps/shared-host/tests/**/*.ts",
     "benchmarks/**/*.ts",
     "packages/*/*/tests/**/*.ts",
     "packages/experimental/cua-macos/native/generate-protocol.ts",
@@ -467,6 +471,7 @@
     { "path": "./packages/bundle/sdk-app" },
     { "path": "./packages/bundle/sdk-minimal" },
     { "path": "./packages/bundle/web-app" },
+    { "path": "./packages/bundle/vscode-app" },
     { "path": "./packages/boot/app-boot" },
     { "path": "./packages/boot/cmdline" },
     { "path": "./packages/sdk/server" },
@@ -531,6 +536,7 @@
     { "path": "./apps/cli" },
     { "path": "./apps/plugin-market-generator" },
     { "path": "./apps/desktop-host" },
+    { "path": "./apps/shared-host" },
     { "path": "./apps/desktop/tsconfig.host.json" }
   ]
 }
