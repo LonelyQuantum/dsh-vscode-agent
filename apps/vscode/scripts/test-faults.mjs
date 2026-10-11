@@ -155,6 +155,10 @@ export async function runFaultChecks({ root, workspace, evaluate, request, conte
   })
 
   let toolPid
+  const toolStopped = () => {
+    try { process.kill(toolPid, 0); return false }
+    catch (error) { if (error.code !== 'ESRCH') throw error; return true }
+  }
   try {
     await check('tool-runtime-crash', async () => {
       // The file handshake proves the model's shell tool reached the child before the runtime is killed.
@@ -184,8 +188,11 @@ if (existsSync('tool-release')) writeFileSync('tool-completed', 'completed');
       await writeFile(join(root, 'crash'), 'requested')
       await waitFor(() => readIfPresent(join(root, 'crashed')))
       let childStopped = false
-      try { await waitFor(() => { try { process.kill(toolPid, 0); return false } catch { return true } }, 10_000); childStopped = true }
-      catch { /* A live child is recorded as a failed cleanup assertion after recovery is exercised. */ }
+      try { await waitFor(toolStopped, 10_000); childStopped = true }
+      catch (error) {
+        if (error.code !== undefined) throw error
+        // A live child is recorded as a failed cleanup assertion after recovery is exercised.
+      }
       phase = 'restore crashed Session'
       await writeFile(join(root, 'reload'), 'requested')
       await waitFor(() => readIfPresent(join(root, 'reloaded')))
@@ -205,7 +212,7 @@ if (existsSync('tool-release')) writeFileSync('tool-completed', 'completed');
   } finally {
     // Release only this fixture's child even when an assertion or CDP request fails.
     await writeFile(join(workspace, 'tool-release'), 'released')
-    if (toolPid) await waitFor(() => { try { process.kill(toolPid, 0); return false } catch { return true } }, 15_000)
+    if (toolPid) await waitFor(toolStopped, 15_000)
   }
   return results
 }

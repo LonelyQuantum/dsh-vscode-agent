@@ -1,4 +1,4 @@
-/** Active-turn qualification through the real Webview; all plugin artifacts belong to the isolated profile. */
+/** Active-turn qualification through the real Webview; plugin artifacts belong to a test-owned profile. */
 import { strict as assert } from 'node:assert'
 import { glob, mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
@@ -79,9 +79,8 @@ export async function runFaultChecks({ root, evaluate, request, contextId, waitF
       }))
       await writeFile(join(pluginPath, 'index.mjs'), 'export function apply() {}\n')
       await writeFile(join(pluginPath, 'client.js'), bundle(1))
-      const rows = yaml.load(originalPatch)
-      assert.ok(Array.isArray(rows))
-      await replace(patch, yaml.dump([...rows, { insert: [{ id: 'vscode-hmr-probe', name: pathToFileURL(join(pluginPath, 'index.mjs')).href }] }]))
+      await replace(patch, originalPatch.replace(/^\[\]\s*$/m, '') + '\n'
+        + yaml.dump([{ insert: [{ id: 'vscode-hmr-probe', name: pathToFileURL(join(pluginPath, 'index.mjs')).href }] }]))
       phase = 'mount isolated plugin'
       const layout = (await rpc('listPlugins', {})).find(row => row.moduleName === '@deepseek-ai/dsh-client-ui-vscode')
       assert.ok(layout?.enabled)
@@ -99,17 +98,24 @@ export async function runFaultChecks({ root, evaluate, request, contextId, waitF
     }
     const origin = await evaluate('return doc.defaultView.performance.timeOrigin')
     const prompt = `Explain TypeScript generics in 80 numbered sentences, with one concrete example per sentence. Do not call tools. End with exactly ACTIVE_${selected.toUpperCase()}_DONE.`
-    phase = 'submit one model request'
-    await waitFor(() => evaluate('return root?.querySelector("[data-composer-input]")?.getAttribute("contenteditable") === "true"'))
+    phase = 'wait for bound Session and editable composer'
+    await waitFor(() => evaluate('return !!doc.defaultView.__DSH_VSCODE__.lastSession() && root?.querySelector("[data-composer-input]")?.getAttribute("contenteditable") === "true"'))
+    phase = 'focus the composer'
     await evaluate('root.querySelector("[data-composer-input]").focus()')
+    await waitFor(() => evaluate('return doc.activeElement === root.querySelector("[data-composer-input]")'))
+    phase = 'insert the model request draft'
     await request('Input.insertText', { text: prompt })
+    await waitFor(() => evaluate(`return root.querySelector('[data-composer-input]').textContent === ${JSON.stringify(prompt)}`))
+    phase = 'submit one model request'
     await request('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 })
     await request('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 })
     await waitFor(() => evaluate(`return [...root.querySelectorAll('[data-user-message]')].some(message => message.textContent.includes(${JSON.stringify(prompt)}))`))
     const session = await evaluate('return doc.defaultView.__DSH_VSCODE__.lastSession()')
     const messages = await evaluate("return [...root.querySelectorAll('[data-user-message]')].map(message => message.textContent)")
     await evaluate('root.querySelector("[data-composer-input]").focus()')
+    await waitFor(() => evaluate('return doc.activeElement === root.querySelector("[data-composer-input]")'))
     await request('Input.insertText', { text: 'UNSENT_ACTIVE_FAULT_DRAFT' })
+    await waitFor(() => evaluate('return root.querySelector("[data-composer-input]").textContent === "UNSENT_ACTIVE_FAULT_DRAFT"'))
     phase = 'observe real streamed content'
     await waitFor(async () => await active() && await evaluate("return [...root.querySelectorAll('[data-streaming=true]')].some(node => node.textContent.length > 100)"), 90_000)
     if (selected === 'streaming') {
@@ -151,6 +157,10 @@ export async function runFaultChecks({ root, evaluate, request, contextId, waitF
   } catch (error) {
     const state = await evaluate(`return { streaming: !!root?.querySelector('[data-streaming]'),
       messages: root?.querySelectorAll('[data-user-message]').length,
+      selected: !!doc.defaultView.__DSH_VSCODE__.lastSession(),
+      focused: doc.activeElement === root?.querySelector('[data-composer-input]'),
+      editable: root?.querySelector('[data-composer-input]')?.getAttribute('contenteditable'),
+      draftLength: root?.querySelector('[data-composer-input]')?.textContent.length,
       plugin: doc.querySelector(${JSON.stringify(marker)})?.dataset.vscodeHmrProbe,
       pluginState: doc.defaultView.__dshHmrProbeState }`)
     result = { name, passed: false, phase, error: error.message, state }

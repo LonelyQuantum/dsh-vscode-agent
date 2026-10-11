@@ -2,10 +2,11 @@
 import { strict as assert } from 'node:assert'
 import { glob, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
+import * as yaml from 'js-yaml'
 import { compressZstdFrame, generationLogPath, readSessionLog } from '../lib/session-log.mjs'
 
 /**
- * Exercise one compatibility path through the real Webview and its isolated runtime.
+ * Exercise one compatibility path through the real Webview and its test-owned runtime.
  * @param harness Test-owned paths, CDP operations, and bounded readiness helpers.
  * @returns Completion after UI, durable events, and owned files agree.
  */
@@ -13,6 +14,7 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
   let phase = 'initialize'
   let reviewedSession
   let removalObservation
+  let reminderObservation
   const ready = () => waitFor(() => evaluate(`return !!doc.defaultView.__DSH_VSCODE__.lastSession()
     && root.querySelector('[data-composer-input]')?.getAttribute('contenteditable') === 'true'`))
   const rpc = async (method, args) => {
@@ -59,6 +61,22 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
   const profiles = sharedHome ? [] : await Array.fromAsync(glob('**/homes/*/profiles/vscode/package.json', { cwd: root }))
   if (!sharedHome) assert.equal(profiles.length, 1)
   const home = sharedHome ?? dirname(dirname(dirname(join(root, profiles[0]))))
+  const configureStandardPlugin = async (name, configuration) => {
+    const patch = join(home, sharedHome ? 'profiles/desktop/cordis.patch.yml' : 'profiles/vscode/cordis.patch.yml')
+    const original = await readFile(patch, 'utf8')
+    const preset = await readFile(presetFile, 'utf8')
+    const start = preset.indexOf('    - id: preset-standard\n')
+    assert.ok(start >= 0, 'Standard preset declaration was not found')
+    const override = preset.slice(start).split('\n').map(line => line.startsWith('    ') ? line.slice(4) : line).join('\n')
+    const declarations = override.split('\n').filter(line => line.trim() === `name: '${name}'`)
+    assert.equal(declarations.length, 1, 'Expected one preset-local plugin')
+    const target = declarations[0] + '\n'
+    const indentation = declarations[0].match(/^ */)[0]
+    const fields = yaml.dump(configuration).trimEnd().split('\n')
+      .map(line => indentation + '  ' + line).join('\n')
+    await writeFile(patch, original.replace(/^\[\]\s*$/m, '') + '\n' + override.replace(target, target
+      + indentation + 'config:\n' + fields + '\n'))
+  }
   const currentEvents = async () => {
     const id = await evaluate('return doc.defaultView.__DSH_VSCODE__.lastSession()')
     const logs = await Array.fromAsync(glob(`sessions/*/${id}/session.v4.jsonl*`, { cwd: home }))
@@ -116,7 +134,7 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
       assert.equal(after.mtimeNs, before.mtimeNs)
       assert.equal((await readdir(dirname(source))).filter(name => name.startsWith('session.v4.')).length, 1)
     } else if (selected === 'auto-review') {
-      phase = 'enable optional Auto review only in the isolated profile'
+      phase = 'enable optional Auto review only in the test-owned profile'
       const changed = await rpc('pluginManager/setBundleEnabled', { name: '@deepseek-ai/dsh-experimental-auto-review', enabled: true })
       assert.equal(changed.application, 'applied', `${changed.error?.code ?? 'Bundle activation failed'}: ${changed.error?.diagnostic ?? 'no diagnostic'}`)
       phase = 'select Auto review and acknowledge its risk dialog'
@@ -174,21 +192,85 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
       await restart()
       assert.equal(await evaluate('return doc.defaultView.__DSH_VSCODE__.lastSession()'), expectedSession)
       await waitFor(() => evaluate(`return root.querySelector('[aria-label^="Access mode"]')?.getAttribute('aria-label').includes('Read Only')`))
+    } else if (selected === 'timed-question') {
+      phase = 'enable timed questions only in the test-owned standard preset'
+      await send('Reply only TIMED_SETUP_DONE. Do not call tools.')
+      await completed('TIMED_SETUP_DONE')
+      await configureStandardPlugin('@deepseek-ai/dsh-tool-ask-user', { mode: 'timed', timeout: 2 })
+      await restart()
+      await evaluate(`root.querySelector('[aria-label="Back to conversations"]').click()`)
+      await ready()
+      phase = 'let an unanswered timed question continue'
+      await send('Call ask_user_question with timeout 2 and one question asking which label to use, with exactly two options Alpha and Beta. If it returns pending, reply exactly TIMED_PENDING_DONE and wait. If a later user-question-reply selects Alpha, reply exactly TIMED_LATE_DONE. Do not call any other tool.')
+      await completed('TIMED_PENDING_DONE')
+      await waitFor(() => evaluate(`return root.querySelector('[data-question-key]')?.innerText.includes('Work continued')`))
+      const before = await currentEvents()
+      const result = before.find(event => event.type === 'tool/result' && event.data.message.content.some(block => {
+        if (block.type !== 'text') return false
+        try { return JSON.parse(block.text).pending === true } catch (_error) { return false }
+      }))
+      assert.ok(result, 'The timed call did not log its pending result')
+      phase = 'answer the continued question through the real Webview'
+      await evaluate(`const option = root.querySelector('[data-question-key] [role=radio][aria-label=Alpha]');
+        if (!option) throw new Error('Timed answer option missing'); option.focus(); option.click()`)
+      await key('Enter')
+      await completed('TIMED_LATE_DONE')
+      const after = await currentEvents()
+      const replies = after.filter(event => event.type === 'user/message' && event.data.source.kind === 'user-question-reply')
+      assert.equal(replies.length, 1, 'The late reply must enter the inbox once')
+      assert.deepEqual(after.find(event => event.type === 'tool/result' && event.seq === result.seq), result)
+      phase = 'restore the timed question and late answer without replaying input'
+      await restart()
+      await waitFor(() => evaluate('return root.innerText.includes("TIMED_LATE_DONE")'))
+      assert.equal((await currentEvents()).filter(event => event.type === 'user/message'
+        && event.data.source.kind === 'user-question-reply').length, 1)
+    } else if (selected === 'reminder') {
+      phase = 'enable the optional RC Schedule bundle in the test-owned profile'
+      const changed = await rpc('pluginManager/setBundleEnabled', { name: '@deepseek-ai/dsh-experimental-schedule-bundle', enabled: true })
+      assert.equal(changed.application, 'applied', 'The optional Schedule bundle did not activate')
+      await ready()
+      phase = 'create a reminder through the enabled Schedule tools'
+      await send('Call schedule_create exactly once with {"title":"Editor reminder","after_seconds":5,"prompt":"Reply exactly REMINDER_DELIVERED. Do not call any tools."}. After successful creation reply only REMINDER_CREATED. Do not repeat the reminder instructions or claim it has run; its due follow-up will arrive as new user input. Do not call any other tool.')
+      await completed('REMINDER_CREATED')
+      const createdEvents = await currentEvents()
+      const calls = createdEvents.filter(event => event.type === 'tool/call' && event.data.name === 'schedule_create')
+      assert.equal(calls.length, 1, 'The model must create one actual reminder, not only acknowledge it')
+      const result = createdEvents.find(event => event.type === 'tool/result' && event.data.message.toolCallId === calls[0].data.callId)
+      assert.ok(result && result.data.error === undefined, 'Reminder creation did not settle successfully')
+      const record = JSON.parse(result.data.message.content.find(block => block.type === 'text').text)
+      assert.ok(typeof record.title === 'string' && record.title.length > 0, 'The created reminder has no title')
+      phase = 'render the created reminder card'
+      await waitFor(async () => {
+        reminderObservation = await evaluate(`const cards = [...root.querySelectorAll('[data-tool="schedule_create"]:not([data-state])')];
+          return { cards: cards.length,
+            titleVisible: cards.some(card => card.getBoundingClientRect().height > 0 && card.innerText.includes(${JSON.stringify(record.title)})),
+            hasRoot: !!root, listVisible: !!root?.querySelector('nav') }`)
+        return reminderObservation.titleVisible
+      })
+      phase = 'observe the due reminder in the conversation'
+      await waitFor(async () => {
+        const events = await currentEvents()
+        const delivery = events.find(event => event.type === 'user/message' && event.data.source.kind === 'schedule')
+        return delivery !== undefined && events.some(event => event.type === 'assistant/message' && event.seq > delivery.seq
+          && JSON.stringify(event.data).includes('REMINDER_DELIVERED'))
+          && await evaluate(`return root.innerText.includes('REMINDER_DELIVERED') && !root.querySelector('[data-streaming="true"]')`)
+      }, 90_000)
+      const events = await currentEvents()
+      assert.ok(events.some(event => event.type === 'assistant/message' && JSON.stringify(event.data).includes('REMINDER_DELIVERED')))
+      const deliveries = events.filter(event => event.type === 'user/message' && event.data.source.kind === 'schedule')
+      assert.equal(deliveries.length, 1)
+      phase = 'restore the reminder without duplicate delivery'
+      await restart()
+      await waitFor(() => evaluate('return root.innerText.includes("REMINDER_DELIVERED")'))
+      assert.equal((await currentEvents()).filter(event => event.type === 'user/message'
+        && event.data.source.kind === 'schedule').length, 1)
     } else {
       phase = 'finish the initial Session before changing its preset'
       await send('Reply only PRESET_SETUP_DONE. Do not call tools.')
       await completed('PRESET_SETUP_DONE')
-      phase = 'configure automatic compaction in the isolated profile'
-      const patch = join(home, sharedHome ? 'profiles/desktop/cordis.patch.yml' : 'profiles/vscode/cordis.patch.yml')
-      const original = await readFile(patch, 'utf8')
-      const preset = await readFile(presetFile, 'utf8')
-      const start = preset.indexOf('    - id: preset-standard\n')
-      assert.ok(start >= 0, 'Standard preset declaration was not found')
-      const override = preset.slice(start).split('\n').map(line => line.startsWith('    ') ? line.slice(4) : line).join('\n')
-      const target = "            name: '@deepseek-ai/dsh-compaction-basic'\n"
-      assert.equal(override.split(target).length, 2, 'Expected one preset-local compaction backend')
-      await writeFile(patch, original.replace(/^\[\]\s*$/m, '') + '\n' + override.replace(target, target + '            config:\n'
-        + '              thresholdRatio: 0.005\n              retainTokens: 1\n              headroomTokens: 1024\n              maxTokens: 8192\n              auto: true\n'))
+      phase = 'configure automatic compaction in the test-owned profile'
+      await configureStandardPlugin('@deepseek-ai/dsh-compaction-basic',
+        { thresholdRatio: 0.005, retainTokens: 1, headroomTokens: 1024, maxTokens: 8192, auto: true })
       await restart()
       const previous = await evaluate('return doc.defaultView.__DSH_VSCODE__.lastSession()')
       await evaluate(`root.querySelector('[aria-label="Back to conversations"]').click()`)
@@ -226,7 +308,7 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
         .filter(event => event.type === 'permission/preset').at(-1)?.data.preset
     }
     console.log('VSCODE_COMPAT_RESULT ' + JSON.stringify({ name: selected, passed: false, phase,
-      error: error.message, removalObservation, durablePreset }))
+      error: error.message, removalObservation, durablePreset, reminderObservation }))
     throw error
   }
 }
