@@ -9,6 +9,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { chromium } from 'playwright'
 import * as yaml from 'js-yaml'
 import { EXTENSION_ID } from './extension-identity.mjs'
+import { selectRecoveredSession } from './session-restoration.mjs'
 
 const { positionals: [executable], values } = parseArgs({ allowPositionals: true,
   options: { vsix: { type: 'string' }, 'fresh-shared': { type: 'boolean' }, 'shared-home': { type: 'string' }, 'live-home': { type: 'string' }, onboarding: { type: 'boolean' }, interactions: { type: 'boolean' }, faults: { type: 'boolean' }, 'fault-case': { type: 'string' }, 'compat-case': { type: 'string' }, ux: { type: 'boolean' }, security: { type: 'boolean' }, trust: { type: 'boolean' } } })
@@ -316,10 +317,9 @@ try {
         const previousSession = await evaluate("return doc.defaultView.__DSH_VSCODE__.lastSession()")
         await writeFile(join(root, 'reload'), 'requested')
         await waitFor(() => readIfPresent(join(root, 'reloaded')))
-        await waitFor(() => evaluate(`const row = root?.querySelector('nav button[data-session-id="' + ${JSON.stringify(previousSession)} + '"]');
-          row?.click(); return doc.defaultView.__DSH_VSCODE__?.lastSession() === ${JSON.stringify(previousSession)}
-          && !!root?.querySelector('[data-user-message]')`))
+        await waitFor(() => evaluate(`return (${selectRecoveredSession.toString()})(root, ${JSON.stringify(previousSession)})`))
         await waitFor(() => evaluate(`return root?.innerText.includes('QUESTION_DONE') && JSON.stringify([...root.querySelectorAll('[data-user-message]')].map(element => element.textContent)) === ${JSON.stringify(JSON.stringify(previousMessages))}`))
+        if (await evaluate('return doc.defaultView.__DSH_VSCODE__?.lastSession()') !== previousSession) throw new Error('Runtime restart selected a different Session')
         console.log('VSCODE_LIVE_RESUME_OK: prior messages restored once after runtime restart')
       }
       }
