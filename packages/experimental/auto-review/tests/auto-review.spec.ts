@@ -1306,6 +1306,24 @@ describe('out-of-process delegation boundary', () => {
 })
 
 describe('cancellation and integration teardown', () => {
+  it('does not downgrade an unpublished Auto history snapshot during live removal', async () => {
+    const { ctx, auto } = await harness([])
+    const cold = ctx.sessions.prepare(SessionId('unpublished-auto-history'), { meta: { cwd: '/workspace' } })
+    ctx.permissionPresets.set(cold, AUTO_PRESET)
+    const displayed = ctx.sessionProjections.snapshot(cold)
+    const cursor = cold.seq
+    expect(displayed.values.permissions).toEqual({ currentValue: AUTO_PRESET })
+    expect(ctx.sessions.get(cold.id)).toBeUndefined()
+    expect(ctx.agents.get(cold.id)).toBeUndefined()
+
+    await auto.dispose()
+
+    expect(ctx.permissionPresets.names).not.toContain(AUTO_PRESET)
+    expect(cold.seq).toBe(cursor)
+    expect(ctx.sessionProjections.stateOf(cold, 'permissions')?.preset).toBe(AUTO_PRESET)
+    expect(displayed.values.permissions).toEqual({ currentValue: AUTO_PRESET })
+  })
+
   it.each([
     { outcome: 'allow', expected: { info: { code: TOOL_ABORTED_BEFORE_DISPATCH } } },
     { outcome: 'deny', expected: { info: { code: TOOL_ABORTED_BEFORE_DISPATCH } } },

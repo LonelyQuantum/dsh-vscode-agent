@@ -4,6 +4,7 @@ import { glob, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/pro
 import { dirname, join } from 'node:path'
 import * as yaml from 'js-yaml'
 import { compressZstdFrame, generationLogPath, readSessionLog } from '../lib/session-log.mjs'
+import { autoRemovalReady, compatibilityEvents } from './compatibility-state.mjs'
 
 /**
  * Exercise one compatibility path through the real Webview and its test-owned runtime.
@@ -14,6 +15,7 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
   let phase = 'initialize'
   let reviewedSession
   let removalObservation
+  let activationObservation
   let reminderObservation
   const ready = () => waitFor(() => evaluate(`return !!doc.defaultView.__DSH_VSCODE__.lastSession()
     && root.querySelector('[data-composer-input]')?.getAttribute('contenteditable') === 'true'`))
@@ -51,8 +53,9 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
     await writeFile(join(root, 'reload'), 'requested')
     await waitFor(() => readIfPresent(join(root, 'reloaded')))
     await ready()
-    const reopened = await evaluate(`const row = [...root.querySelectorAll('nav button[data-session-id]')]
+    const openPrevious = () => evaluate(`const row = [...root.querySelectorAll('nav button[data-session-id]')]
       .find(button => button.dataset.sessionId === ${JSON.stringify(previous)}); row?.click(); return !!row`)
+    const reopened = selectedSession === undefined ? await openPrevious() : await waitFor(openPrevious)
     if (reopened) {
       await waitFor(() => evaluate(`return doc.defaultView.__DSH_VSCODE__.lastSession() === ${JSON.stringify(previous)}`))
       await ready()
@@ -165,10 +168,18 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
       assert.equal(await evaluate('return doc.defaultView.__DSH_VSCODE__.lastSession()'), expectedSession, 'The reviewed Session must reopen from the list after restart')
       await waitFor(() => evaluate(`return root.querySelector('[aria-label^="Access mode"]')?.getAttribute('aria-label').includes('Auto review')`))
       phase = 'preserve Auto review during a graceful runtime restart'
-      await restart()
+      await restart(expectedSession)
       assert.equal(await evaluate('return doc.defaultView.__DSH_VSCODE__.lastSession()'), expectedSession)
       await waitFor(() => evaluate(`return root.querySelector('[aria-label^="Access mode"]')?.getAttribute('aria-label').includes('Auto review')`))
       assert.equal((await currentEvents()).filter(event => event.type === 'permission/preset').at(-1)?.data.preset, 'auto')
+      phase = 'wait for the restored Auto Agent before live reviewer removal'
+      await waitFor(async () => {
+        const row = (await rpc('session/list', { _request: {} })).items.find(item => item.sessionId === expectedSession)
+        const sameSession = await evaluate(`return doc.defaultView.__DSH_VSCODE__?.lastSession() === ${JSON.stringify(expectedSession)}`)
+        activationObservation = { sameSession, agentAvailable: row?.agentAvailable ?? false,
+          running: row?.running ?? false, preset: row?.projections?.values.permissions?.currentValue ?? null }
+        return autoRemovalReady(row, sameSession)
+      })
       phase = 'fall back to Read Only when Auto review unloads'
       const disabled = await rpc('pluginManager/setBundleEnabled', { name: '@deepseek-ai/dsh-experimental-auto-review', enabled: false })
       assert.equal(disabled.application, 'applied')
@@ -181,15 +192,18 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
       })
       await waitFor(async () => (await currentEvents()).filter(event => event.type === 'permission/preset').at(-1)?.data.preset === 'read-only')
       phase = 'require human approval for a write after reviewer removal'
-      await send('Create unreviewed.txt containing UNREVIEWED using a file-writing tool, not shell or run_code. If approval is denied, do not retry or use another tool. Then reply AUTO_FALLBACK_DONE.')
+      const priorApprovals = (await currentEvents()).filter(event => event.type === 'approval/asked').length
+      await send('Call write once with file_path "unreviewed.txt", content "UNREVIEWED", sandbox_permissions "workspace-write", and justification "Verify human approval for this temporary test file after Auto review removal." Do not use shell or run_code. If approval is denied, do not retry or use another tool. Then reply AUTO_FALLBACK_DONE.')
       await waitFor(() => evaluate('return !!root.querySelector("[data-approval-key]")'), 90_000)
+      await waitFor(async () => (await currentEvents()).filter(event => event.type === 'approval/asked').length === priorApprovals + 1)
       assert.equal(await readIfPresent(join(workspace, 'unreviewed.txt')), undefined)
       await evaluate(`const card = root.querySelector('[data-approval-key]');
         const reject = [...card.querySelectorAll('button')].find(button => /Reject/.test(button.textContent));
         if (!reject) throw new Error('Approval rejection control is missing'); reject.click()`)
       await completed('AUTO_FALLBACK_DONE')
       assert.equal(await readIfPresent(join(workspace, 'unreviewed.txt')), undefined)
-      await restart()
+      await waitFor(async () => (await currentEvents()).filter(event => event.type === 'approval/decided').at(-1)?.data.outcome === 'rejected')
+      await restart(expectedSession)
       assert.equal(await evaluate('return doc.defaultView.__DSH_VSCODE__.lastSession()'), expectedSession)
       await waitFor(() => evaluate(`return root.querySelector('[aria-label^="Access mode"]')?.getAttribute('aria-label').includes('Read Only')`))
     } else if (selected === 'timed-question') {
@@ -299,16 +313,29 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
       await waitFor(() => evaluate('return root.innerText.includes("COMPACTION_DONE")'))
       assert.equal((await currentEvents()).filter(event => event.type === 'compaction/summary').length, summaries.length)
     }
-    console.log('VSCODE_COMPAT_RESULT ' + JSON.stringify({ name: selected, passed: true }))
+    console.log('VSCODE_COMPAT_RESULT ' + JSON.stringify({ name: selected, passed: true,
+      activationObservation, removalObservation }))
   } catch (error) {
     let durablePreset
+    let eventCounts
+    let sessionState
     if (reviewedSession) {
       const logs = await Array.fromAsync(glob(`sessions/*/${reviewedSession}/session.v4.jsonl*`, { cwd: home }))
-      if (logs.length === 1) durablePreset = (await readSessionLog(join(home, logs[0])))
-        .filter(event => event.type === 'permission/preset').at(-1)?.data.preset
+      if (logs.length === 1) {
+        const events = await readSessionLog(join(home, logs[0]))
+        durablePreset = events.filter(event => event.type === 'permission/preset').at(-1)?.data.preset
+        eventCounts = compatibilityEvents(events)
+      }
+      const observeSession = async () => {
+        const row = (await rpc('session/list', { _request: {} })).items.find(item => item.sessionId === reviewedSession)
+        return { agentAvailable: row?.agentAvailable ?? false, running: row?.running ?? false,
+          approvalVisible: await evaluate('return !!root?.querySelector("[data-approval-key]")') }
+      }
+      try { sessionState = await observeSession() }
+      catch (_diagnosticError) { /* The original failure remains authoritative if the backend is unavailable. */ }
     }
     console.log('VSCODE_COMPAT_RESULT ' + JSON.stringify({ name: selected, passed: false, phase,
-      error: error.message, removalObservation, durablePreset, reminderObservation }))
+      error: error.message, activationObservation, removalObservation, durablePreset, eventCounts, sessionState, reminderObservation }))
     throw error
   }
 }

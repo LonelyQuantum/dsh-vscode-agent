@@ -32,6 +32,7 @@ import {
   mountAgentLoopTestHarness,
 } from '@deepseek-ai/dsh-agent-loop-testkit'
 import { createSessionTestRemote, testSessionPersistence, type TestSessionRemote } from './test-remote.ts'
+import { SessionHistoryController } from '../src/history.ts'
 
 const ownedContexts = new Set<Context>()
 afterEach(async () => {
@@ -163,6 +164,62 @@ function seedMessages(session: Session, count: number): void {
 const remote = (ctx: Context) => createSessionTestRemote(ctx, { defaultModelSelection: () => ({ provider: 'p', model: 'm' }), cwd: '/tmp' })
 
 describe('session.history projections block', () => {
+  it('returns a cold history snapshot before background promotion completes', async () => {
+    const ctx = new Context()
+    ownedContexts.add(ctx)
+    await mountAgentLoopTestDependencies(ctx)
+    const coldId = SessionId('cold-promotion-barrier')
+    const meta: SessionHeader = { version: SESSION_FORMAT_VERSION, id: coldId,
+      createdAt: 1, cwd: '/tmp', isSeeded: false }
+    const events: SessionEvent[] = [{ type: 'user/message', seq: SessionSeq(0), time: 2,
+      data: createUserMessage({ content: [{ type: 'text', text: 'restored history' }],
+        source: { kind: 'user' } }), surfaceOp: 'append' }]
+    ctx.provide('sessionPersistence', testSessionPersistence(ctx, {
+      list: () => Promise.resolve([meta]), inspect: () => Promise.resolve({ meta, events }),
+    }) as never)
+    const proxy = remote(ctx)
+    ctx.sessionProjections.register(lastUserUnit())
+    const entered = Promise.withResolvers<undefined>()
+    const release = Promise.withResolvers<undefined>()
+    let promotion: Promise<void> | undefined
+    let promoted = false
+    const history = new SessionHistoryController(ctx, (observation) => {
+      promotion = (async () => {
+        using retained = observation
+        entered.resolve(undefined)
+        await release.promise
+        expect(retained.header.id).toBe(coldId)
+        promoted = true
+      })()
+    })
+    const abort = new AbortController()
+    const iterator = history.follow({ address: { kind: 'session', sessionId: coldId } }, abort.signal)
+      [Symbol.asyncIterator]()
+    let following: ReturnType<typeof iterator.next> | undefined
+    try {
+      const first = await iterator.next()
+      if (first.done || first.value.type !== 'snapshot') throw new Error('Expected opening history snapshot')
+      expect(first.value.projections.values['test/last-user']).toEqual({ text: 'restored history' })
+      following = iterator.next()
+      await entered.promise
+      expect(promoted).toBe(false)
+      const listed = await proxy.list({})
+      if (!listed.ok) throw new Error('Session list failed')
+      expect(listed.value.items.find(item => item.sessionId === coldId)?.agentAvailable).toBe(false)
+      expect(ctx.sessions.get(coldId)).toBeUndefined()
+      expect(ctx.agents.get(coldId)).toBeUndefined()
+      release.resolve(undefined)
+      await promotion
+      expect(promoted).toBe(true)
+    } finally {
+      release.resolve(undefined)
+      abort.abort()
+      await following
+      await iterator.return?.()
+      await promotion
+    }
+  })
+
   it('keeps the v0 numeric seed cut on the wire while logical headers expose only lineage', async () => {
     const ctx = new Context()
     await ctx.plugin(SessionStore)

@@ -87,6 +87,8 @@ node apps/vscode/scripts/test-extension.mjs "C:/path/to/Microsoft VS Code/Code.e
 
 将 `--compat-case migration`、`--compat-case auto-review` 或 `--compat-case compaction` 与 `--live-home` 一起使用，可验证一条会话路径。迁移测试创建测试专属 V3 历史，通过 V4 继续对话，并检查重启后前代字节、文件标识及修改时间不变。Auto review 仅在临时 profile 启用可选实验性组合包、确认风险弹窗，验证审查后的文件写入、进程崩溃及正常重启后恢复 Auto，以及显式卸载切换到 Read Only 后必须人工审批。拒绝该审批后目标文件仍不存在。压缩测试仅降低该 profile 中标准预设的阈值，要求不使用 `/compact` 即产生自动摘要/检查点事件，并检查重启后上下文记忆。这些选项接受 `--vsix` 和 `--fresh-shared` 以验证安装版共享模式；不能与 `--faults` 或 `--interactions` 组合。
 
+活动 Auto 移除测试会等待 Host 确认 Agent 已挂载、空闲且使用 Auto 权限；历史记录恢复后显示权限标签不等于就绪。拒绝写入探针显式申请 `workspace-write` 提权，因为 Read Only 下的普通写入可能直接失败而不请求审批。测试会等待审批记录写入会话文件后再检查。失败诊断只包含已持久化的生命周期计数和可用性标志，不包含对话内容或工具参数；后台仍运行时，文件计数可能落后于已显示的审批卡。
+
 另有两项真实模型场景在临时 profile 验证 RC 可选功能：`--compat-case timed-question` 启用限时反问，让未回答的问题超时后继续工作，再提交晚到的回答，验证只持久化一次回复且不改写已完成的工具结果。`--compat-case reminder` 启用默认关闭的实验性 Schedule 组合包，要求显示提醒卡并实际触发后续轮次，检查重启不重复投递。两者均接受 `--vsix --fresh-shared`。最后一个原生租约释放后停止执行提醒；这些检查不验证无人值守服务或任务管理界面。
 
 在扩展宿主冒烟测试中追加 `--ux`，可在真实 Webview 中检查原生键盘路由、输入法 Enter、多行草稿、会话列表、文件菜单点击命中及捕获焦点。此无密钥选项接受 `--vsix`，但不能与模型或故障选项组合。
