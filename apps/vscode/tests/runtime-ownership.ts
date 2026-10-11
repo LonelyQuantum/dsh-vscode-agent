@@ -9,6 +9,7 @@ import { resolveInstallation } from '../src/installation.ts'
 import { acquireSharedHost } from '@deepseek-ai/dsh-shared-host/client'
 import { resolveSharedLaunch } from '../src/shared-launch.ts'
 import type { PreviewDiagnostics } from '../src/extension.ts'
+import { EXTENSION_ID } from '../scripts/extension-identity.mjs'
 
 /**
  * Keep a second lease while the editor reconnects, and refuse a mismatched client without replacing the writer.
@@ -51,7 +52,7 @@ export async function verifySharedRuntimeOwnership(extensionPath: string, api: {
 export async function verifyRuntimeOwnership(root: string, extensionPath: string): Promise<void> {
   const workspace = vscode.Uri.file(await realpath(vscode.workspace.workspaceFolders![0].uri.fsPath)).fsPath
   const installation = await resolveInstallation(extensionPath)
-  const home = join(root, 'user-data/User/globalStorage/dsh-local.dsh-vscode-agent/homes',
+  const home = join(root, 'user-data/User/globalStorage', EXTENSION_ID, 'homes',
     createHash('sha256').update(workspace).digest('hex').slice(0, 24))
   const lock = join(home, 'vscode-runtime.lock')
   const owner = Number((await readFile(lock, 'utf8')).trim())

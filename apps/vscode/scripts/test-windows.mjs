@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process'
 import { mkdir, mkdtemp, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { strict as assert } from 'node:assert'
+import { EXTENSION_ID } from './extension-identity.mjs'
 
 /**
  * Open a junction alias and a different folder in separate Extension Hosts while the first window remains live.
@@ -15,7 +16,7 @@ export async function runWindowIsolation({ executable, extensionPath, root, work
     const folder = join(peer, 'workspace')
     if (same) await symlink(workspace, folder, process.platform === 'win32' ? 'junction' : 'dir')
     else await mkdir(folder)
-    const shared = 'User/globalStorage/dsh-local.dsh-vscode-agent'
+    const shared = join('User/globalStorage', EXTENSION_ID)
     await mkdir(join(root, 'user-data', shared), { recursive: true })
     await mkdir(join(peer, 'user-data/User/globalStorage'), { recursive: true })
     await symlink(join(root, 'user-data', shared), join(peer, 'user-data', shared), process.platform === 'win32' ? 'junction' : 'dir')

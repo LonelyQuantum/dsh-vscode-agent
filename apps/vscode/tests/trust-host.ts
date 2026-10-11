@@ -5,6 +5,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import type { PreviewDiagnostics } from '../src/extension.ts'
+import { EXTENSION_ID } from '../scripts/extension-identity.mjs'
 
 /** Start the independent observer without VS Code's extension-test lifecycle. */
 export function activate(): void {
@@ -27,7 +28,7 @@ export async function run(): Promise<void> {
     catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
   }
   const extension = (): vscode.Extension<{ diagnostics(): PreviewDiagnostics }> | undefined =>
-    vscode.extensions.getExtension('dsh-local.dsh-vscode-agent')
+    vscode.extensions.getExtension(EXTENSION_ID)
   if (await read('phase') !== 'revoking') {
     if (!await read('phase')) {
       assert.equal(vscode.workspace.isTrusted, false)

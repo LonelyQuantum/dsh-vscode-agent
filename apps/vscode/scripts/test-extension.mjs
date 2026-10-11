@@ -8,6 +8,7 @@ import { parseArgs } from 'node:util'
 import { setTimeout as delay } from 'node:timers/promises'
 import { chromium } from 'playwright'
 import * as yaml from 'js-yaml'
+import { EXTENSION_ID } from './extension-identity.mjs'
 
 const { positionals: [executable], values } = parseArgs({ allowPositionals: true,
   options: { vsix: { type: 'string' }, 'fresh-shared': { type: 'boolean' }, 'shared-home': { type: 'string' }, 'live-home': { type: 'string' }, onboarding: { type: 'boolean' }, interactions: { type: 'boolean' }, faults: { type: 'boolean' }, 'fault-case': { type: 'string' }, 'compat-case': { type: 'string' }, ux: { type: 'boolean' }, security: { type: 'boolean' }, trust: { type: 'boolean' } } })
@@ -94,7 +95,7 @@ try {
     { cwd: root, env: { ...environment, ELECTRON_RUN_AS_NODE: '1' }, windowsHide: true, stdio: 'inherit' })
     const code = await new Promise((resolve, reject) => { install.once('error', reject); install.once('close', resolve) })
     if (code !== 0) throw new Error('Isolated VSIX installation failed')
-    const entry = (await readdir(extensions)).find(name => name.startsWith('dsh-local.dsh-vscode-agent-'))
+    const entry = (await readdir(extensions)).find(name => name.startsWith(`${EXTENSION_ID}-`))
     if (!entry) throw new Error('Installed extension was not found')
     extensionPath = join(extensions, entry)
   }
@@ -128,7 +129,7 @@ try {
       'security.workspace.trust.enabled': true, 'telemetry.telemetryLevel': 'off', 'workbench.startupEditor': 'none',
       'dsh.backend': values['fresh-shared'] ? 'shared' : 'isolated' }))
     if (values['fresh-shared']) {
-      const installed = (await readdir(extensions)).find(name => name.startsWith('dsh-local.dsh-vscode-agent-'))
+      const installed = (await readdir(extensions)).find(name => name.startsWith(`${EXTENSION_ID}-`))
       const runtime = join(extensions, installed, 'runtime')
       const metadata = JSON.parse(await readFile(join(extensions, installed, 'runtime.json'), 'utf8'))
       const { acquireSharedHost } = await import('../../shared-host/lib/client.js')

@@ -13,6 +13,7 @@ English | [中文](CHANGELOG.zh.md)
 - Use shared theme tokens and qualify editor navigation, tool groups, and portable context replay against RC.
 
 - Add community identification, public installation guidance, privacy disclosure and package metadata.
+- Set the community author and intended publisher to `LonelyQuantum`; keep the extension version at `0.0.1` and document migration from the local preview identity.
 - Include a PNG icon, license notices and a SHA-256 sidecar in the packaging workflow.
 - Validate release files and reject the local publisher placeholder when checking Marketplace preparation.
 

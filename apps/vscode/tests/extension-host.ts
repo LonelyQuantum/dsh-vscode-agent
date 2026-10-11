@@ -7,6 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import type { PreviewDiagnostics } from '../src/extension.ts'
 import { captureEditor, openWorkspaceFile, SnapshotDocuments } from '../src/native-context.ts'
 import { verifyRuntimeOwnership, verifySharedRuntimeOwnership } from './runtime-ownership.ts'
+import { EXTENSION_ID } from '../scripts/extension-identity.mjs'
 
 async function verifyEditorContext(): Promise<void> {
   const workspace = vscode.workspace.workspaceFolders![0].uri
@@ -65,7 +66,7 @@ export async function run(): Promise<void> {
   const freshShared = process.env.DSH_VSCODE_TEST_FRESH_SHARED === '1'
   if (!freshShared) await vscode.workspace.getConfiguration('dsh').update('backend', shared ? 'shared' : 'isolated', vscode.ConfigurationTarget.Global)
   await verifyEditorContext()
-  const extension = vscode.extensions.getExtension<{ diagnostics(): PreviewDiagnostics }>('dsh-local.dsh-vscode-agent')
+  const extension = vscode.extensions.getExtension<{ diagnostics(): PreviewDiagnostics }>(EXTENSION_ID)
   assert.ok(extension)
   const api = await extension.activate()
   const commands = await vscode.commands.getCommands(true)

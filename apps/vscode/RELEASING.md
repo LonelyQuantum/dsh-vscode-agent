@@ -26,7 +26,7 @@ Record the exact artifact checksum with the observed checks in the [development 
 
 ## Distribution decisions
 
-- Confirm a public publisher ID and extension identity. `dsh-local` is for local previews only; `pnpm.cmd run verify:vscode-release --marketplace` rejects it. Changing publisher changes the extension identity and may separate VS Code storage and settings.
+- The community author and intended publisher ID are `LonelyQuantum`. Confirm registration and ownership of that Marketplace publisher before uploading; local metadata checks cannot verify an account. Users of the `dsh-local` preview must follow the [extension identity migration](../../docs/upgrade-guide/v0.2.0-rc.2/vscode-publisher-identity/guide.md) before installing the new identity.
 - Establish a private vulnerability-reporting channel owned by the community maintainer; do not direct private reports to an unrelated upstream maintainer.
 - Review bundled dependency licenses, upstream notices and corresponding-source obligations. Retain upstream copyrights. The repository-wide notice is not a certification that a community distributor has every required permission.
 - Confirm provider onboarding, privacy disclosure and feedback-sharing behavior with the intended audience. Custom plugins can change the default data handling.
