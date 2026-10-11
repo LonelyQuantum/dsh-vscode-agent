@@ -103,4 +103,4 @@ node apps/vscode/scripts/test-extension.mjs "C:/path/to/Microsoft VS Code/Code.e
 
 正常关闭会保留 Auto Session 的持久权限选择。运行时仍在活动时卸载 reviewer，会切换为需要人工审批的 Read Only；重新安装 reviewer 不会静默重新启用 Auto。运行中移除 reviewer 会取消活动 Auto 工作，并在降权前关闭其 agent 拥有的持久终端；用户自己的 VS Code 终端不受影响。旧预览可能已在关闭时记录 Full access：请显式检查这些 Session，因为日志无法区分该变更与用户主动选择。参见 [Auto review 生命周期](../../packages/experimental/auto-review/README.zh.md#understand-the-implementation)。
 
-插件生命周期检查要求停用和启用布局插件时移除并重新挂载恰好一个 UI，而不替换 Webview。适配器测试覆盖分块 UTF-8 事件、流错误及 EOF 后重连、路由拒绝和关闭取消。开发计划记录活动轮次中的产物重载验收；该测试不验证源码编译。
+插件生命周期检查要求停用和启用布局插件时移除并重新挂载恰好一个 UI，而不替换 Webview。若恢复后已显示某个会话，重启检查先返回会话列表，再通过已启用的条目重新打开原会话，并完整比对用户消息。适配器测试覆盖分块 UTF-8 事件、流错误及 EOF 后重连、路由拒绝和关闭取消。开发计划记录活动轮次中的产物重载验收；该测试不验证源码编译。

@@ -2,6 +2,7 @@
 import { strict as assert } from 'node:assert'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { selectRecoveredSession } from './session-restoration.mjs'
 
 /**
  * Exercise the actual Webview and owned runtime with bounded, observable fault injection.
@@ -193,18 +194,21 @@ if (existsSync('tool-release')) writeFileSync('tool-completed', 'completed');
         if (error.code !== undefined) throw error
         // A live child is recorded as a failed cleanup assertion after recovery is exercised.
       }
-      phase = 'restore crashed Session'
+      phase = 'restart backend after tool crash'
       await writeFile(join(root, 'reload'), 'requested')
       await waitFor(() => readIfPresent(join(root, 'reloaded')))
+      phase = 'wait for recovery composer'
       await waitFor(() => evaluate('return !!root?.querySelector("[data-composer-input]")'))
-      await waitFor(() => evaluate(`const row = [...root.querySelectorAll('nav button[data-session-id]')]
-        .find(button => button.dataset.sessionId === ${JSON.stringify(selected)}); if (!row) return false; row.click(); return true`))
+      phase = 'select crashed Session from history'
+      await waitFor(() => evaluate(`return (${selectRecoveredSession.toString()})(root, ${JSON.stringify(selected)})`))
+      phase = 'restore exact user messages'
       await waitFor(() => evaluate(`return JSON.stringify([...root.querySelectorAll('[data-user-message]')].map(message => message.textContent)) === ${JSON.stringify(JSON.stringify(before))}`))
       assert.equal(await evaluate('return doc.defaultView.__DSH_VSCODE__.lastSession()'), selected)
       assert.equal(await readIfPresent(join(workspace, 'tool-completed')), undefined)
       await send('The previous runtime crashed deliberately. Do not rerun the previous command or any tools. Reply exactly CRASH_RECOVERED.')
       phase = 'model response after crash recovery'
       await waitFor(async () => await settled() && await evaluate("return root.innerText.split('CRASH_RECOVERED').length >= 3"), 90_000)
+      assert.equal(await evaluate('return doc.defaultView.__DSH_VSCODE__.lastSession()'), selected)
       assert.equal((await readIfPresent(join(workspace, 'tool-invocations'))).trim().split('\n').length, 1, 'The interrupted tool was rerun')
       assert.ok(childStopped, 'Runtime crash left the running tool child alive; Session recovery and the next model turn succeeded')
       return 'Killed the runtime during a real shell tool; child exited, Session restored once, no tool replay, and the next model turn completed.'
