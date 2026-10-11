@@ -1,6 +1,6 @@
 /** Immutable editor snapshots and canonical local-workspace admission. */
 import { realpath } from 'node:fs/promises'
-import { basename, isAbsolute, relative, sep } from 'node:path'
+import { basename, isAbsolute, relative, resolve, sep } from 'node:path'
 
 /** Bounded text transported to the composer only after an explicit capture. */
 export interface EditorCapture { label: string; text: string }
@@ -26,6 +26,21 @@ export async function workspaceFile(workspace: string, path: string): Promise<st
   const local = relative(root, file)
   if (isAbsolute(local) || local === '..' || local.startsWith(`..${sep}`) || local === '') throw new Error('outside-workspace')
   return local.split(sep).join('/')
+}
+
+/**
+ * Resolve a Session-relative link without admitting another project or a linked worktree.
+ * @param workspace Trusted editor root.
+ * @param cwd Recorded Session directory, which may be a subdirectory of that root.
+ * @param path Relative link target or an absolute local file.
+ * @returns Canonical file inside the trusted root; missing directories and symlink escapes reject.
+ */
+export async function workspaceNavigation(workspace: string, cwd: string, path: string): Promise<string> {
+  const [root, directory] = await Promise.all([realpath(workspace), realpath(cwd)])
+  if (directory !== root) await workspaceFile(root, directory)
+  const file = await realpath(resolve(directory, path))
+  await workspaceFile(root, file)
+  return file
 }
 
 /**

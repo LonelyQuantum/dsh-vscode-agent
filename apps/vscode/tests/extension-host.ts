@@ -1,7 +1,7 @@
 /** Actual VS Code smoke: requires a built extension and an isolated trusted test workspace. */
 import * as vscode from 'vscode'
 import { strict as assert } from 'node:assert'
-import { readFile, unlink, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import type { PreviewDiagnostics } from '../src/extension.ts'
@@ -47,6 +47,12 @@ async function verifyEditorContext(): Promise<void> {
     }
     await openWorkspaceFile(workspace.fsPath, 'context.ts', 2)
     assert.equal(vscode.window.activeTextEditor!.selection.start.line, 1)
+    const nested = join(workspace.fsPath, 'nested')
+    await mkdir(nested)
+    await writeFile(join(nested, 'context.ts'), 'nested directory target\n')
+    await openWorkspaceFile(workspace.fsPath, 'context.ts', 1, nested)
+    assert.equal(vscode.window.activeTextEditor!.document.getText(), 'nested directory target\n')
+    await assert.rejects(openWorkspaceFile(workspace.fsPath, 'context.ts', 1, join(workspace.fsPath, '..')))
     await assert.rejects(openWorkspaceFile(workspace.fsPath, '../outside.txt'))
     await vscode.window.showTextDocument(document)
     await vscode.commands.executeCommand('workbench.action.files.revert')
