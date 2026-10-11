@@ -28,4 +28,6 @@
 
 VSIX 包含 Node Host 和客户端资源，不包含 Electron、Node、pnpm 或 Desktop 的 Python/Office 技能资源。Desktop 专属 Office/Python 资源需要兼容的桌面运行时。此版本是社区预览，不是安全认证，也不保证任意插件都安全。
 
-请向[社区问题跟踪器](https://github.com/LonelyQuantum/dsh-vscode-agent/issues)报告可复现的问题，附上版本和脱敏后的复现步骤；移除密钥、账户令牌、本机 home 路径、对话内容和私有文件。另见[更新记录](CHANGELOG.zh.md)、[开发者说明](README.zh.md)和[发布清单](RELEASING.zh.md)。
+Auto 审查属于默认禁用的实验功能。偶发的审查器移除超时尚未查明原因；需要可预测的审批决策时请使用人工审批。跨客户端同时提交相互冲突的审批决策尚未完成人工验收。
+
+请向[社区问题跟踪器](https://github.com/LonelyQuantum/dsh-vscode-agent/issues)报告可复现的问题，附上版本和脱敏后的复现步骤；移除密钥、账户令牌、本机 home 路径、对话内容和私有文件。请按[安全策略](SECURITY.zh.md)私密报告漏洞。另见[更新记录](CHANGELOG.zh.md)、[开发者说明](README.zh.md)和[发布清单](RELEASING.zh.md)。

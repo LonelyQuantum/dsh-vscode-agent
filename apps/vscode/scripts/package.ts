@@ -95,7 +95,9 @@ try {
   await cp(join(repository, 'THIRD_PARTY_NOTICES.md'), join(output, 'THIRD_PARTY_NOTICES.md'))
   await cp(join(app, 'MARKETPLACE.md'), join(output, 'README.md'))
   await cp(join(app, 'MARKETPLACE.zh.md'), join(output, 'README.zh.md'))
-  for (const file of ['PRIVACY.md', 'PRIVACY.zh.md', 'CHANGELOG.md', 'CHANGELOG.zh.md']) await cp(join(app, file), join(output, file))
+  for (const file of ['PRIVACY.md', 'PRIVACY.zh.md', 'SECURITY.md', 'SECURITY.zh.md', 'CHANGELOG.md', 'CHANGELOG.zh.md',
+    'DEPENDENCY-NOTICES.md', 'DEPENDENCY-NOTICES.zh.md']) await cp(join(app, file), join(output, file))
+  await cp(join(app, 'licenses'), join(output, 'licenses'), { recursive: true })
   const binFiles = (await Array.fromAsync(glob('runtime/node_modules/**/.bin/*', { cwd: output })))
     .map(path => path.replaceAll('\\', '/'))
   await writeFile(join(output, '.vscodeignore'), windowsArtifactIgnores(binFiles))

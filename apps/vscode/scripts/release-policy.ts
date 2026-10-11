@@ -1,7 +1,8 @@
 /** Local publication checks; Marketplace account ownership and editor acceptance remain manual requirements. */
 
 /** Packaged disclosures and runtime entries required for a community preview. */
-export const RELEASE_FILES = ['package.json', 'README.md', 'README.zh.md', 'CHANGELOG.md', 'PRIVACY.md',
+export const RELEASE_FILES = ['package.json', 'README.md', 'README.zh.md', 'CHANGELOG.md', 'PRIVACY.md', 'SECURITY.md', 'SECURITY.zh.md',
+  'DEPENDENCY-NOTICES.md', 'DEPENDENCY-NOTICES.zh.md', 'licenses/GPL-3.0.txt', 'licenses/LGPL-3.0.txt',
   'LICENSE', 'THIRD_PARTY_NOTICES.md', 'resources/marketplace.png', 'extension.cjs', 'host.mjs', 'runtime.json',
   'runtime/pnpm-lock.yaml', 'runtime/node_modules/@deepseek-ai/dsh/lib/profile-boot.js',
   'runtime/node_modules/@deepseek-ai/dsh-desktop-host/lib/index.js'] as const
