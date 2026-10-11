@@ -5,7 +5,8 @@ import { readFile, realpath } from 'node:fs/promises'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { AgentRuntime, RuntimeOwnershipError, type RuntimeReady } from './runtime.ts'
-import { CHANNEL, HostProxy } from './proxy.ts'
+import { CHANNEL, HostProxy, NativeRequestError } from './proxy.ts'
+import { setupSharedProvider } from './provider-setup.ts'
 import { statusDocument, webviewDocument } from './document.ts'
 import { extensionCopy } from './locale.ts'
 import { captureEditor, openWorkspaceFile, SnapshotDocuments } from './native-context.ts'
@@ -13,6 +14,7 @@ import { capturedPair } from './review.ts'
 import { resolveInstallation } from './installation.ts'
 import { DesktopHomeError, resolveDesktopHome } from './desktop-home.ts'
 import { SharedHostError } from '@deepseek-ai/dsh-shared-host/client'
+import { SharedLaunchError } from './shared-launch.ts'
 
 let stopExtension: (() => Promise<void>) | undefined
 
@@ -45,6 +47,11 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
   let proxy: HostProxy | undefined
   let opening: Promise<void> | undefined
   let stopping: Promise<void> | undefined
+  let configuring = false
+  const recovery = (message: string, action: 'configure' | 'home' | 'node' | null = 'configure'): string => statusDocument(message, [
+    { action: 'restart', label: text.reconnect },
+    ...(action === null ? [] : [{ action, label: action === 'node' ? text.selectNode : action === 'home' ? text.useDesktopApi : text.configureShared }]),
+  ])
   const pendingDisposals = new Set<Promise<void>>()
   const disposeProxy = (previous: HostProxy | undefined): void => {
     if (!previous) return
@@ -56,7 +63,7 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
     const activeOpening = opening
     return stopping ??= (async () => {
       closeActive?.()
-      if (panel) panel.webview.html = statusDocument(text.stopped)
+      if (panel) panel.webview.html = recovery(text.stopped)
       await runtime?.stop()
       await activeOpening?.catch(() => {})
       await Promise.allSettled(pendingDisposals)
@@ -102,6 +109,7 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
         if (isClosed() || !trusted()) return
         const selectedHome = config.get<string>('desktopHome')
         const shared = config.get<string>('backend') !== 'isolated'
+        current.description = shared ? text.sharedMode : text.isolatedMode
         const desktopHome = shared
           ? await resolveDesktopHome(selectedHome, [
             ...process.env.DSH_HOME ? [process.env.DSH_HOME] : [],
@@ -119,7 +127,7 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
           booting = undefined
           diagnostics.clientFailure = true
           delete diagnostics.pid
-          if (panel) panel.webview.html = statusDocument(text.crashed)
+          if (panel) panel.webview.html = recovery(text.crashed)
         })
         booting = runtime.start({ node: config.get<string>('nodePath') || 'node', installation: installation.directory,
           version: installation.version,
@@ -215,8 +223,11 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
         current.webview.cspSource, randomBytes(24).toString('hex'))
     } catch (error) {
       diagnostics.clientFailure = true
-      if (!lifetime.closed) current.webview.html = statusDocument(error instanceof RuntimeOwnershipError ? text.ownership
-        : error instanceof DesktopHomeError || error instanceof SharedHostError ? text.desktopFailed : text.failed)
+      if (!lifetime.closed) current.webview.html = error instanceof SharedLaunchError
+        ? recovery(error.kind === 'node' ? text.nodeFailed : text.runtimeFailed, error.kind === 'node' ? 'node' : null)
+        : error instanceof DesktopHomeError ? recovery(text.homeFailed, 'home')
+          : recovery(error instanceof RuntimeOwnershipError ? text.ownership
+            : error instanceof SharedHostError ? text.desktopFailed : text.failed)
       disposeProxy(proxy)
       proxy = undefined
       await runtime?.stop()
@@ -237,14 +248,24 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
       const home = await resolveDesktopHome(picked[0].fsPath, [])
       await vscode.workspace.getConfiguration('dsh').update('desktopHome', home, vscode.ConfigurationTarget.Global)
       await vscode.workspace.getConfiguration('dsh').update('backend', 'shared', vscode.ConfigurationTarget.Global)
-      await vscode.window.showInformationMessage(text.desktopConfigured)
+      if (await vscode.window.showInformationMessage(text.desktopConfigured, text.reconnect) === text.reconnect) {
+        await stop(); await requestOpen()
+      }
     } catch (_error) { await vscode.window.showWarningMessage(text.desktopFailed) }
   }
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider('dsh.agent', {
       resolveWebviewView(view) {
         panel = view
-        view.onDidDispose(() => { closeActive?.(); if (panel === view) panel = undefined })
+        const actions = view.webview.onDidReceiveMessage((message: unknown) => {
+          if (!trusted() || panel !== view || typeof message !== 'object' || message === null
+            || !('channel' in message) || message.channel !== 'dsh-status' || !('action' in message)) return
+          if (message.action === 'restart') void vscode.commands.executeCommand('dsh.restart')
+          else if (message.action === 'configure') void vscode.commands.executeCommand('dsh.configure')
+          else if (message.action === 'home') void vscode.commands.executeCommand('dsh.useDesktopApi')
+          else if (message.action === 'node') void vscode.commands.executeCommand('workbench.action.openSettings', 'dsh.nodePath')
+        })
+        view.onDidDispose(() => { actions.dispose(); closeActive?.(); if (panel === view) panel = undefined })
         void requestOpen()
       },
     }, { webviewOptions: { retainContextWhenHidden: true } }),
@@ -255,18 +276,53 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
     vscode.commands.registerCommand('dsh.stop', stop),
     vscode.commands.registerCommand('dsh.restart', async () => { await stop(); await requestOpen() }),
     vscode.commands.registerCommand('dsh.configure', async () => {
-      const choice = await vscode.window.showQuickPick([
-        { label: text.useDesktopApi, description: text.desktopDescription, source: 'desktop' },
-        { label: text.usePrivateApi, description: text.privateDescription, source: 'private' },
-      ], { title: text.apiSource, ignoreFocusOut: true })
-      if (!choice) return
-      if (choice.source === 'desktop') { await connectDesktop(); return }
-      const key = await vscode.window.showInputBox({ title: text.apiKey, password: true, ignoreFocusOut: true })
-      if (key === undefined || key.trim() === '') return
-      await context.secrets.store('deepseek.apiKey', key.trim())
-      await vscode.workspace.getConfiguration('dsh').update('backend', 'isolated', vscode.ConfigurationTarget.Global)
-      await vscode.workspace.getConfiguration('dsh').update('desktopHome', undefined, vscode.ConfigurationTarget.Global)
-      await vscode.window.showInformationMessage(text.configured)
+      if (configuring || !trusted()) return
+      configuring = true
+      try {
+        const choice = await vscode.window.showQuickPick([
+          { label: text.configureShared, description: text.sharedDescription, source: 'shared' },
+          { label: text.useDesktopApi, description: text.desktopDescription, source: 'desktop' },
+          { label: text.usePrivateApi, description: text.privateDescription, source: 'private' },
+        ], { title: text.apiSource, ignoreFocusOut: true })
+        if (!choice) return
+        if (choice.source === 'desktop') { await connectDesktop(); return }
+        if (choice.source === 'shared') {
+          if (!trusted()) return
+          const config = vscode.workspace.getConfiguration('dsh')
+          if (config.get<string>('backend') === 'isolated') {
+            await config.update('backend', 'shared', vscode.ConfigurationTarget.Global)
+            await stop()
+          }
+          await vscode.commands.executeCommand('dsh.agent.focus')
+          await requestOpen()
+          const connection = proxy
+          if (!connection || !trusted()) return
+          try {
+            const outcome = await setupSharedProvider((method, args) => connection.nativeRequest(method, args), {
+              pick: async (title, choices) => (await vscode.window.showQuickPick([...choices], { title, ignoreFocusOut: true }))?.id,
+              input: async (title, value, password, validateInput) => vscode.window.showInputBox({
+                title, value, password, validateInput, ignoreFocusOut: true,
+              }),
+            }, text, () => trusted() && proxy === connection && !stopping)
+            if (outcome === 'saved' && trusted()) {
+              if (await vscode.window.showInformationMessage(text.sharedSaved, text.reconnect) === text.reconnect) {
+                await stop(); await requestOpen()
+              }
+            }
+          } catch (error) {
+            if (trusted() && proxy === connection) await vscode.window.showWarningMessage(error instanceof NativeRequestError
+            && error.code === 'settings/conflict' ? text.setupConflict
+              : error instanceof NativeRequestError && error.code === 'partial' ? text.setupPartial : text.setupFailed)
+          }
+          return
+        }
+        const key = await vscode.window.showInputBox({ title: text.apiKey, password: true, ignoreFocusOut: true })
+        if (key === undefined || key.trim() === '') return
+        await context.secrets.store('deepseek.apiKey', key.trim())
+        await vscode.workspace.getConfiguration('dsh').update('backend', 'isolated', vscode.ConfigurationTarget.Global)
+        await vscode.workspace.getConfiguration('dsh').update('desktopHome', undefined, vscode.ConfigurationTarget.Global)
+        await vscode.window.showInformationMessage(text.configured)
+      } finally { configuring = false }
     }),
     vscode.commands.registerCommand('dsh.useDesktopApi', connectDesktop),
     vscode.commands.registerCommand('dsh.clearApiKey', async () => {

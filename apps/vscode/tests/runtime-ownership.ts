@@ -6,6 +6,41 @@ import { mkdir, readFile, realpath } from 'node:fs/promises'
 import { join } from 'node:path'
 import { AgentRuntime, RuntimeOwnershipError } from '../src/runtime.ts'
 import { resolveInstallation } from '../src/installation.ts'
+import { acquireSharedHost } from '@deepseek-ai/dsh-shared-host/client'
+import { resolveSharedLaunch } from '../src/shared-launch.ts'
+import type { PreviewDiagnostics } from '../src/extension.ts'
+
+/**
+ * Keep a second lease while the editor reconnects, and refuse a mismatched client without replacing the writer.
+ * @param extensionPath Exact installed runtime.
+ * @param api Editor-owned diagnostics.
+ * @returns Completion after the temporary peer releases its lease; the editor remains attached.
+ */
+export async function verifySharedRuntimeOwnership(extensionPath: string, api: { diagnostics(): PreviewDiagnostics }): Promise<void> {
+  const installation = await resolveInstallation(extensionPath)
+  const home = process.env.DSH_HOME!
+  const pid = api.diagnostics().pid
+  assert.ok(pid)
+  const peer = await acquireSharedHost({ home, version: installation.version, role: 'desktop',
+    launch: () => resolveSharedLaunch('node', installation.sharedRuntime, installation.version) })
+  try {
+    assert.equal(peer.ready.pid, pid)
+    assert.equal(await peer.control('inspect-update'), true)
+    await assert.rejects(peer.control('lock-update'))
+    await assert.rejects(acquireSharedHost({ home, version: 'incompatible-fixture', role: 'vscode' }))
+    process.kill(pid, 0)
+    await vscode.commands.executeCommand('dsh.stop')
+    process.kill(pid, 0)
+    assert.equal(await peer.control('inspect-update'), false)
+    await vscode.commands.executeCommand('dsh.open')
+    const deadline = Date.now() + 60_000
+    while (!api.diagnostics().boot && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 50))
+    assert.equal(api.diagnostics().pid, pid)
+    assert.equal(api.diagnostics().boot, true)
+    assert.equal(await peer.control('inspect-update'), true)
+    console.log('VSCODE_SHARED_LEASE_OWNERSHIP_OK')
+  } finally { await peer.close() }
+}
 
 /**
  * Verify simultaneous runtime homes, competing ownership and acquisition after stop.

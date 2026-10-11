@@ -10,11 +10,12 @@ import { chromium } from 'playwright'
 import * as yaml from 'js-yaml'
 
 const { positionals: [executable], values } = parseArgs({ allowPositionals: true,
-  options: { vsix: { type: 'string' }, 'fresh-shared': { type: 'boolean' }, 'shared-home': { type: 'string' }, 'live-home': { type: 'string' }, interactions: { type: 'boolean' }, faults: { type: 'boolean' }, 'fault-case': { type: 'string' }, 'compat-case': { type: 'string' }, ux: { type: 'boolean' }, security: { type: 'boolean' }, trust: { type: 'boolean' } } })
+  options: { vsix: { type: 'string' }, 'fresh-shared': { type: 'boolean' }, 'shared-home': { type: 'string' }, 'live-home': { type: 'string' }, onboarding: { type: 'boolean' }, interactions: { type: 'boolean' }, faults: { type: 'boolean' }, 'fault-case': { type: 'string' }, 'compat-case': { type: 'string' }, ux: { type: 'boolean' }, security: { type: 'boolean' }, trust: { type: 'boolean' } } })
 if (!executable) throw new Error('Pass the absolute VS Code executable path, not its shell wrapper')
-if (values['fresh-shared'] && (values['shared-home'] || values['live-home'] || values.faults || values.interactions || values.security || values.trust || values['compat-case'])) {
-  throw new Error('--fresh-shared supports only keyless smoke and --ux in a new test-owned home')
+if (values['fresh-shared'] && values['shared-home']) {
+  throw new Error('--fresh-shared cannot select an existing shared home')
 }
+if (values.onboarding && (!values['fresh-shared'] || values['live-home'] || values.faults || values.interactions || values.security || values.trust || values.ux || values['compat-case'])) throw new Error('--onboarding requires a separate --fresh-shared check without live credentials')
 if (values['shared-home'] && (values['live-home'] || values.faults || values.interactions || values.security || values.trust || values['compat-case'])) {
   throw new Error('--shared-home supports only keyless smoke and --ux against a test-owned Desktop home')
 }
@@ -33,7 +34,7 @@ if (values['fault-case'] && (!values.faults || !['plugins', 'reconnect', 'crash'
   throw new Error('--fault-case requires --faults and one of plugins, reconnect, crash, streaming, rebuild')
 }
 const app = fileURLToPath(new URL('..', import.meta.url))
-const ui = values.ux || values.security || values.trust || !!values['live-home'] || values['fault-case'] === 'plugins'
+const ui = values.onboarding || values.ux || values.security || values.trust || !!values['live-home'] || values['fault-case'] === 'plugins'
 const root = await mkdtemp(join(tmpdir(), 'dsh-vscode-editor-test-'))
 const userData = join(root, 'user-data')
 const extensions = join(root, 'extensions')
@@ -43,6 +44,8 @@ delete environment.ELECTRON_RUN_AS_NODE
 let child
 let browser
 let completion
+let heldDesktop
+let mockProvider
 let faultFailures = false
 const stop = async () => {
   if (!child || child.exitCode !== null || child.signalCode !== null) return
@@ -55,12 +58,12 @@ const stop = async () => {
   } else child.kill('SIGKILL')
   await completion
 }
-async function waitFor(operation, timeout = 60_000) {
+async function waitFor(operation, timeout = 60_000, requireEditor = true) {
   const deadline = Date.now() + timeout
   while (Date.now() < deadline) {
     const result = await operation()
     if (result) return result
-    if (child?.exitCode !== null && child?.exitCode !== undefined) throw new Error('VS Code exited during UI qualification')
+    if (requireEditor && child?.exitCode !== null && child?.exitCode !== undefined) throw new Error('VS Code exited during UI qualification')
     await delay(100)
   }
   throw new Error('VS Code UI qualification timed out')
@@ -104,6 +107,11 @@ try {
     environment.DEEPSEEK_API_KEY = credential
   }
   if (ui) environment.DSH_VSCODE_TEST_UI = root
+  if (values.onboarding) {
+    const { startMockLlmServer } = await import('../../../packages/test-support/llm-mock-server/lib/index.js')
+    mockProvider = await startMockLlmServer({ sequence: ['success'], repeatLast: true, successText: 'NATIVE_ONBOARDING_DONE' })
+    environment.DSH_VSCODE_TEST_ONBOARDING = '1'
+  }
   if (values['shared-home']) environment.DSH_VSCODE_TEST_SHARED = '1'
   if (values['fresh-shared']) environment.DSH_VSCODE_TEST_FRESH_SHARED = '1'
   if (values.security) environment.DSH_VSCODE_TEST_SECURITY = '1'
@@ -117,7 +125,18 @@ try {
     await cp(join(app, 'lib/trust-host.cjs'), join(extensionPath, 'probe.cjs'))
     await mkdir(join(userData, 'User'), { recursive: true })
     await writeFile(join(userData, 'User/settings.json'), JSON.stringify({ 'security.workspace.trust.startupPrompt': 'never',
-      'security.workspace.trust.enabled': true, 'telemetry.telemetryLevel': 'off', 'workbench.startupEditor': 'none', 'dsh.backend': 'isolated' }))
+      'security.workspace.trust.enabled': true, 'telemetry.telemetryLevel': 'off', 'workbench.startupEditor': 'none',
+      'dsh.backend': values['fresh-shared'] ? 'shared' : 'isolated' }))
+    if (values['fresh-shared']) {
+      const installed = (await readdir(extensions)).find(name => name.startsWith('dsh-local.dsh-vscode-agent-'))
+      const runtime = join(extensions, installed, 'runtime')
+      const metadata = JSON.parse(await readFile(join(extensions, installed, 'runtime.json'), 'utf8'))
+      const { acquireSharedHost } = await import('../../shared-host/lib/client.js')
+      heldDesktop = await acquireSharedHost({ home: environment.DSH_HOME, version: metadata.dshVersion, role: 'desktop',
+        launch: { protocol: 1, version: metadata.dshVersion, node: process.execPath, runtime },
+        environment: { ...process.env, DSH_TELEMETRY_DISABLED: '1' } })
+      environment.DSH_VSCODE_TRUST_KEEP_PID = String(heldDesktop.ready.pid)
+    }
   }
   child = spawn(executable, [workspace, '--new-window', ...values.trust ? [] : ['--disable-extensions', '--disable-workspace-trust'],
     '--skip-welcome', '--skip-release-notes', '--locale=en', '--user-data-dir', userData, '--shared-data-dir', join(root, 'shared'), '--extensions-dir', extensions,
@@ -135,7 +154,7 @@ try {
       browser = await chromium.connectOverCDP(`ws://127.0.0.1:${Number(port)}${socketPath}`)
       if (values.trust) {
         const { runWorkspaceTrustCheck } = await import('./test-trust.mjs')
-        await runWorkspaceTrustCheck({ browser, root, waitFor, readIfPresent })
+        await runWorkspaceTrustCheck({ browser, root, waitFor, readIfPresent, heldDesktop })
       } else {
       const cdp = await browser.newBrowserCDPSession()
       const target = await waitFor(async () => (await cdp.send('Target.getTargets')).targetInfos
@@ -167,11 +186,16 @@ try {
         return result.result.value
       }
       await waitFor(() => evaluate('return !!root'))
-      if (values.security) {
+      if (values.onboarding) {
+        const { runOnboardingCheck } = await import('./test-onboarding.mjs')
+        await runOnboardingCheck({ browser, root, evaluate, request, waitFor, readIfPresent, endpoint: mockProvider.baseURL,
+          provider: mockProvider, home: environment.DSH_HOME })
+      } else if (values.security) {
         const { runSecurityCheck } = await import('./test-security.mjs')
         await runSecurityCheck({ evaluate, waitFor })
         const { runWindowIsolation } = await import('./test-windows.mjs')
-        await runWindowIsolation({ executable, extensionPath, root, workspace, app, environment, waitFor, readIfPresent })
+        const primaryPid = JSON.parse(await readFile(join(root, 'runtime-ready'), 'utf8')).pid
+        await runWindowIsolation({ executable, extensionPath, root, workspace, app, environment, waitFor, readIfPresent, primaryPid })
       } else if (values.ux) {
         const { runEditorUxCheck } = await import('./test-editor-ux.mjs')
         await runEditorUxCheck({ evaluate, request, waitFor })
@@ -179,7 +203,8 @@ try {
         const { runCompatibilityCheck } = await import('./test-compatibility.mjs')
         const presetFile = values.vsix ? join(extensionPath, 'runtime/node_modules/@deepseek-ai/dsh-web-app/presets/standard.patch.yml')
           : resolve(app, '../../packages/bundle/web-app/presets/standard.patch.yml')
-        await runCompatibilityCheck({ root, workspace, evaluate, request, waitFor, readIfPresent, presetFile, selected: values['compat-case'] })
+        await runCompatibilityCheck({ root, workspace, evaluate, request, waitFor, readIfPresent, presetFile,
+          sharedHome: values['fresh-shared'] ? environment.DSH_HOME : undefined, selected: values['compat-case'] })
       } else if (values.faults) {
         const contexts = []
         const observeContext = event => {
@@ -199,7 +224,8 @@ try {
         if (contextId === undefined) throw new Error('DSH Webview execution context was not found')
         const { runFaultChecks } = await import(['streaming', 'rebuild'].includes(values['fault-case'])
           ? './test-active-faults.mjs' : './test-faults.mjs')
-        const results = await runFaultChecks({ root, workspace, evaluate, request, contextId, waitFor, readIfPresent, selected: values['fault-case'] })
+        const results = await runFaultChecks({ root, workspace, evaluate, request, contextId, waitFor, readIfPresent,
+          sharedHome: values['fresh-shared'] ? environment.DSH_HOME : undefined, selected: values['fault-case'] })
         await writeFile(join(app, `lib/fault-results${values['fault-case'] ? '-' + values['fault-case'] : ''}.json`), JSON.stringify(results, null, 2) + '\n')
         faultFailures = results.some(result => !result.passed)
       } else {
@@ -219,7 +245,8 @@ try {
       let logged = false
       let logsRead = 0
       const { readSessionLog } = await import('../lib/session-log.mjs')
-      for await (const path of glob(['**/homes/*/sessions/**/*.jsonl', '**/homes/*/sessions/**/*.jsonl.zstd'], { cwd: root })) {
+      for await (const path of glob(['**/homes/*/sessions/**/*.jsonl', '**/homes/*/sessions/**/*.jsonl.zstd',
+        ...values['fresh-shared'] ? ['fresh-shared-home/sessions/**/*.jsonl', 'fresh-shared-home/sessions/**/*.jsonl.zstd'] : []], { cwd: root })) {
         logsRead++
         const events = await readSessionLog(join(root, path))
         logged ||= events.some(event => event.type === 'user/message' && event.data.content.some(block =>
@@ -285,8 +312,12 @@ try {
         console.log('VSCODE_LIVE_QUESTION_OK')
         await browser.contexts()[0].pages()[0].screenshot({ path: join(app, 'lib/live-interactions.png') })
         const previousMessages = await evaluate("return [...root.querySelectorAll('[data-user-message]')].map(element => element.textContent)")
+        const previousSession = await evaluate("return doc.defaultView.__DSH_VSCODE__.lastSession()")
         await writeFile(join(root, 'reload'), 'requested')
         await waitFor(() => readIfPresent(join(root, 'reloaded')))
+        await waitFor(() => evaluate(`const row = root?.querySelector('nav button[data-session-id="' + ${JSON.stringify(previousSession)} + '"]');
+          row?.click(); return doc.defaultView.__DSH_VSCODE__?.lastSession() === ${JSON.stringify(previousSession)}
+          && !!root?.querySelector('[data-user-message]')`))
         await waitFor(() => evaluate(`return root?.innerText.includes('QUESTION_DONE') && JSON.stringify([...root.querySelectorAll('[data-user-message]')].map(element => element.textContent)) === ${JSON.stringify(JSON.stringify(previousMessages))}`))
         console.log('VSCODE_LIVE_RESUME_OK: prior messages restored once after runtime restart')
       }
@@ -303,5 +334,12 @@ try {
 } finally {
   await browser?.close()
   await stop()
+  await mockProvider?.close()
+  if (heldDesktop) {
+    await heldDesktop.close()
+    await waitFor(() => { try { process.kill(heldDesktop.ready.pid, 0); return false } catch (error) {
+      if (error.code !== 'ESRCH') throw error; return true
+    } }, 30_000, false)
+  }
   await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
 }

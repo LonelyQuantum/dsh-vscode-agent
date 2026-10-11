@@ -57,7 +57,7 @@ function open(): Promise<unknown> {
   const context = { subscriptions: [], extensionUri: {}, extensionPath: '/extension', globalStorageUri: { fsPath: '/storage' },
     secrets: { get: state.secret } } as vscode.ExtensionContext
   activate(context)
-  state.resolve!({ show() {}, onDidDispose() {}, webview: { options: {}, html: '' } })
+  state.resolve!({ show() {}, onDidDispose() {}, webview: { options: {}, html: '', onDidReceiveMessage: () => ({ dispose() {} }) } })
   return Promise.resolve(state.commands.get('dsh.open')!())
 }
 

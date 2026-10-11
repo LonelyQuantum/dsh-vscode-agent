@@ -9,13 +9,14 @@ import { strict as assert } from 'node:assert'
  * @param tools Test-owned paths, executable, environment and readiness helpers.
  * @returns Completion after both peer windows and their runtime children exit.
  */
-export async function runWindowIsolation({ executable, extensionPath, root, workspace, app, environment, waitFor, readIfPresent }) {
+export async function runWindowIsolation({ executable, extensionPath, root, workspace, app, environment, waitFor, readIfPresent, primaryPid }) {
   for (const same of [true, false]) {
     const peer = await mkdtemp(join(root, 'peer-'))
     const folder = join(peer, 'workspace')
     if (same) await symlink(workspace, folder, process.platform === 'win32' ? 'junction' : 'dir')
     else await mkdir(folder)
     const shared = 'User/globalStorage/dsh-local.dsh-vscode-agent'
+    await mkdir(join(root, 'user-data', shared), { recursive: true })
     await mkdir(join(peer, 'user-data/User/globalStorage'), { recursive: true })
     await symlink(join(root, 'user-data', shared), join(peer, 'user-data', shared), process.platform === 'win32' ? 'junction' : 'dir')
     const child = spawn(executable, [folder, '--new-window', '--disable-extensions', '--disable-workspace-trust',
@@ -30,10 +31,12 @@ export async function runWindowIsolation({ executable, extensionPath, root, work
         return readIfPresent(join(peer, 'peer-ready'))
       }, 120_000))
       assert.equal(state.same, same)
+      if (environment.DSH_VSCODE_TEST_FRESH_SHARED === '1') assert.equal(state.pid, primaryPid)
       if (!same) process.kill(state.pid, 0)
       await writeFile(join(peer, 'peer-done'), 'passed')
       await waitFor(() => child.exitCode !== null, 30_000)
       assert.equal(await exited, 0)
+      if (environment.DSH_VSCODE_TEST_FRESH_SHARED === '1') process.kill(primaryPid, 0)
     } finally {
       if (child.exitCode === null && child.signalCode === null) {
         if (process.platform === 'win32') {

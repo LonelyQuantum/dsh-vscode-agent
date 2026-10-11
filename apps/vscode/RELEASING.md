@@ -20,9 +20,9 @@ Keep the VSIX and its checksum together. Verify the SHA-256 value before sharing
 
 ## Installed-artifact acceptance
 
-Use the existing [artifact smoke](README.md#windows-vsix) with `--fresh-shared --ux` to test a fresh home without Desktop. Run `--security` and `--trust` separately against the same VSIX. Use a temporary home and sanitized data; verify shared credentials/models/history, both startup orders, crash recovery and final process exit. A successful package command is not editor acceptance.
+Use the existing [artifact smoke](README.md#windows-vsix) with `--fresh-shared --onboarding` and `--fresh-shared --ux` separately to test native setup and daily use in a fresh home without Desktop. Run `--fresh-shared --security` and `--fresh-shared --trust` separately against the same VSIX, then the documented shared-mode live interaction and fault checks. Retain focused isolated-mode regressions. Use temporary homes and sanitized data; verify shared credentials/models/history, both startup orders, crash recovery and final process exit. A successful package command is not editor acceptance.
 
-Record the exact artifact checksum with the observed checks. Fresh shared cold startup, restart, crash recovery, final exit, and keyless UX have local installed-editor evidence. Complete shared-mode interaction, security, and trust qualification remain pending, and first-time shared-provider configuration has no native setup form yet. Do not mark those items complete based only on packaging, unit tests, or isolated-mode checks.
+Record the exact artifact checksum with the observed checks in the [development plan](../../.agents/notes/proposed/architecture/2026-09-19-vscode-extension-development-plan.md). Native setup saves configuration without a connection test; its mock acceptance does not certify a real provider credential or endpoint. Do not mark shared-mode interaction, security, trust or lifecycle acceptance complete based only on packaging, unit tests, older artifacts or isolated-mode checks. An unexplained Auto reviewer-removal timeout remains an open acceptance item even if a retry succeeds.
 
 ## Distribution decisions
 

@@ -6,7 +6,7 @@ This notice describes the community extension and the default bundled DSH profil
 
 ## Local storage and access
 
-Shared mode uses the selected Harness home's credentials, provider settings and durable conversation data; it does not copy provider keys into VS Code settings or the Webview. Isolated mode stores its configured key in VS Code SecretStorage and keeps separate per-workspace profile data under extension global storage. Uninstalling the extension does not erase the shared Harness home or provider-side records.
+Shared mode uses the selected Harness home's credentials, provider settings and durable conversation data; it does not copy provider keys into VS Code settings or the Webview. Native setup sends a password-control value directly to the authenticated backend credential API; settings reads return only credential status, not the saved key. Saving configuration does not test the provider or send a model request. Isolated mode stores its configured key in VS Code SecretStorage and keeps separate per-workspace profile data under extension global storage. Uninstalling the extension does not erase the shared Harness home or provider-side records.
 
 Conversation logs and attachments can contain source code, local paths, tool output and other sensitive content. Treat the Harness home and its backups as private. Shared access is for trusted applications running under the same operating-system account, not untrusted local users or remote clients.
 

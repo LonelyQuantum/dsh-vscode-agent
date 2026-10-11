@@ -1,10 +1,25 @@
 /** Restrictive Webview document around the exact built DSH Web entry. */
+import { randomBytes } from 'node:crypto'
 
-/** Render a noninteractive lifecycle notice. @param message Localized plain text. @returns Script-free Webview document. */
-export function statusDocument(message: string): string {
-  const escaped = message.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  return '<html><head><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; base-uri \'none\'; form-action \'none\';"></head>'
-    + `<body><p>${escaped}</p></body></html>`
+/**
+ * Render offline recovery controls with fixed actions, never command URIs or process output.
+ * @param message Localized plain text.
+ * @param actions Fixed recovery actions and locale-owned labels.
+ * @returns Escaped document with a nonced action sender only when controls exist.
+ */
+export function statusDocument(message: string,
+  actions: readonly { action: 'restart' | 'configure' | 'home' | 'node'; label: string }[] = [],
+): string {
+  const escape = (value: string): string => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const nonce = randomBytes(24).toString('hex')
+  const policy = `default-src 'none'; script-src 'nonce-${nonce}'; base-uri 'none'; form-action 'none';`
+  const controls = actions.map(({ action, label }) =>
+    `<button type="button" data-action="${action}">${escape(label)}</button>`).join('')
+  const script = 'const api=acquireVsCodeApi();document.addEventListener("click",event=>{'
+    + 'const action=event.target?.dataset?.action;if(action)api.postMessage({channel:"dsh-status",action});});'
+  return `<html><head><meta http-equiv="Content-Security-Policy" content="${policy}"></head>`
+    + `<body><p>${escape(message)}</p>${controls}`
+    + (actions.length ? `<script nonce="${nonce}">${script}</script>` : '') + '</body></html>'
 }
 
 /**

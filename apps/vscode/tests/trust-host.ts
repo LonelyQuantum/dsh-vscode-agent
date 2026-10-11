@@ -51,7 +51,11 @@ export async function run(): Promise<void> {
   assert.equal(vscode.workspace.isTrusted, false)
   const pid = Number(await read('granted'))
   assert.ok(pid > 0)
-  await waitFor(() => {
+  const kept = Number(process.env.DSH_VSCODE_TRUST_KEEP_PID)
+  if (kept) {
+    assert.equal(pid, kept)
+    assert.doesNotThrow(() => process.kill(pid, 0))
+  } else await waitFor(() => {
     try { process.kill(pid, 0); return false }
     catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error; return true }
   })

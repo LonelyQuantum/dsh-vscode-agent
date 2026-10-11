@@ -14,7 +14,7 @@ Install the Windows VSIX using **Extensions: Install from VSIX**, open one trust
 
 Shared mode is the default. Either this extension or a matching updated Desktop can start the backend; Desktop need not be running. To reuse existing credentials, API endpoints, models and conversations, run **DSH: Connect Shared Desktop Backend** and select the same Harness home as Desktop. Both applications must use the same DSH version. Unsent drafts are not shared.
 
-An empty shared home can start without Desktop, but this preview does not yet provide a native shared-provider setup form. Provision that home's provider configuration separately, or choose the private API option under **DSH: Configure API** to use isolated mode. That option stores a key in VS Code SecretStorage and creates separate workspace history; it does not configure or merge the shared home.
+For an empty shared home, run **DSH: Configure API → Configure a shared provider**. Choose a provider, endpoint and model, enter the key in the native password control, then confirm Save. Saving uses the shared backend's credential store, not workspace settings, and does not send a model request. A blank replacement keeps an existing key. Reconnect when offered so new conversations use the selected model; existing conversations retain their selection. Provider API failures remain visible in the conversation and can be corrected through Configure API. The separate private option uses SecretStorage and isolated history instead.
 
 Never paste keys into chat, source files or issue reports. The [privacy and data-handling notice](PRIVACY.md) explains local storage, model requests and feedback-authorized uploads.
 

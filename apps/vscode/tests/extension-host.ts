@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import type { PreviewDiagnostics } from '../src/extension.ts'
 import { captureEditor, openWorkspaceFile, SnapshotDocuments } from '../src/native-context.ts'
-import { verifyRuntimeOwnership } from './runtime-ownership.ts'
+import { verifyRuntimeOwnership, verifySharedRuntimeOwnership } from './runtime-ownership.ts'
 
 async function verifyEditorContext(): Promise<void> {
   const workspace = vscode.workspace.workspaceFolders![0].uri
@@ -122,7 +122,8 @@ export async function run(): Promise<void> {
     const coordination = process.env.DSH_VSCODE_TEST_UI
     if (coordination) {
       if (process.env.DSH_VSCODE_TEST_SECURITY) {
-        await verifyRuntimeOwnership(coordination, extension.extensionPath)
+        if (freshShared) await verifySharedRuntimeOwnership(extension.extensionPath, api)
+        else await verifyRuntimeOwnership(coordination, extension.extensionPath)
         await connected()
       }
       const document = await vscode.workspace.openTextDocument(vscode.Uri.joinPath(vscode.workspace.workspaceFolders![0].uri, 'context.ts'))
@@ -130,6 +131,7 @@ export async function run(): Promise<void> {
       assert.ok(await editor.edit((edit) => { edit.insert(new vscode.Position(1, 0), 'const editorOnly = "VSCODE_UNSAVED_42";\n') }))
       editor.selection = new vscode.Selection(1, 0, 1, 100)
       await writeFile(join(coordination, 'ready'), 'ready')
+      await writeFile(join(coordination, 'runtime-ready'), JSON.stringify(api.diagnostics()))
       const deadline = Date.now() + (process.env.DSH_VSCODE_TEST_FAULTS ? 270_000 : 180_000)
       let result: string | undefined
       let reviewed = false
@@ -144,7 +146,17 @@ export async function run(): Promise<void> {
           await writeFile(join(coordination, 'review-ok'), 'passed')
         }
         let reload: string | undefined
-        if (process.env.DSH_VSCODE_TEST_FAULTS) {
+        if (process.env.DSH_VSCODE_TEST_ONBOARDING) {
+          let configure: string | undefined
+          try { configure = await readFile(join(coordination, 'configure'), 'utf8') }
+          catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
+          if (configure === 'requested') {
+            await unlink(join(coordination, 'configure'))
+            await vscode.commands.executeCommand('dsh.configure')
+            await writeFile(join(coordination, 'configured'), 'passed')
+          }
+        }
+        if (process.env.DSH_VSCODE_TEST_FAULTS || process.env.DSH_VSCODE_TEST_ONBOARDING) {
           let crash: string | undefined
           try { crash = await readFile(join(coordination, 'crash'), 'utf8') }
           catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }

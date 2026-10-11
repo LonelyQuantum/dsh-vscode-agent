@@ -6,9 +6,10 @@ import { randomUUID } from 'node:crypto'
 import { expect, it, vi } from 'vitest'
 import { acquireSharedHost, type SharedHostClient } from '@deepseek-ai/dsh-shared-host/client'
 import { startMockLlmServer } from '@deepseek-ai/dsh-llm-mock-server'
-import { generationLogPath, compressZstdFrame, readSessionLog } from '../../vscode/tests/read-session-log.ts'
-import { HostProxy } from '../../vscode/src/proxy.ts'
-import { sharedBackendApi } from './shared-backend-harness.ts'
+import { SessionId } from '@deepseek-ai/dsh-session'
+import { generationLogPath, compressZstdFrame, readSessionLog } from './read-session-log.ts'
+import { HostProxy } from '../src/proxy.ts'
+import { sharedBackendApi } from '../../desktop/tests/shared-backend-harness.ts'
 
 it('continues V3 history through both shared clients without rewriting its predecessor or trusting stale diff coordinates', async (context) => {
   const root = await mkdtemp(join(tmpdir(), 'dsh-shared-migration-'))
@@ -28,7 +29,7 @@ it('continues V3 history through both shared clients without rewriting its prede
     return client
   }
   const editor = await attach('vscode')
-  const id = 'shared-v3-migration-fixture'
+  const id = SessionId('shared-v3-migration-fixture')
   const source = generationLogPath(join(home, 'sessions'), workspace, id, 3, 'zstd')
   const createdAt = Date.now()
   const header = { type: 'session', version: 3, id, cwd: workspace, createdAt, isSeeded: false, delegationDepth: 0, agentPreset: 'standard' }
@@ -73,6 +74,7 @@ it('continues V3 history through both shared clients without rewriting its prede
   }, { timeout: 30_000 })
   const resumed = await readSessionLog(current)
   const end = resumed.find(row => row.type === 'turn/end' && row.data.turn === 2)
+  if (end?.type !== 'turn/end') throw new Error('Resumed turn did not settle')
   expect(end?.data.reason, JSON.stringify(end?.data.reason)).toMatchObject({ kind: 'completed' })
   expect(JSON.stringify(provider.requests)).toContain('LEGACY_SHARED_42')
   const returning = await attach('vscode')

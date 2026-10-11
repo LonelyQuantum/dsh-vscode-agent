@@ -2,7 +2,7 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { readFile, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
-import { acquireSharedHost, SharedHostError, type SharedHostClient } from '@deepseek-ai/dsh-shared-host/client'
+import { acquireSharedHost, type SharedHostClient } from '@deepseek-ai/dsh-shared-host/client'
 import { resolveSharedLaunch } from './shared-launch.ts'
 
 /** Child boot information, never forwarded verbatim to the Webview. */
@@ -51,9 +51,7 @@ export class AgentRuntime {
         if (this.stopping) throw new Error('DSH startup was cancelled')
         if (!options.sharedRuntime) throw new Error('Shared runtime installation is missing')
         return resolveSharedLaunch(options.node, options.sharedRuntime, options.version)
-      } }).catch(() => {
-        throw new SharedHostError('Shared Desktop backend is unavailable')
-      })
+      } })
       const client = await this.shared
       if (this.stopping) { await client.close(); throw new Error('DSH startup was cancelled') }
       client.onExit(() => { for (const listener of this.exitListeners) listener() })

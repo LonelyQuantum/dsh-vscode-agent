@@ -4,6 +4,9 @@ English | [中文](CHANGELOG.zh.md)
 
 ## Unreleased
 
+- Configure shared credentials, endpoints and default models through native inputs without opening Desktop or automatically testing a provider.
+- Add shared/isolated identification and scoped recovery controls; preserve history and other native clients' leases.
+- Resolve native file links from contained Session subdirectories and verify V3-to-V4 shared migration without rewriting predecessors.
 - Adapt the RC line to DSH `0.2.0-rc.2`, preserving the extension development version `0.0.1`.
 - Preserve Desktop login-shell preparation and pass the selected runtime version during shared cold startup.
 - Disable product analytics only for newly initialized community shared profiles; preserve existing policy and document separate feedback telemetry.

@@ -8,7 +8,8 @@ import type { PreviewDiagnostics } from '../src/extension.ts'
 
 /** Observe same-home refusal or independent-workspace startup in a second Extension Host. @returns Owned runtime shutdown. */
 export async function run(): Promise<void> {
-  await vscode.workspace.getConfiguration('dsh').update('backend', 'isolated', vscode.ConfigurationTarget.Global)
+  const shared = process.env.DSH_VSCODE_TEST_FRESH_SHARED === '1'
+  await vscode.workspace.getConfiguration('dsh').update('backend', shared ? 'shared' : 'isolated', vscode.ConfigurationTarget.Global)
   const root = process.env.DSH_VSCODE_TEST_UI!
   const same = process.env.DSH_VSCODE_PEER_MODE === 'same'
   const extension = vscode.extensions.getExtension<{ diagnostics(): PreviewDiagnostics }>('dsh-local.dsh-vscode-agent')!
@@ -22,8 +23,8 @@ export async function run(): Promise<void> {
       await delay(100)
     }
     const state = api.diagnostics()
-    assert.equal(state.clientFailure, same)
-    if (same) assert.equal(state.pid, undefined)
+    assert.equal(state.clientFailure, same && !shared)
+    if (same && !shared) assert.equal(state.pid, undefined)
     else { assert.equal(state.boot, true); assert.ok(state.pid) }
     await writeFile(join(root, 'peer-ready'), JSON.stringify({ same, pid: state.pid }))
     let done = false
@@ -36,6 +37,9 @@ export async function run(): Promise<void> {
   } finally {
     const pid = api.diagnostics().pid
     await vscode.commands.executeCommand('dsh.stop')
-    if (pid) assert.throws(() => process.kill(pid, 0))
+    if (pid) {
+      if (shared) assert.doesNotThrow(() => process.kill(pid, 0))
+      else assert.throws(() => process.kill(pid, 0))
+    }
   }
 }
