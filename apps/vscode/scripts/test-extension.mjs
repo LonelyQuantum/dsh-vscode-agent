@@ -26,8 +26,8 @@ if ((values.ux || values.security || values.trust) && (values['live-home'] || va
 if (values.trust && !values.vsix) throw new Error('--trust requires an installed --vsix, not a development extension')
 if (values.interactions && !values['live-home']) throw new Error('--interactions requires --live-home')
 if (values['compat-case'] && (!values['live-home'] || values.faults || values.interactions
-  || !['migration', 'auto-review', 'compaction'].includes(values['compat-case']))) {
-  throw new Error('--compat-case requires --live-home and one of migration, auto-review, compaction; it cannot combine with --faults or --interactions')
+  || !['migration', 'auto-review', 'compaction', 'timed-question', 'reminder'].includes(values['compat-case']))) {
+  throw new Error('--compat-case requires --live-home and one of migration, auto-review, compaction, timed-question, reminder; it cannot combine with --faults or --interactions')
 }
 if (values.faults && values['fault-case'] !== 'plugins' && !values['live-home']) throw new Error('Model fault probes require --live-home')
 if (values['fault-case'] && (!values.faults || !['plugins', 'reconnect', 'crash', 'streaming', 'rebuild'].includes(values['fault-case']))) {
