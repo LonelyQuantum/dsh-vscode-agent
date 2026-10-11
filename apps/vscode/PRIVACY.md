@@ -26,4 +26,4 @@ The underlying profile supports disabling this telemetry with `DSH_TELEMETRY_DIS
 
 ## Support and disclosure
 
-The community issue tracker is public. Do not attach raw logs, home directories or credentials. Report ordinary extension bugs with sanitized steps via the [issue tracker](https://github.com/LonelyQuantum/dsh-vscode-agent/issues). Do not post exploitable vulnerabilities or private data publicly; a private community security-contact channel must be established before public distribution.
+The community issue tracker is public. Do not attach raw logs, home directories or credentials. Report ordinary extension bugs with sanitized steps via the [issue tracker](https://github.com/LonelyQuantum/dsh-vscode-agent/issues). Report vulnerabilities privately according to the [community security policy](SECURITY.md); do not post exploitation details or private data publicly.

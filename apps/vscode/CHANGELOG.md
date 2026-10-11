@@ -2,7 +2,7 @@
 
 English | [中文](CHANGELOG.zh.md)
 
-## Unreleased
+## 0.0.1 — 2026-10-11
 
 - Configure shared credentials, endpoints and default models through native inputs without opening Desktop or automatically testing a provider.
 - Add shared/isolated identification and scoped recovery controls; preserve history and other native clients' leases.
@@ -15,6 +15,7 @@ English | [中文](CHANGELOG.zh.md)
 - Add community identification, public installation guidance, privacy disclosure and package metadata.
 - Set the community author and intended publisher to `LonelyQuantum`; keep the extension version at `0.0.1` and document migration from the local preview identity.
 - Include a PNG icon, license notices and a SHA-256 sidecar in the packaging workflow.
+- Include bilingual security guidance and the community repository's private vulnerability-reporting channel.
 - Validate release files and reject the local publisher placeholder when checking Marketplace preparation.
 
 - Let either Desktop or VS Code initialize and start the shared backend without opening Desktop first.

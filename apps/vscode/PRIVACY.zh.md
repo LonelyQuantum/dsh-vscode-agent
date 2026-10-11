@@ -26,4 +26,4 @@
 
 ## 支持与披露
 
-社区问题跟踪器是公开的，请勿附加原始日志、home 目录或密钥。普通扩展问题可通过[问题跟踪器](https://github.com/LonelyQuantum/dsh-vscode-agent/issues)提交脱敏后的复现步骤。不要公开可利用的漏洞或私有数据；公开分发前必须建立社区私密安全联系渠道。
+社区问题跟踪器是公开的，请勿附加原始日志、home 目录或密钥。普通扩展问题可通过[问题跟踪器](https://github.com/LonelyQuantum/dsh-vscode-agent/issues)提交脱敏后的复现步骤。请按[社区安全策略](SECURITY.zh.md)私密报告漏洞，不要公开利用细节或私有数据。

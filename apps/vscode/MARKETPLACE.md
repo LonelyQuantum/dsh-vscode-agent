@@ -28,4 +28,6 @@ Tool permissions apply to model actions; review prompts and file diffs before gr
 
 The VSIX includes the Node Host and client assets, not Electron, Node, pnpm or the Desktop Python/Office skills payload. Desktop-specific Office/Python resources require a compatible Desktop runtime. This is a community preview, not a security certification or a promise that arbitrary plugins are safe.
 
-Report reproducible problems to the [community issue tracker](https://github.com/LonelyQuantum/dsh-vscode-agent/issues). Include versions and sanitized reproduction steps; remove keys, account tokens, home paths, conversation contents and private files. See the [change log](CHANGELOG.md), [developer instructions](README.md) and [release checklist](RELEASING.md).
+Auto review is experimental and disabled by default. An intermittent reviewer-removal timeout has not been explained; use manual approval for predictable decisions. Simultaneous conflicting approval decisions across clients have not been manually qualified.
+
+Report reproducible problems to the [community issue tracker](https://github.com/LonelyQuantum/dsh-vscode-agent/issues). Include versions and sanitized reproduction steps; remove keys, account tokens, home paths, conversation contents and private files. Report vulnerabilities privately using the [security policy](SECURITY.md). See the [change log](CHANGELOG.md), [developer instructions](README.md) and [release checklist](RELEASING.md).
