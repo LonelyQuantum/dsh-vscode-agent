@@ -1,6 +1,6 @@
 /** Fake credentials enter only native password controls; model requests use a loopback fixture. */
 import { strict as assert } from 'node:assert'
-import { glob, readFile, unlink, writeFile } from 'node:fs/promises'
+import { glob, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 /**
@@ -24,25 +24,26 @@ export async function runOnboardingCheck({ browser, root, evaluate, request, wai
   }
   const key = 'fixture-only-editor-key'
   const configure = async (value, rotating) => {
-    await unlink(join(root, 'configured')).catch(error => { if (error.code !== 'ENOENT') throw error })
-    await writeFile(join(root, 'configure'), 'requested')
+    assert.equal(await evaluate('return [...root.querySelectorAll("footer button")].some(button => /API settings|API 配置/.test(button.textContent))'), false)
+    const configureButton = page.getByRole('button', { name: /^(DSH: )?Configure API$/ })
+    await waitFor(async () => await configureButton.count() === 1 && await configureButton.isVisible())
+    await configureButton.click()
     await pick('API configuration source', 'Configure a shared provider')
     await pick('Shared provider', 'DeepSeek')
     await input('API endpoint', endpoint)
     await input(rotating ? 'New API key' : 'API key', value, true)
-    await pick('Model for new conversations', 'Enter a custom model ID')
-    await input('Custom model ID', 'native-editor-fixture')
+    await pick('Model for new conversations', 'DeepSeek-V4.1-Flash')
     await pick('Save shared provider settings?', 'Save')
+    await evaluate('doc.defaultView.__DSH_ONBOARDING_RECONNECT__ = true')
     await page.getByRole('button', { name: 'Reconnect DSH', exact: true }).click()
-    await waitFor(() => readIfPresent(join(root, 'configured')))
-    await waitFor(() => evaluate('return !!root?.querySelector("[data-composer-input]") && !!doc.defaultView.__DSH_VSCODE__?.lastSession()'))
+    await waitFor(() => evaluate('return !doc.defaultView.__DSH_ONBOARDING_RECONNECT__ && !!root?.querySelector("[data-composer-input]") && !!doc.defaultView.__DSH_VSCODE__?.lastSession()'))
   }
   await configure(key, false)
   assert.equal(provider.requests.length, 0, 'Saving settings must not test a model endpoint')
   const credentials = await readFile(join(home, '.credentials.yaml'), 'utf8')
   assert.ok(credentials.includes(key))
   const patch = await readFile(join(home, 'profiles/desktop/cordis.patch.yml'), 'utf8')
-  assert.ok(patch.includes('native-editor-fixture'))
+  assert.equal(/^\s+models:/m.test(patch), false, 'Selecting a declared model must not replace its capabilities')
   assert.ok(patch.includes(endpoint))
   assert.equal(patch.includes(key), false)
   const body = await evaluate('return { html: doc.documentElement.outerHTML, state: doc.defaultView.__DSH_VSCODE__?.lastSession() }')
@@ -55,14 +56,16 @@ export async function runOnboardingCheck({ browser, root, evaluate, request, wai
     await request('Input.insertText', { text: marker })
     await request('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 })
     await request('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 })
-    await waitFor(() => evaluate('return root.innerText.includes("NATIVE_ONBOARDING_DONE") && !root.querySelector("[data-streaming=true]")'))
+    await waitFor(() => evaluate('return root?.innerText.includes("NATIVE_ONBOARDING_DONE") && !root.querySelector("[data-streaming=true]")'))
   }
   await send('Native onboarding first turn')
+  assert.equal(provider.requests.at(-1)?.body?.model, 'deepseek-flash')
   assert.equal(provider.requests.at(-1)?.headers['x-api-key'], key)
   await configure('fixture-only-editor-rotated-key', true)
   const count = provider.requests.length
   await send('Native onboarding rotated turn')
   await waitFor(() => provider.requests.length > count)
+  assert.equal(provider.requests.at(-1)?.body?.model, 'deepseek-flash')
   assert.equal(provider.requests.at(-1)?.headers['x-api-key'], 'fixture-only-editor-rotated-key')
   const { readSessionLog } = await import('../lib/session-log.mjs')
   let submitted = 0

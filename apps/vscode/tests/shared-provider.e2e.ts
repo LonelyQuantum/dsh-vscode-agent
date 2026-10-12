@@ -7,7 +7,7 @@ import { expect, it, vi } from 'vitest'
 import { acquireSharedHost, type SharedHostClient } from '@deepseek-ai/dsh-shared-host/client'
 import { startMockLlmServer } from '@deepseek-ai/dsh-llm-mock-server'
 import { HostProxy } from '../src/proxy.ts'
-import type { SessionProjectionsValue } from '@deepseek-ai/dsh-api-session-controller'
+import type { ModelCatalog, SessionProjectionsValue } from '@deepseek-ai/dsh-api-session-controller'
 import { setupSharedProvider, type ProviderSetupUi } from '../src/provider-setup.ts'
 import { extensionCopy } from '../src/locale.ts'
 import { sharedBackendApi } from '../../desktop/tests/shared-backend-harness.ts'
@@ -56,6 +56,52 @@ it('configures a fresh editor home, attaches Desktop, cancels unchanged and rota
     },
   }
   const request = connection.nativeRequest.bind(connection)
+  const initialCatalog = await request('session/modelCatalog', {}) as ModelCatalog
+  expect(initialCatalog.groups.some(group => group.id === 'deepseek-official')).toBe(false)
+  const freshPatch = await readFile(join(home, 'profiles/desktop/cordis.patch.yml'))
+  const declaredUi: ProviderSetupUi = { ...ui,
+    pick: async (title, choices) => {
+      if (title === copy.model) {
+        expect(choices).toEqual([
+          { id: 'deepseek-flash', label: 'DeepSeek-V4.1-Flash' },
+          { id: 'deepseek-v4-pro', label: 'DeepSeek-V4-Pro' },
+          { id: '\u0000custom', label: copy.customModel },
+        ])
+        return 'deepseek-flash'
+      }
+      return ui.pick(title, choices)
+    },
+    input: async (title, value, password, validate) => {
+      expect(title).not.toBe(copy.modelId)
+      return ui.input(title, value, password, validate)
+    },
+  }
+  expect(await setupSharedProvider(request, { ...declaredUi,
+    pick: async (title, choices) => title === copy.saveProvider ? 'cancel' : declaredUi.pick(title, choices),
+  }, copy, () => true)).toBe('cancelled')
+  expect(await readFile(join(home, 'profiles/desktop/cordis.patch.yml'))).toEqual(freshPatch)
+  expect(await request('credentials/describe', { refs: ['DEEPSEEK_API_KEY'] }))
+    .toMatchObject({ DEEPSEEK_API_KEY: { configured: false } })
+  expect(await setupSharedProvider(request, declaredUi, copy, () => true)).toBe('saved')
+  const declaredCatalog = await request('session/modelCatalog', {}) as ModelCatalog
+  expect(declaredCatalog.default).toMatchObject({ provider: 'deepseek-official', model: 'deepseek-flash' })
+  const catalogModels = declaredCatalog.groups.find(group => group.id === 'deepseek-official')?.models
+  expect(catalogModels?.find(model => model.id === 'deepseek-flash')).toMatchObject({
+    id: 'deepseek-flash', name: 'DeepSeek-V4.1-Flash',
+  })
+  const directory = await request('llm/listConfigurableProviders', {}) as { provider: string; settingsNs: string }[]
+  const providerNs = directory.find(entry => entry.provider === 'deepseek-official')!.settingsNs
+  const declaredSettings = await request('settings/describe', {}) as {
+    namespaces: { ns: string; value: { models?: { id: string }[] } }[]
+  }
+  const configuredModels = declaredSettings.namespaces.find(section => section.ns === providerNs)?.value.models
+  expect(configuredModels?.find(model => model.id === 'deepseek-flash')).toMatchObject({
+    id: 'deepseek-flash', inputModalities: ['text', 'image'],
+    systemPromptUpdate: 'in-history', toolUpdate: 'addition-only',
+  })
+  const defaultPatch = await readFile(join(home, 'profiles/desktop/cordis.patch.yml'), 'utf8')
+  expect(defaultPatch).not.toMatch(/^\s+models:/m)
+  expect(provider.requests).toHaveLength(0)
   expect(await setupSharedProvider(request, ui, copy, () => true)).toBe('saved')
   expect(provider.requests).toHaveLength(0)
   const desktop = await attach('desktop')

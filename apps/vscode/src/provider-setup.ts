@@ -57,6 +57,7 @@ export function validProviderEndpoint(value: string): boolean {
 
 /**
  * Gather and confirm all native inputs before writing; cancellation performs no writes.
+ * Initial setup offers declared provider models when credential-gated discovery is empty, without early writes.
  * Provider validation and stale-write refusal happen before credential rotation. Saves do not run a model test.
  * @param request Native-only authenticated Remote caller.
  * @param ui Native selectors, password input and explicit save confirmation.
@@ -101,10 +102,12 @@ export async function setupSharedProvider(request: NativeRequest, ui: ProviderSe
   if (!key.trim() && info.configured !== true) throw new NativeRequestError('input')
   const groups = records(record(rawCatalog).groups)
   const group = groups.find(row => row.id === selected)
-  const models = group ? records(group.models) : []
+  const discoveredModels = group ? records(group.models) : []
+  const configuredModels = fields.models === undefined ? [] : records(fields.models)
+  const models = discoveredModels.length > 0 ? discoveredModels : configuredModels
   const modelId = await ui.pick(copy.model, [...models.map((row) => {
-    if (typeof row.id !== 'string' || typeof row.name !== 'string') throw new NativeRequestError('response')
-    return { label: row.name, id: row.id }
+    if (typeof row.id !== 'string' || (row.name !== undefined && typeof row.name !== 'string')) throw new NativeRequestError('response')
+    return { label: row.name ?? row.id, id: row.id }
   }), { label: copy.customModel, id: '\u0000custom' }])
   if (modelId === undefined || !active()) return 'cancelled'
   const custom = modelId === '\u0000custom' ? await ui.input(copy.modelId, '', false,
@@ -118,10 +121,9 @@ export async function setupSharedProvider(request: NativeRequest, ui: ProviderSe
     { op: 'set', path: [...entry.settingsPath, 'apiKeyEnv'], value: reference },
   ]
   if (endpoint.trim()) ops.push({ op: 'set', path: [...entry.settingsPath, 'baseURL'], value: endpoint.trim() })
-  if (custom !== undefined) {
-    const previous = fields.models === undefined ? [] : records(fields.models)
+  if (custom !== undefined && !configuredModels.some(row => row.id === model)) {
     ops.push({ op: 'set', path: [...entry.settingsPath, 'models'], value:
-      [...previous.filter(row => row.id !== model), { id: model, name: model }] })
+      [...configuredModels, { id: model, name: model }] })
   }
   await request('settings/mutate', { ns: owner.ns, ops, expectedRevision: owner.revision })
   if (!active()) throw new NativeRequestError('partial')
