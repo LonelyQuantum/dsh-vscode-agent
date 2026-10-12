@@ -2,8 +2,7 @@
 - Initial layout: all conversations when this workspace is empty, above a bottom-docked new-message composer
 - Selection reference: context.ts · v7*
 - Preview: exact immutable snapshot
-- Credential gesture: native carrier
-- Footer: selection, Problems, API settings; no History, new-conversation or file button
+- Footer: selection and Problems only; no API settings, History, new-conversation or file button
 - Plus menu: file chooser uploads editor-upload.txt; menu stays clickable and viewport-contained; Escape and outside click dismiss
 - Keyboard: modified Enter and IME retain drafts; Shift+Enter inserts a line
 - Permission menu: viewport-contained; Escape and outside click dismiss

@@ -1,6 +1,6 @@
 /** Copy owned by the editor conversation shell. */
 export const en = {
-  newSession: 'New conversation', settings: 'API settings', actions: 'Conversation actions',
+  newSession: 'New conversation', actions: 'Conversation actions',
   historyLabel: 'Conversations in this workspace', allConversations: 'All conversations', empty: 'No conversations yet',
   loading: 'Opening workspace…', failed: 'Unable to open this workspace.', retry: 'Retry',
   backToList: 'Back to conversations',
@@ -12,7 +12,7 @@ export const en = {
 export type VscodeKey = keyof typeof en
 /** Simplified Chinese dictionary with the same keys. */
 export const zh: Record<VscodeKey, string> = {
-  newSession: '新建对话', settings: 'API 配置', actions: '对话操作',
+  newSession: '新建对话', actions: '对话操作',
   historyLabel: '此工作区的对话', allConversations: '全部对话', empty: '暂无对话',
   loading: '正在打开工作区…', failed: '无法打开此工作区。', retry: '重试',
   backToList: '返回会话列表',

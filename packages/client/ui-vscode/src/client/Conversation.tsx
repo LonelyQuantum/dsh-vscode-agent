@@ -62,7 +62,6 @@ export function Conversation(props: Pick<EditorProps, 'sessionId' | 'useSession'
         onClick={() => { if (captureLifetime.current !== undefined) props.capture(kind, captureLifetime.current.signal) }}>
         {t(kind)}
       </Button>)}
-      <Button size="sm" onClick={props.configure}>{t('settings')}</Button>
     </footer>
   </section>
 }

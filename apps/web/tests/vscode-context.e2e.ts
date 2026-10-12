@@ -48,8 +48,9 @@ it('renders explicit editor references and native previews in a narrow conversat
       await chip.click()
       await expect.poll(() => page.evaluate(() => (Reflect.get(globalThis, '__DSH_EDITOR_OBSERVATIONS__') as { preview: string }).preview))
         .toBe(snapshot)
-      await root.getByRole('button', { name: 'API settings', exact: true }).click()
-      expect(await page.evaluate(() => (Reflect.get(globalThis, '__DSH_EDITOR_OBSERVATIONS__') as { configured: boolean }).configured)).toBe(true)
+      expect(await root.getByRole('button', { name: 'API settings', exact: true }).count()).toBe(0)
+      expect(await root.locator('footer').getByRole('button').allTextContents()).toEqual(['Attach selection', 'Attach Problems'])
+      expect(await page.evaluate(() => (Reflect.get(globalThis, '__DSH_EDITOR_OBSERVATIONS__') as { configured: boolean }).configured)).toBe(false)
       for (const width of [320, 420]) {
         await page.setViewportSize({ width, height: 900 })
         const geometry = await root.evaluate(element => ({ width: element.clientWidth, scroll: element.scrollWidth }))
@@ -127,7 +128,7 @@ it('renders explicit editor references and native previews in a narrow conversat
       }
       await compareOrRefreshGolden(fileURLToPath(new URL('./expected/vscode-context/interaction.expected.md', import.meta.url)),
         ['- Editor layout: single column at 320/420 px', '- Initial layout: all conversations when this workspace is empty, above a bottom-docked new-message composer', '- Selection reference: context.ts · v7*',
-          '- Preview: exact immutable snapshot', '- Credential gesture: native carrier', '- Footer: selection, Problems, API settings; no History, new-conversation or file button',
+          '- Preview: exact immutable snapshot', '- Footer: selection and Problems only; no API settings, History, new-conversation or file button',
           '- Plus menu: file chooser uploads editor-upload.txt; menu stays clickable and viewport-contained; Escape and outside click dismiss',
           '- Keyboard: modified Enter and IME retain drafts; Shift+Enter inserts a line',
           '- Permission menu: viewport-contained; Escape and outside click dismiss',

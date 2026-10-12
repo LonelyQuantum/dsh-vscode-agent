@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Navigation exercises the shared factory with deterministic controller snapshots. */
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -49,8 +49,14 @@ it('renders shared conversation content and persists the selected session', () =
   expect(screen.queryByRole('button', { name: 'History' })).toBeNull()
   expect(screen.queryByRole('button', { name: 'New conversation' })).toBeNull()
   expect(screen.queryByRole('button', { name: 'Attach file' })).toBeNull()
-  fireEvent.click(screen.getByText('API settings'))
-  expect(props.configure).toHaveBeenCalledOnce()
+  expect(screen.queryByRole('button', { name: 'API settings' })).toBeNull()
+  expect(props.configure).not.toHaveBeenCalled()
+})
+
+it.each([false, true])('keeps only selection and Problems actions below the composer when blank=%s', (blank) => {
+  fixture('ready', blank)
+  const toolbar = screen.getByLabelText(en.actions)
+  expect(within(toolbar).getAllByRole('button').map(button => button.textContent)).toEqual([en.selection, en.problems])
 })
 
 it('lists only this workspace’s active sessions and resumes one', () => {
