@@ -37,7 +37,7 @@ The [Web bundle](../../bundle/web-app/README.md) mounts this row for the [VS Cod
 - name: '@deepseek-ai/dsh-client-ui-vscode'
 ```
 
-The carrier supplies its trusted local workspace before Client boot. Both list modes exclude archived Sessions, blank drafts, and delegated agents. Its composer uses the shared workspace navigation policy, including reuse of an existing blank Session. API settings opens the carrier's native configuration command; no key enters this Client plugin.
+The carrier supplies its trusted local workspace before Client boot. Both list modes exclude archived Sessions, blank drafts, and delegated agents. Its composer uses the shared workspace navigation policy, including reuse of an existing blank Session. The Agent view's upper-right key action opens native API configuration; the bottom toolbar has no API settings button. No key enters this Client plugin.
 
 The composer's plus menu opens the shared file picker for file and image attachments. The bottom toolbar captures selected text or Problems explicitly, without separate file, History, or new-conversation buttons. Each editor-reference chip contains the carrier's immutable snapshot; clicking it opens a read-only preview of the exact submitted text. Copying or restoring the draft preserves that text. Capture is rejected if the draft revision changes, navigation starts, the Session changes, or the view closes before it finishes.
 

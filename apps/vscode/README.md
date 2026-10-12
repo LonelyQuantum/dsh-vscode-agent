@@ -99,7 +99,7 @@ Add `--security` for keyless browser-enforced CSP/resource checks, competing chi
 
 Each window admits one trusted local folder. Remote SSH/WSL, virtual and multi-root workspaces are rejected. Shared mode supports multiple native clients per home; isolated mode retains its single-writer restriction. Backend crashes require an explicit reconnect and never resend input. Windows is locally qualified; macOS/Linux shared-carrier behavior is not.
 
-The bottom toolbar provides explicit selection/Problems capture and native API configuration. Startup shows the conversation list rather than restoring the last Session. Unsent drafts are not shared. Auto review remains experimental and disabled by default.
+The bottom toolbar provides explicit selection/Problems capture; native API configuration uses the Agent view's upper-right key action. Startup shows the conversation list rather than restoring the last Session. Unsent drafts are not shared. Auto review remains experimental and disabled by default.
 
 Normal shutdown preserves an Auto Session's durable permission selection. Unloading its reviewer while the runtime is active switches it to Read Only with human approval; reinstalling the reviewer does not silently re-enable Auto. Live reviewer removal cancels active Auto work and closes its agent-owned persistent terminals before downgrading; user-owned VS Code terminals are unaffected. Older previews may already have recorded Full access during shutdown: check those Sessions explicitly, because the log cannot distinguish that change from a deliberate selection. See [Auto review lifecycle](../../packages/experimental/auto-review/README.md#understand-the-implementation).
 

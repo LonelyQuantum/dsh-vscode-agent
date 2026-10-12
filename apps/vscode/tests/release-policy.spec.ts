@@ -20,6 +20,12 @@ it('identifies the community author and derives the canonical editor identity fr
   expect(EXTENSION_ID).toBe('lonelyquantum.dsh-vscode-agent')
 })
 
+it('keeps native API setup on the Agent view title key action', () => {
+  expect(manifest.contributes.commands.find(command => command.command === 'dsh.configure')?.icon).toBe('$(key)')
+  expect(manifest.contributes.menus['view/title'].filter(item => item.command === 'dsh.configure'))
+    .toEqual([{ command: 'dsh.configure', when: 'view == dsh.agent', group: 'navigation@3' }])
+})
+
 it('requires disclosure files and rejects environment files, discovery records and source maps', () => {
   expect(artifactProblems(RELEASE_FILES)).toEqual([])
   for (const required of RELEASE_FILES) expect(artifactProblems(RELEASE_FILES.filter(file => file !== required))).toEqual([`Missing release file: ${required}`])

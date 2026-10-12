@@ -99,7 +99,7 @@ node apps/vscode/scripts/test-extension.mjs "C:/path/to/Microsoft VS Code/Code.e
 
 每个窗口接纳一个受信任的本地文件夹。拒绝 Remote SSH/WSL、虚拟和多根工作区。共享模式支持每个主目录的多个原生客户端；独立模式保留单写入器限制。后台崩溃后需要显式重新连接，不会重发输入。Windows 已在本机验证；macOS/Linux 共享宿主行为尚未验证。
 
-底部工具栏提供显式选区/Problems 捕获和原生 API 配置。启动时显示会话列表，不恢复上次会话。尚未发送的草稿不共享。Auto review 仍属实验功能，默认禁用。
+底部工具栏提供显式选区/Problems 捕获；原生 API 配置使用 Agent 视图右上角的钥匙按钮。启动时显示会话列表，不恢复上次会话。尚未发送的草稿不共享。Auto review 仍属实验功能，默认禁用。
 
 正常关闭会保留 Auto Session 的持久权限选择。运行时仍在活动时卸载 reviewer，会切换为需要人工审批的 Read Only；重新安装 reviewer 不会静默重新启用 Auto。运行中移除 reviewer 会取消活动 Auto 工作，并在降权前关闭其 agent 拥有的持久终端；用户自己的 VS Code 终端不受影响。旧预览可能已在关闭时记录 Full access：请显式检查这些 Session，因为日志无法区分该变更与用户主动选择。参见 [Auto review 生命周期](../../packages/experimental/auto-review/README.zh.md#understand-the-implementation)。
 
