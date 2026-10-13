@@ -108,7 +108,7 @@ Alpha 为编辑器组合包声明明确的可选产品角色，并将已安装/�
 
 ### Alpha 预览验证 — 2026-10-13
 
-维护者根据[发行策略](../../../../apps/vscode/RELEASING.zh.md)要求使用独立版本发布 GitHub alpha 预览，不改动保留的 RC 发行。构建提交 `e2e42399af` 声明扩展版本 `0.0.2-alpha.1`，打包 DSH `0.2.1-alpha.2`。VS Code 接受本地 VSIX 中完整的 SemVer 预发行版本；Marketplace 准备检查拒绝该版本。
+维护者根据[发行策略](../../../../apps/vscode/RELEASING.zh.md)要求使用独立版本发布 GitHub alpha 预览，不改动保留的 RC 发行。已验证的构建声明扩展版本 `0.0.2-alpha.1`，打包 DSH `0.2.1-alpha.2`。VS Code 接受本地 VSIX 中完整的 SemVer 预发行版本；Marketplace 准备检查拒绝该版本。
 
 提供方配置通过 22 项单元测试及一项模拟提供方端到端测试；GUI 测试在 614 个文件中通过 10,098 项，另有一项跳过，编辑器上下文浏览器回放通过。四项发行策略测试覆盖 GitHub 元数据、Marketplace 预发行拒绝及正式版本准备。完整 `pnpm run lint` 通过，保留一条上游已有的未使用指令警告；21 项快速及 43 项完整文档检查通过。
 

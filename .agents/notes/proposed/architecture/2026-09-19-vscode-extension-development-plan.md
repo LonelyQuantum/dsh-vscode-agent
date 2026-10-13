@@ -108,7 +108,7 @@ Alpha adds an explicit optional product role for the editor bundle and excludes 
 
 ### Alpha preview qualification — 2026-10-13
 
-The maintainer requests a separately versioned GitHub alpha preview under the [release policy](../../../../apps/vscode/RELEASING.md), without changing the retained RC publication. Build commit `e2e42399af` declares extension `0.0.2-alpha.1` and bundles DSH `0.2.1-alpha.2`. VS Code accepts the full SemVer prerelease version in a locally installed VSIX; Marketplace preparation rejects it.
+The maintainer requests a separately versioned GitHub alpha preview under the [release policy](../../../../apps/vscode/RELEASING.md), without changing the retained RC publication. The qualified build declares extension `0.0.2-alpha.1` and bundles DSH `0.2.1-alpha.2`. VS Code accepts the full SemVer prerelease version in a locally installed VSIX; Marketplace preparation rejects it.
 
 Provider setup passes 22 unit tests and one mock-provider e2e; the GUI lane passes 10,098 tests with one skip across 614 files, and the editor-context browser replay passes. Four release-policy tests cover GitHub metadata, Marketplace prerelease rejection and stable-version preparation. Full `pnpm run lint` passes with one existing upstream unused-directive warning; the 21 quick and 43 full documentation checks pass.
 
