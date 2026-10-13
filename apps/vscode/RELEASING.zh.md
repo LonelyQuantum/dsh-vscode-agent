@@ -8,7 +8,9 @@
 
 打包的运行时记录包含 DSH 版本、官方发行标签、源码分支、依赖版本及锁文件校验值。打包要求该标签是源码分支的祖先；alpha 和 RC 产物分别验证。本地文件名包含 DSH 版本（`dsh-vscode-agent-<extension-version>-dsh-<dsh-version>-win32-x64.vsix`），避免 alpha 构建覆盖保留的 RC VSIX。
 
-扩展版本由 `extension.manifest.json` 定义；工作区 `package.json` 的版本独立跟随 DSH。本地开发仍保持扩展版本 `0.0.1`；这不意味着可以使用已发布的版本号再次公开分发不同产物。普通提交和本地构建不递增版本号；改动统一累积在[更新记录](CHANGELOG.zh.md)的“未发布”部分。
+扩展版本由 `extension.manifest.json` 定义；工作区 `package.json` 的版本独立跟随 DSH。扩展使用 `MAJOR.MINOR.PATCH-alpha.N`、`MAJOR.MINOR.PATCH-rc.N` 和 `MAJOR.MINOR.PATCH`，不复制 DSH 的版本数字。alpha 和 RC 对同一目标发行分别维护预发行计数，按 SemVer 顺序由 alpha 晋级到 RC，再到正式版。普通提交和本地构建保留已声明版本；改动统一累积在[更新记录](CHANGELOG.zh.md)的“未发布”部分。
+
+GitHub VSIX 预览在扩展清单、产物文件名及 `vscode-v<version>` 标签中保留完整扩展版本。分发前必须验证在受支持编辑器中的安装。Marketplace 不支持 SemVer 预发行标识，准备检查会拒绝此类清单。以后发布 Marketplace 时需要另行批准兼容的编号方案，不能静默去掉渠道后缀。
 
 公开发布时，先选定发布版本，更新扩展清单、更新记录及带版本号的示例，并在打标签前提交这些改动。构建并验证该提交后，再为其创建 `vscode-v<version>` 标签，以区分扩展发行和上游 DSH 发行。首次发布后，每次后续公开发行（包括预览版）都使用新版本号，不得以同一版本号替换为内容不同的产物。
 

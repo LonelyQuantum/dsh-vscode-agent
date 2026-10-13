@@ -10,13 +10,16 @@ export const RELEASE_FILES = ['package.json', 'README.md', 'README.zh.md', 'CHAN
 /**
  * Inspect a disk manifest before packaging or preparing a Marketplace upload.
  * @param value Parsed manifest JSON.
- * @param marketplace Whether a non-placeholder publisher is required.
+ * @param marketplace Whether to enforce Marketplace version and publisher restrictions.
  * @returns Actionable local errors, never a claim of Marketplace account verification.
  */
 export function manifestProblems(value: unknown, marketplace: boolean): string[] {
   if (typeof value !== 'object' || value === null) return ['Extension manifest must be an object']
   const manifest = value as Record<string, unknown>
   const problems: string[] = []
+  if (marketplace && typeof manifest.version === 'string' && manifest.version.includes('-')) {
+    problems.push('Marketplace requires a major.minor.patch version without SemVer prerelease identifiers')
+  }
   if (typeof manifest.publisher !== 'string' || !/^[a-z0-9][a-z0-9-]*$/i.test(manifest.publisher)) problems.push('Set a valid publisher ID')
   if (marketplace && manifest.publisher === 'dsh-local') problems.push('Replace dsh-local with your registered Marketplace publisher ID')
   if (manifest.preview !== true) problems.push('Keep this community preview marked preview')

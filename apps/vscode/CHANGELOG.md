@@ -4,9 +4,13 @@ English | [中文](CHANGELOG.zh.md)
 
 ## Unreleased
 
+## 0.0.2-alpha.1 — 2026-10-13
+
 - Port the RC extension to DSH `0.2.1-alpha.2`, retaining independent shared startup, native provider configuration and editor context.
 - Adopt alpha’s startup authority and preset-service APIs; preserve its working-directory service, structured drafts and Session projections.
-- Include the DSH version in local VSIX filenames; keep the published RC artifact and extension development version unchanged.
+- Keep extension versions independent of DSH, with separate `alpha.N` and `rc.N` prerelease sequences; include both versions in VSIX filenames.
+- Offer provider-declared model choices during first-key configuration and preserve existing model capabilities.
+- Keep API configuration on the Agent view title key action and remove the duplicate composer-footer button.
 
 ## 0.0.1 — 2026-10-11
 
