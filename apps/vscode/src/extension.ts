@@ -46,7 +46,10 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
   let closeActive: (() => void) | undefined
   let proxy: HostProxy | undefined
   let opening: Promise<void> | undefined
+  let openingView: vscode.WebviewView | undefined
   let stopping: Promise<void> | undefined
+  let stopGeneration = 0
+  let deactivating = false
   let configuring = false
   const recovery = (message: string, action: 'configure' | 'home' | 'node' | null = 'configure'): string => statusDocument(message, [
     { action: 'restart', label: text.reconnect },
@@ -60,6 +63,8 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
     void done.finally(() => pendingDisposals.delete(done))
   }
   const stop = (): Promise<void> => {
+    if (stopping) return stopping
+    stopGeneration++
     const activeOpening = opening
     return stopping ??= (async () => {
       closeActive?.()
@@ -72,10 +77,7 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
       stopping = undefined
     })()
   }
-  const open = async (): Promise<void> => {
-    if (stopping) await stopping
-    const current = panel
-    if (!current) return
+  const open = async (current: vscode.WebviewView): Promise<void> => {
     current.show(true)
     if (proxy) return
     const folders = vscode.workspace.workspaceFolders
@@ -87,7 +89,7 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
     diagnostics = { boot: false, rpc: 0, assets: 0, socket: false, clientFailure: false }
     const lifetime = { closed: false }
     const nativeLifetime = new AbortController()
-    const isClosed = (): boolean => lifetime.closed
+    const isClosed = (): boolean => lifetime.closed || panel !== current || !trusted()
     const bindings: vscode.Disposable[] = []
     closeActive = () => {
       lifetime.closed = true
@@ -235,10 +237,27 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
       booting = undefined
     }
   }
-  const requestOpen = (): Promise<void> => {
-    if (opening) return opening
-    opening = open().finally(() => { opening = undefined })
-    return opening
+  const requestOpen = async (generation = stopGeneration): Promise<void> => {
+    const requested = panel
+    if (!requested) return
+    const cancelled = (): boolean => panel !== requested || generation !== stopGeneration || deactivating
+    if (cancelled()) return
+    // Only active startup belongs to `opening`; queued views must not make stop await itself.
+    while (stopping || opening) {
+      if (stopping) await stopping
+      else if (opening) {
+        const active = opening
+        if (openingView === requested) return active
+        await active
+      }
+      if (cancelled() || !trusted()) return
+    }
+    openingView = requested
+    const owned = open(requested).finally(() => {
+      if (opening === owned) { opening = undefined; openingView = undefined }
+    })
+    opening = owned
+    return owned
   }
   const connectDesktop = async (): Promise<void> => {
     const picked = await vscode.window.showOpenDialog({ title: text.desktopFolder, canSelectFiles: false,
@@ -256,6 +275,7 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider('dsh.agent', {
       resolveWebviewView(view) {
+        if (panel !== view) closeActive?.()
         panel = view
         const actions = view.webview.onDidReceiveMessage((message: unknown) => {
           if (!trusted() || panel !== view || typeof message !== 'object' || message === null
@@ -265,13 +285,19 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
           else if (message.action === 'home') void vscode.commands.executeCommand('dsh.useDesktopApi')
           else if (message.action === 'node') void vscode.commands.executeCommand('workbench.action.openSettings', 'dsh.nodePath')
         })
-        view.onDidDispose(() => { actions.dispose(); closeActive?.(); if (panel === view) panel = undefined })
+        view.onDidDispose(() => {
+          actions.dispose()
+          if (panel !== view) return
+          closeActive?.()
+          panel = undefined
+        })
         void requestOpen()
       },
     }, { webviewOptions: { retainContextWhenHidden: true } }),
     vscode.commands.registerCommand('dsh.open', async () => {
+      const generation = stopGeneration
       await vscode.commands.executeCommand('dsh.agent.focus')
-      await requestOpen()
+      await requestOpen(generation)
     }),
     vscode.commands.registerCommand('dsh.stop', stop),
     vscode.commands.registerCommand('dsh.restart', async () => { await stop(); await requestOpen() }),
@@ -331,7 +357,7 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
     }),
     vscode.workspace.onDidChangeWorkspaceFolders(() => { void stop() }),
   )
-  stopExtension = stop
+  stopExtension = () => { deactivating = true; return stop() }
   return { diagnostics: () => ({ ...diagnostics }) }
 }
 

@@ -2,6 +2,10 @@
 
 English | [中文](CHANGELOG.zh.md)
 
+## Unreleased
+
+- Fix view replacement during asynchronous startup; retain one runtime and transport, cancel queued opens on stop, and ignore superseded view disposal.
+
 ## 0.0.1 — 2026-10-11
 
 - Configure shared credentials, endpoints and default models through native inputs without opening Desktop or automatically testing a provider.
