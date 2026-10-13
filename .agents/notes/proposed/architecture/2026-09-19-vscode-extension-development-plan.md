@@ -118,6 +118,14 @@ Workspace Trust qualification initially times out after the grant action. A same
 
 Full archive decompression, current source/diff and 44 own-commit scans find no selected Desktop or alpha API key, current user/repository paths or private state/debug filenames. The archive retains license notices. GitHub private vulnerability reporting is enabled. Publication remains pending the unresolved trust qualification decision; these results do not complete A4.
 
+### View startup qualification — 2026-10-13
+
+Alpha fixes a deterministically reproduced view-startup race: a replacement view joined the disposed view's pending credential read and never started. The pre-fix regression fails; 19 activation cases cover replacement during credential lookup and runtime boot, same-view coalescing, queued cancellation, superseded disposal and late transport cleanup. Artifact-code checks also require replacement to start without another focus command. The [preview README](../../../../apps/vscode/README.md) owns the lifecycle guarantees.
+
+The rebuilt alpha Windows artifact retains extension `0.0.2-alpha.1` and DSH `0.2.1-alpha.2`; it contains 23,721 entries and 158,732,778 bytes, with SHA-256 `5d67719dabf50fd0e3d95992f2484d30488fb81e4966d184e1f6f19d1f9e1b1c`. This exact artifact passes installed shared-home startup/restart/crash cleanup, Workspace Trust grant/revocation with an independent Desktop lease, and keyboard/list/attachment-menu/capture-focus UX. Its decompressed-byte scan finds no selected managed key, current user/repository path or forbidden private/debug file. Full lint passes with the existing upstream warning. Documentation reports 41 aggregate passes; the sandbox-blocked website build passes on the host, and the timed-out CLI-help check passes independently.
+
+The original first Trust timeout lacks retained stage evidence and is not attributed to this race. These results qualify the fixed view-startup behavior, not the remaining live-model, Auto or simultaneous-approval work. No new tag, push or publication accompanies this qualification; the published RC artifact is preserved.
+
 ### Next development sequence — 2026-10-01
 
 The next outcome is a community preview that a new user can install, configure, and use without installing or opening Desktop. Keep the current conversation-list and bottom-composer design. Backend cold startup, shared data ownership, community identification, privacy documentation, packaging checks, and the development-version policy already exist; they are not new feature milestones. [Shared-host ownership](../../../../apps/shared-host/README.md), [editor UX](../../../../packages/client/ui-vscode/README.md), and the [release checklist](../../../../apps/vscode/RELEASING.md) own their current behavior.
