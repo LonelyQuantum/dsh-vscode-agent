@@ -17,7 +17,14 @@ export async function runWorkspaceTrustCheck({ browser, root, waitFor, readIfPre
   if (heldDesktop && await heldDesktop.control('inspect-update')) throw new Error('Restricted Mode acquired an editor lease')
   await writeFile(join(root, 'phase'), 'granting')
   await page.getByRole('button', { name: 'Trust', exact: true }).click()
-  await waitFor(() => observed('granted'), 120_000)
+  try { await waitFor(() => observed('granted'), 120_000) }
+  catch (error) {
+    let state
+    try { state = await readIfPresent(join(root, 'trust-stage')) }
+    catch (_error) { state = 'unavailable' }
+    console.error('VSCODE_TRUST_OBSERVER_STATE', state ?? 'missing')
+    throw error
+  }
   if (heldDesktop && !await heldDesktop.control('inspect-update')) throw new Error('Trusted DSH did not acquire an editor lease')
   await writeFile(join(root, 'phase'), 'revoking')
   await page.getByRole('button', { name: "Don't Trust", exact: true }).click()
