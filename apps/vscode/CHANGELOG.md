@@ -4,6 +4,8 @@ English | [中文](CHANGELOG.zh.md)
 
 ## Unreleased
 
+- Fix view replacement during asynchronous startup; retain one runtime and transport, cancel queued opens on stop, and ignore superseded view disposal.
+
 ## 0.0.2-alpha.1 — 2026-10-13
 
 - Port the RC extension to DSH `0.2.1-alpha.2`, retaining independent shared startup, native provider configuration and editor context.
