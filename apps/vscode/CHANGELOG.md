@@ -4,6 +4,7 @@ English | [中文](CHANGELOG.zh.md)
 
 ## Unreleased
 
+- Adapt the Alpha development line to DSH `0.2.1-alpha.3`, retaining independent extension versioning and the RC release line.
 - Fix view replacement during asynchronous startup; retain one runtime and transport, cancel queued opens on stop, and ignore superseded view disposal.
 
 ## 0.0.2-alpha.1 — 2026-10-13
