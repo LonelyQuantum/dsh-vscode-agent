@@ -81,7 +81,7 @@ try {
   await writeFile(join(userData, 'User/settings.json'), JSON.stringify({
     ...values['fresh-shared'] ? {} : { 'dsh.backend': values['shared-home'] ? 'shared' : 'isolated' },
     ...(values['shared-home'] ? { 'dsh.desktopHome': resolve(values['shared-home']) } : {}),
-    'telemetry.telemetryLevel': 'off', 'workbench.startupEditor': 'none' }))
+    'telemetry.telemetryLevel': 'off', 'update.mode': 'none', 'workbench.startupEditor': 'none' }))
   let extensionPath = resolve(app, 'lib/extension')
   if (values.vsix) {
     const cliCandidates = [join(dirname(executable), 'resources/app/out/cli.js'),
@@ -127,7 +127,7 @@ try {
     await cp(join(app, 'lib/trust-host.cjs'), join(extensionPath, 'probe.cjs'))
     await mkdir(join(userData, 'User'), { recursive: true })
     await writeFile(join(userData, 'User/settings.json'), JSON.stringify({ 'security.workspace.trust.startupPrompt': 'never',
-      'security.workspace.trust.enabled': true, 'telemetry.telemetryLevel': 'off', 'workbench.startupEditor': 'none',
+      'security.workspace.trust.enabled': true, 'telemetry.telemetryLevel': 'off', 'update.mode': 'none', 'workbench.startupEditor': 'none',
       'dsh.backend': values['fresh-shared'] ? 'shared' : 'isolated' }))
     if (values['fresh-shared']) {
       const installed = (await readdir(extensions)).find(name => name.startsWith(`${EXTENSION_ID}-`))

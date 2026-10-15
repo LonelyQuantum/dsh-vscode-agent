@@ -101,6 +101,8 @@ Add `--security` for keyless browser-enforced CSP/resource checks, competing chi
 
 Grant failures report the trust observer's stage and trust/activation flags before temporary-state cleanup, then propagate the original error. These diagnostics contain no transcripts or credentials and do not extend the test deadline.
 
+The temporary test profiles disable automatic editor updates; they do not change the user's editor settings.
+
 `pnpm run test:e2e apps/vscode/tests/shared-approval.e2e.ts --retry=0` uses a local mock provider and three browser clients of one native shared backend. It verifies Desktop approval, then holds both editors' answer requests before releasing the allow/reject winner in each order. Late answers must leave one durable decision and the winning tool result. This does not replace installed Webview transport or native Electron checks.
 
 ## Known limitations
