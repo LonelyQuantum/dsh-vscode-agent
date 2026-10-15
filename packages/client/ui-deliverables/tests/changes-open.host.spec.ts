@@ -18,6 +18,13 @@ import {
   isChangesEvent, isChangesSummary,
 } from '../src/changes.ts'
 
+declare module '@deepseek-ai/dsh-typert-protocol' {
+  interface PrincipalMap {
+    /** Restricted caller for captured-content access checks. */
+    'test-changes-reader': { readonly kind: 'test-changes-reader' }
+  }
+}
+
 const cleanups: Array<() => Promise<unknown>> = []
 afterEach(async () => {
   for (const cleanup of cleanups.reverse()) await cleanup()
@@ -74,18 +81,27 @@ async function fixture() {
   const read = (query = '?sessionId=owner&seq=9') => handler.fetch(new Request(`http://localhost${CHANGED_FILES_PATH}${query}`), connection.browserPeer)
   const compare = (query = '?sessionId=owner&seq=9&index=0') => handler.fetch(new Request(`http://localhost${CHANGES_DIFF_PATH}${query}`), connection.browserPeer)
   return {
-    browserPeer: connection.browserPeer, handler, applications, root, cwd, ctx, data, readEvent, open, read, compare, comparison, diff,
+    browserPeer: connection.browserPeer, connection, handler, applications, root, cwd, ctx, data, readEvent,
+    open, read, compare, comparison, diff,
     opener, outside, summary, contents,
   }
 }
 
 it('serves complete captured contents through the authenticated route with validated coordinates', async () => {
-  const { handler, contents } = await fixture()
-  const response = await handler.fetch(new Request('http://localhost/api/changes.contents?sessionId=owner&seq=9&index=0'))
+  const { handler, contents, browserPeer } = await fixture()
+  const response = await handler.fetch(new Request('http://localhost/api/changes.contents?sessionId=owner&seq=9&index=0'), browserPeer)
   expect(await response.json()).toEqual({ kind: 'text', path: 'a.ts', display: 'a.ts', before: 'old\n', after: 'new\n' })
   expect(contents).toHaveBeenCalledWith('owner', 9, 0, expect.any(AbortSignal))
   expect(response.headers.get('cache-control')).toBe('no-store')
-  expect((await handler.fetch(new Request('http://localhost/api/changes.contents?sessionId=owner&seq=9&index=-1'))).status).toBe(400)
+  expect((await handler.fetch(new Request('http://localhost/api/changes.contents?sessionId=owner&seq=9&index=-1'), browserPeer)).status).toBe(400)
+})
+
+it('refuses captured contents to a non-owner Peer before reading snapshots', async () => {
+  const { handler, contents, connection } = await fixture()
+  const peer = connection.createPeer({ principal: { kind: 'test-changes-reader' }, interactions: 'none' })
+  const response = await handler.fetch(new Request('http://localhost/api/changes.contents?sessionId=owner&seq=9&index=0'), peer)
+  expect(response.status).toBe(403)
+  expect(contents).not.toHaveBeenCalled()
 })
 
 describe('change summary route', () => {
