@@ -8,6 +8,7 @@ import { expect, it, vi } from 'vitest'
 import { acquireSharedHost, type SharedHostClient } from '@deepseek-ai/dsh-shared-host/client'
 import { startMockLlmServer } from '@deepseek-ai/dsh-llm-mock-server'
 import { SessionId, SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
+import type { ApprovalOutcome } from '@deepseek-ai/dsh-user-approval'
 import { generationLogPath, readSessionLog } from './read-session-log.ts'
 import { sharedBackendApi } from '../../desktop/tests/shared-backend-harness.ts'
 
@@ -112,7 +113,7 @@ it('shares Desktop decisions and commits only the first competing editor answer'
         pages[0]!.getByRole('button', { name: 'Allow once', exact: true }).click(),
         pages[1]!.getByRole('button', { name: 'Reject', exact: true }).click(),
       ])
-      await vi.waitFor(() => expect(captured.size).toBe(2), { timeout: 30_000 })
+      await vi.waitFor(() => { expect(captured.size).toBe(2) }, { timeout: 30_000 })
       routes.push(...await Promise.all(held.map(gate => gate.promise)))
       const lateBody = routes[1 - winner]!.request().postData()!
       continued.add(routes[winner]!)
@@ -120,8 +121,9 @@ it('shares Desktop decisions and commits only the first competing editor answer'
       await settled(winner + 3)
       const decided = (await events()).filter(event => event.type === 'approval/decided')
       expect(decided).toHaveLength(winner + 2)
-      const outcome = decided.at(-1)
-      expect(outcome?.type === 'approval/decided' && outcome.data.outcome).toBe(winner === 0 ? 'allowed-once' : 'rejected')
+      const expectedOutcome: ApprovalOutcome = winner === 0 ? 'allowed-once' : 'rejected'
+      expect(decided.at(-1)).toMatchObject({ type: 'approval/decided',
+        data: { outcome: expectedOutcome } })
       const result = (await events()).filter(event => event.type === 'tool/result').at(-1)
       expect(result?.type === 'tool/result' && result.data.message.isError).toBe(winner === 1)
       expect(await readFile(output, 'utf8')).toBe('APPROVED')
@@ -142,7 +144,7 @@ it('shares Desktop decisions and commits only the first competing editor answer'
           if (route.request().failure() === null) throw error
         }
       }
-      for (let index = 0; index < 2; index += 1) await pages[index]!.unroute(endpoint, handlers[index]!)
+      for (let index = 0; index < 2; index += 1) await pages[index]!.unroute(endpoint, handlers[index])
     }
   }
   for (const page of pages) await expect.poll(() => page.locator('[data-approval-key]').count()).toBe(0)

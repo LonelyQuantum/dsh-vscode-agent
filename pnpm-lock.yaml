@@ -929,6 +929,9 @@ importers:
       '@deepseek-ai/dsh-shared-host':
         specifier: workspace:*
         version: link:../shared-host
+      '@deepseek-ai/dsh-user-approval':
+        specifier: workspace:*
+        version: link:../../packages/interaction/user-approval
       '@deepseek-ai/dsh-working-directory':
         specifier: workspace:*
         version: link:../../packages/session/working-directory
