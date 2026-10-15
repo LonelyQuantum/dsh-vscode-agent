@@ -31,12 +31,31 @@ function isMaintained(file: string): boolean {
   return !excludedPrefixes.some(prefix => file.startsWith(prefix))
 }
 
+function tomlNumericValues(file: string, source: string): ReadonlySet<number> {
+  if (!file.endsWith('.toml') && file !== 'uv.lock' && !file.endsWith('/uv.lock')) return new Set()
+  // Consume strings and comments before numeric tokens, including multiline strings.
+  const tokens = new RegExp([
+    String.raw`"""(?:\\[\s\S]|"(?!"")|[^"\\])*"""`,
+    String.raw`'''[\s\S]*?'''`,
+    String.raw`"(?:\\[^\r\n]|[^"\\\r\n])*"|'[^'\r\n]*'`,
+    String.raw`#[^\r\n]*|(?<![\w.+-])\d+(?![\w.+-])`,
+  ].join('|'), 'g')
+  const values = new Set<number>()
+  for (const token of source.matchAll(tokens)) {
+    if (!/^\d+$/.test(token[0])) continue
+    const before = source.slice(0, token.index)
+    const after = source.slice(token.index + token[0].length)
+    if (/[=,\[]\s*$/.test(before) && /^\s*(?:[,}\]#]|$)/.test(after)) values.add(token.index)
+  }
+  return values
+}
+
 /**
  * Inspect a maintained source file against known commit identifiers.
  * @param file - Repository-relative path used in diagnostics and exclusions.
  * @param source - File text or a symlink's stored target.
  * @param commits - Lowercase, unambiguous full or abbreviated commit identifiers.
- * @returns One finding per line and reference kind; digests and other Git object types are accepted.
+ * @returns One finding per line and reference kind; TOML decimal values, digests and other Git object types are accepted.
  */
 export function findRepositoryReferences(
   file: string,
@@ -45,13 +64,17 @@ export function findRepositoryReferences(
 ): RepositoryReference[] {
   if (!isMaintained(file)) return []
   const references: RepositoryReference[] = []
+  const numericValues = tomlNumericValues(file, source)
+  let offset = 0
   for (const [index, line] of source.split('\n').entries()) {
     if (organizationUrl.test(canonicalReferenceText(line).replace(kitRepositoryUrl, ''))) {
       references.push({ file, line: index + 1, kind: 'organization-url' })
     }
-    if ([...line.matchAll(commitCandidate)].some(match => commits.has(match[0].toLowerCase()))) {
+    if ([...line.matchAll(commitCandidate)].some(match =>
+      !numericValues.has(offset + match.index) && commits.has(match[0].toLowerCase()))) {
       references.push({ file, line: index + 1, kind: 'commit-hash' })
     }
+    offset += line.length + 1
   }
   return references
 }

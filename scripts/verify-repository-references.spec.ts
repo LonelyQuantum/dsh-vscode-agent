@@ -72,6 +72,26 @@ describe('unique object-name prefix search', () => {
 })
 
 describe('maintained repository reference policy', () => {
+  it('accepts numeric TOML fields without exempting quoted or textual numeric commit references', () => {
+    const digits = '1234567'
+    const commits = new Set([digits])
+    for (const file of ['python/sdk/uv.lock', 'fixture.toml']) {
+      for (const source of [`size = ${digits}`, `{ url = "fixture", size = ${digits} }`, `count = ${digits} # bytes`,
+        `values = [${digits}, ${digits}]`]) {
+        expect(findRepositoryReferences(file, source, commits)).toEqual([])
+      }
+      for (const source of [`commit = "${digits}"`, `# commit ${digits}`, `url = "https://example.invalid/${digits}"`,
+        `commit = '${digits}'`, `value = "size = ${digits}"`]) {
+        expect(findRepositoryReferences(file, source, commits)).toEqual([{ file, line: 1, kind: 'commit-hash' }])
+      }
+      for (const quote of ['"""', "'''"]) {
+        expect(findRepositoryReferences(file, `text = ${quote}\nsize = ${digits}\n${quote}`, commits))
+          .toEqual([{ file, line: 2, kind: 'commit-hash' }])
+      }
+    }
+    expect(findRepositoryReferences('source.md', `size = ${digits}`, commits)).toHaveLength(1)
+  })
+
   it('permits only the independent kit repository and its source URLs', () => {
     for (const suffix of ['', '.git', '/tree/main/packages/entry']) {
       expect(findRepositoryReferences('package.json', `${organizationUrl}/libreoffice-kit${suffix}`, new Set())).toEqual([])
@@ -116,12 +136,10 @@ describe('maintained repository reference policy', () => {
     remote.write('partial-clone/new.md', missing)
 
     expect(scanRepositoryReferences(clone)).toEqual([])
-    expect(execFileSync('git', ['cat-file', '--batch-check'], {
+    expect(execFileSync('git', ['cat-file', '--batch-all-objects', '--batch-check=%(objectname)'], {
       cwd: clone,
       encoding: 'utf8',
-      env: { ...process.env, GIT_NO_LAZY_FETCH: '1' },
-      input: `${missing}\n`,
-    }).trim()).toBe(`${missing} missing`)
+    }).trim().split('\n')).not.toContain(missing)
   })
 
   it('accepts blobs, trees, unknown hex, long digests, and identifiers embedded in alphanumeric words', (test) => {
