@@ -124,6 +124,11 @@ it('shares development pnpm through preparation, installation and replacement wi
   const workspacePnpm = join(directory, 'workspace-pnpm')
   const prepared = join(directory, 'prepared')
   await installPrimaryRuntime(source, root)
+  if (manifest.platform !== 'win32') {
+    const bin = dirname(workspaceDependencyPaths(source, manifest).python)
+    await rename(join(bin, 'python3'), join(bin, 'python3.12'))
+    for (const name of ['python', 'python3']) await symlink('python3.12', join(bin, name))
+  }
   await mkdir(join(workspacePnpm, 'bin'), { recursive: true })
   await writeFile(join(workspacePnpm, 'bin', 'pnpm.mjs'), 'workspace package manager')
   await rm(join(source, 'dependencies', 'pnpm'), { recursive: true })
@@ -132,6 +137,10 @@ it('shares development pnpm through preparation, installation and replacement wi
     await writeFile(join(source, 'runtime.json'), JSON.stringify({ ...manifest, payloadDigest: 'd'.repeat(64) }))
     await copyPrimaryRuntime(source, prepared, manifest)
     expect(await realpath(join(prepared, 'dependencies', 'pnpm'))).toBe(await realpath(workspacePnpm))
+    if (manifest.platform !== 'win32') {
+      const bin = dirname(workspaceDependencyPaths(prepared, manifest).python)
+      for (const name of ['python', 'python3']) expect(await readlink(join(bin, name))).toBe('python3.12')
+    }
     const installed = await installPrimaryRuntime(prepared, root)
     expect(await realpath(installed.pnpm!)).toBe(await realpath(join(workspacePnpm, 'bin', 'pnpm.mjs')))
     expect(await installPrimaryRuntime(prepared, root)).toEqual(installed)

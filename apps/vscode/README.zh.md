@@ -101,6 +101,8 @@ node apps/vscode/scripts/test-extension.mjs "C:/path/to/Microsoft VS Code/Code.e
 
 授予信任失败时，检查会在清理临时状态前报告信任观察器的阶段及信任/激活标记，然后继续传播原始错误。此诊断不包含对话或凭据，也不延长测试期限。
 
+`pnpm run test:e2e apps/vscode/tests/shared-approval.e2e.ts --retry=0` 使用本地模拟提供方，让三个浏览器客户端连接同一原生共享后台。它先验证 Desktop 审批，再拦住两个编辑器的答案请求，分别让允许和拒绝先到达。迟到答案不得增加持久化决定或改变胜出答案的工具结果。这不能替代已安装 Webview 传输或原生 Electron 检查。
+
 ## 已知限制
 
 每个窗口接纳一个受信任的本地文件夹。拒绝 Remote SSH/WSL、虚拟和多根工作区。共享模式支持每个主目录的多个原生客户端；独立模式保留单写入器限制。后台崩溃后需要显式重新连接，不会重发输入。Windows 已在本机验证；macOS/Linux 共享宿主行为尚未验证。
