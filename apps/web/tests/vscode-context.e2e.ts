@@ -3,8 +3,43 @@ import { fileURLToPath } from 'node:url'
 import { readFile } from 'node:fs/promises'
 import { chromium } from 'playwright'
 import { expect, it } from 'vitest'
-import { compareOrRefreshGolden, launchWebScaffold, webSnapshotMode } from './scaffold.ts'
+import { compareOrRefreshGolden, fixtureUserPrompts, launchWebScaffold, seedSession, webSnapshotMode } from './scaffold.ts'
 import { writeComposerDraft } from './support.ts'
+
+it('keeps shared credential masking and reveal controls in an editor conversation', async (context) => {
+  const scaffold = await launchWebScaffold({
+    extraOverlayPath: fileURLToPath(new URL('../../../packages/bundle/vscode-app/cordis.patch.yml', import.meta.url)),
+  })
+  context.onTestFinished(() => scaffold.close())
+  const fixture = await readFile(new URL('../../../snapshots/web/seeded-history/session.v3.jsonl', import.meta.url), 'utf8')
+  const original = 'Use the read tool twice in one assistant message: read a.txt and b.txt. Then reply with the single word DONE and stop.'
+  const key = ['sk', '-', '0123456789abcdef0123456789abcdef'].join('')
+  const prompt = `${key} is the key for this task.`
+  const recording = fixture.replace(original, prompt)
+  expect(fixtureUserPrompts(recording)).toContain(prompt)
+  const sessionId = await seedSession(scaffold, recording, 'vscode-secret-mask')
+  const browser = await chromium.launch()
+  context.onTestFinished(() => browser.close())
+  const page = await browser.newPage({ viewport: { width: 420, height: 900 }, locale: 'en-US' })
+  await page.addInitScript((workspace) => {
+    Reflect.set(globalThis, '__DSH_VSCODE__', {
+      workspace: () => workspace, capture: async () => null, preview: () => {}, configure: () => {},
+      selected: () => {}, lastSession: () => undefined, ready: () => {}, openFile: () => {}, openChanges: () => {},
+    })
+  }, scaffold.workspaceCwd)
+  await page.goto(scaffold.authenticatedUrl)
+  const root = page.locator('[data-vscode-conversation]')
+  const row = root.locator(`nav button[data-session-id="${sessionId}"]`)
+  await row.click()
+  const run = root.locator('[data-user-message] [data-secret]').first()
+  const masked = key.slice(0, 8) + '*'.repeat(key.length - 8)
+  await expect.poll(() => run.textContent()).toBe(masked)
+  await run.getByRole('button', { name: 'Show secret', exact: true }).click()
+  await expect.poll(() => run.textContent()).toBe(key)
+  await root.getByRole('button', { name: 'Back to conversations', exact: true }).click()
+  await row.click()
+  await expect.poll(() => run.textContent()).toBe(masked)
+})
 
 it('renders explicit editor references and native previews in a narrow conversation', async () => {
   const scaffold = await launchWebScaffold({

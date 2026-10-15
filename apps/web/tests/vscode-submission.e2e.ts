@@ -83,6 +83,10 @@ it('replays the exact immutable editor snapshot admitted to the model and Sessio
         release.resolve(undefined)
         const id = await settled
         const session = scaffold.ctx.agents.get(id)!.session
+        const runtimeSections = session.snapshotEvents().flatMap(event => event.type === 'user/message'
+          && event.data.source.kind === 'runtime-context' ? event.data.source.sections.map(section => section.name) : [])
+        expect(runtimeSections).not.toContain('harness:source')
+        expect(runtimeSections).not.toContain('app:web-surface')
         const messages = session.snapshotEvents().filter(event => event.type === 'user/message')
           .filter(event => event.data.source.kind === 'user')
         expect(messages).toHaveLength(1)

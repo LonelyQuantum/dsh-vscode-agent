@@ -35,7 +35,7 @@ kind: "package-bundle"
 <details>
 <summary>实现内部结构——点击展开</summary>
 
-[补丁](cordis.patch.yml)插入 Host 提示词贡献；Web 组合包负责编辑器布局。它禁用浏览器打开、URL 打印及 Web 专属模型界面说明。Host 入口通过共享 system-prompt 注册表提供 VS Code 界面描述；释放插件会移除该节。运行时与客户端依赖通过共享 profile 安装解析。
+[补丁](cordis.patch.yml)插入 Host 提示词贡献；Web 组合包负责编辑器布局。它禁用浏览器打开、URL 打印及独立的 `harness-dev-context` 行，使 Web 专属界面说明和运行时 URL 不进入独立编辑器请求。Host 入口通过共享 system-prompt 注册表提供 VS Code 界面描述；释放插件会移除该节。运行时与客户端依赖通过共享 profile 安装解析。
 
 VS Code 载体为其私有 profile 选择此可选社区组合包；官方默认 profile 不挂载它。[产品包策略](../../../scripts/product-package-policy.ts)声明其维护角色。
 

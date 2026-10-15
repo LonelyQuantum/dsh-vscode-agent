@@ -35,7 +35,7 @@ Start the [VS Code development preview](../../../apps/vscode/README.md). In `iso
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-The [patch](cordis.patch.yml) inserts a Host prompt contribution; the Web bundle owns the editor layout. It disables browser opening, URL printing, and the Web-specific model orientation. The Host entry contributes the VS Code surface description through the shared system-prompt registry; disposal removes that section. Runtime and Client dependencies resolve through the shared profile installation.
+The [patch](cordis.patch.yml) inserts a Host prompt contribution; the Web bundle owns the editor layout. It disables browser opening, URL printing, and the independent `harness-dev-context` row so Web-specific orientation and runtime URLs do not enter isolated editor requests. The Host entry contributes the VS Code surface description through the shared system-prompt registry; disposal removes that section. Runtime and Client dependencies resolve through the shared profile installation.
 
 The VS Code carrier selects this optional community bundle for its private profile; official default profiles do not mount it. Its maintained role is declared in the [product package policy](../../../scripts/product-package-policy.ts).
 

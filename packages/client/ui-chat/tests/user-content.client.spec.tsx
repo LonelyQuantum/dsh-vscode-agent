@@ -128,6 +128,7 @@ describe('user Content Factory', () => {
     const view = b.render(b.factory({ content: { ...empty, text }, facts: {}, loadImage: b.loadImage }))
     const textNode = view.getByText('**literal user text** second line')
     expect(textNode.textContent).toBe(text)
+    expect(view.container.querySelector('[data-user-message]')?.textContent).toBe(text)
     const root = view.container.querySelector('[data-slot="root"]')
     expect(textNode.closest('div')?.parentElement).toBe(root?.firstElementChild)
     expect(root?.children).toHaveLength(1)

@@ -29,6 +29,8 @@ Opening the plugin shows the current workspace's nonblank, unarchived conversati
 
 Messages can use the full transcript width with 12 px side clearance in narrow editor columns. The native carrier supplies VS Code colors for messages, input, menus, code, and scrollbars. Editor theme classes select non-persistent light/dark registry entries, including high-contrast variants, so shared cards use the matching palette without changing saved DSH theme preferences. Ordinary browser compositions retain their own theme.
 
+Sent user messages use the shared content and text Factories, including the [credential display mask](../ui-secret-mask/README.md) when mounted by the Web bundle. Masking does not remove secrets from copied text, model input, or Session storage.
+
 Conversation rows use the shared DSH radius and focus-ring tokens, including keyboard focus and pointer-modality suppression.
 
 The [Web bundle](../../bundle/web-app/README.md) mounts this row for the [VS Code preview](../../../apps/vscode/README.md), including shared Desktop-profile clients. It activates only when the native editor bridge is present; ordinary browser and Desktop documents retain their existing layout. No plugin configuration is required:
