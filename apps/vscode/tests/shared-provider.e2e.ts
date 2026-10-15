@@ -31,9 +31,9 @@ it('configures a fresh editor home, attaches Desktop, cancels unchanged and rota
       expect(stopped).toBe(true)
     }, { timeout: 30_000 })
   })
-  const attach = async (role: 'desktop' | 'vscode') => {
+  const attach = async (role: 'desktop' | 'vscode', environmentKey?: string) => {
     const client = await acquireSharedHost({ home, version, role,
-      environment: { ...process.env, DEEPSEEK_API_KEY: undefined, DSH_TELEMETRY_DISABLED: '1' },
+      environment: { ...process.env, DEEPSEEK_API_KEY: environmentKey, DSH_TELEMETRY_DISABLED: '1' },
       launch: { protocol: 1, version, node: process.execPath,
         runtime: process.env.DSH_TEST_SHARED_RUNTIME ?? resolve('apps/vscode') } })
     clients.push(client)
@@ -140,4 +140,22 @@ it('configures a fresh editor home, attaches Desktop, cancels unchanged and rota
   expect(provider.requests.at(-1)?.headers['x-api-key']).toBe(key.value)
   await editor.close()
   expect(JSON.stringify(await api('session/list', { _request: {} }))).toContain(session.sessionId)
+  await desktop.close()
+  await vi.waitFor(() => {
+    let stopped = false
+    try { process.kill(desktop.ready.pid, 0) } catch (error) {
+      if (!(error instanceof Error) || !('code' in error) || error.code !== 'ESRCH') throw error
+      stopped = true
+    }
+    expect(stopped).toBe(true)
+  }, { timeout: 30_000 })
+  const restarted = await attach('vscode', 'fixture-only-launch-fallback')
+  const restoredApi = await sharedBackendApi(restarted)
+  expect(await restoredApi('credentials/describe', { refs: ['DEEPSEEK_API_KEY'] }))
+    .toMatchObject({ DEEPSEEK_API_KEY: { configured: true, source: 'file', writable: true } })
+  const beforeRestartPrompt = provider.requests.length
+  await restoredApi('session/prompt', { request: { sessionId: session.sessionId, requestId: randomUUID(), mode: 'queue',
+    content: [{ type: 'text', text: 'Stored credential after shared restart' }] } })
+  await vi.waitFor(() => { expect(provider.requests.length).toBeGreaterThan(beforeRestartPrompt) }, { timeout: 30_000 })
+  expect(provider.requests.at(-1)?.headers['x-api-key']).toBe(key.value)
 }, 120_000)
