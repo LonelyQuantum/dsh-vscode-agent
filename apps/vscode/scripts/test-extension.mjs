@@ -150,7 +150,13 @@ try {
   const timer = setTimeout(() => { timedOut = true; void stop() }, 300_000)
   try {
     if (ui) {
-      await waitFor(() => readIfPresent(join(root, 'ready')), 120_000)
+      await waitFor(async () => {
+        if (values.trust) {
+          const failure = await readIfPresent(join(root, 'failed'))
+          if (failure) throw new Error(failure)
+        }
+        return readIfPresent(join(root, 'ready'))
+      }, 120_000)
       const devtools = await waitFor(() => readIfPresent(join(userData, 'DevToolsActivePort')))
       const [port, socketPath] = devtools.trim().split('\n')
       browser = await chromium.connectOverCDP(`ws://127.0.0.1:${Number(port)}${socketPath}`)

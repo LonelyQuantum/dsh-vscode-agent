@@ -5,5 +5,5 @@
     "skipLibCheck": true, "allowImportingTsExtensions": true, "noEmit": true,
     "lib": ["ES2024", "DOM", "DOM.Iterable"], "types": ["node", "vscode"]
   },
-  "include": ["src/**/*.ts", "tests/*.e2e.ts"]
+  "include": ["src/**/*.ts", "tests/*.e2e.ts", "tests/*.spec.ts"]
 }

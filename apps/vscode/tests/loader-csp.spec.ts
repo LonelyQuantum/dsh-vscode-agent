@@ -6,7 +6,7 @@ import { expect, it } from 'vitest'
 it('loads literal configuration without string compilation and rejects expressions under CSP', async () => {
   const result = await build({ entryPoints: [fileURLToPath(new URL('../../../vendor/loader/src/config/utils.ts', import.meta.url))],
     bundle: true, write: false, platform: 'browser', format: 'iife', globalName: 'loaderUtils' })
-  const code = result.outputFiles[0].text
+  const code = result.outputFiles[0]!.text
   expect(runInNewContext(code + '; JSON.stringify(loaderUtils.interpolate({}, { nested: [1, "literal"] }))', {},
     { contextCodeGeneration: { strings: false, wasm: false } })).toBe('{"nested":[1,"literal"]}')
   expect(() => {

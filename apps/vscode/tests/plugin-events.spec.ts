@@ -58,11 +58,11 @@ it('decodes fragmented UTF-8 graphs through the authenticated carrier and aborts
     const message = event(source, 'message')
     const graph = { type: 'graph', label: '插件' }
     for (const byte of new TextEncoder().encode(`: connected\n\ndata: ${JSON.stringify(graph)}\n\n`)) {
-      connections[0].write(Uint8Array.of(byte))
+      connections[0]!.write(Uint8Array.of(byte))
     }
     expect(JSON.parse((await message as MessageEvent<string>).data)).toEqual(graph)
     source.close()
-    expect(connections[0].signal.aborted).toBe(true)
+    expect(connections[0]!.signal.aborted).toBe(true)
     expect(source.readyState).toBe(Source.CLOSED)
   } finally { source.close() }
 })
@@ -79,10 +79,10 @@ it.each([false, true])('reconnects after stream loss (error=%s), then cancels a 
   try {
     await event(source, 'open')
     const firstGraph = event(source, 'message')
-    connections[0].write(new TextEncoder().encode('retry: 25\ndata: first graph\n\n'))
+    connections[0]!.write(new TextEncoder().encode('retry: 25\ndata: first graph\n\n'))
     await firstGraph
     const disconnected = event(source, 'error')
-    connections[0].end(failed)
+    connections[0]!.end(failed)
     await disconnected
     expect(source.readyState).toBe(Source.CONNECTING)
     const reopened = event(source, 'open')
@@ -90,10 +90,10 @@ it.each([false, true])('reconnects after stream loss (error=%s), then cancels a 
     await reopened
     expect(connections).toHaveLength(2)
     const refreshed = event(source, 'message')
-    connections[1].write(new TextEncoder().encode('data: refreshed graph\n\n'))
+    connections[1]!.write(new TextEncoder().encode('data: refreshed graph\n\n'))
     expect((await refreshed as MessageEvent<string>).data).toBe('refreshed graph')
     const retrying = event(source, 'error')
-    connections[1].end(failed)
+    connections[1]!.end(failed)
     await retrying
     source.close()
     await vi.advanceTimersByTimeAsync(100)
@@ -125,18 +125,18 @@ it('delivers multiline UTF-8 frames across a shell Fetch reconnect and cancels i
   const reader = response.body!.getReader()
   try {
     await opened
-    connections[0].write(new TextEncoder().encode('retry: 25\ndata: 插件\ndata: graph\n\n'))
+    connections[0]!.write(new TextEncoder().encode('retry: 25\ndata: 插件\ndata: graph\n\n'))
     expect(new TextDecoder().decode((await reader.read()).value)).toBe('data: 插件\ndata: graph\n\n')
     const disconnected = sourceEvent('error')
-    connections[0].end(false)
+    connections[0]!.end(false)
     await disconnected
     const reopened = sourceEvent('open')
     await vi.advanceTimersByTimeAsync(25)
     await reopened
-    connections[1].write(new TextEncoder().encode('data: next graph\n\n'))
+    connections[1]!.write(new TextEncoder().encode('data: next graph\n\n'))
     expect(new TextDecoder().decode((await reader.read()).value)).toBe('data: next graph\n\n')
     const retrying = sourceEvent('error')
-    connections[1].end(true)
+    connections[1]!.end(true)
     await retrying
     await reader.cancel()
     await vi.advanceTimersByTimeAsync(100)
@@ -172,9 +172,9 @@ it('bounds a paused consumer and cancels an active subscription on abort', async
   const reader = response.body!.getReader()
   try {
     await vi.waitFor(() => { expect(connections).toHaveLength(1) })
-    connections[0].write(new TextEncoder().encode('data: ' + 'x'.repeat(MAX_PLUGIN_EVENT_BYTES) + '\n\n'))
+    connections[0]!.write(new TextEncoder().encode('data: ' + 'x'.repeat(MAX_PLUGIN_EVENT_BYTES) + '\n\n'))
     await expect(reader.read()).rejects.toThrow('buffering limit')
-    expect(connections[0].signal.aborted).toBe(true)
+    expect(connections[0]!.signal.aborted).toBe(true)
   } finally { await Promise.allSettled([reader.cancel()]) }
   const abort = new AbortController()
   const next = await pluginEventFetch(fetch, Source)('/plugins/events', { signal: abort.signal })
@@ -184,6 +184,6 @@ it('bounds a paused consumer and cancels an active subscription on abort', async
     const pending = nextReader.read()
     abort.abort(new Error('fixture aborted'))
     await expect(pending).rejects.toThrow('fixture aborted')
-    expect(connections[1].signal.aborted).toBe(true)
+    expect(connections[1]!.signal.aborted).toBe(true)
   } finally { abort.abort(); await Promise.allSettled([nextReader.cancel()]) }
 })

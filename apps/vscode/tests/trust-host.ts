@@ -31,11 +31,14 @@ export async function run(): Promise<void> {
     vscode.extensions.getExtension(EXTENSION_ID)
   const mark = (stage: string): Promise<void> => writeFile(join(root, 'trust-stage'), JSON.stringify({
     stage, trusted: vscode.workspace.isTrusted, active: extension()?.isActive === true,
+    expectedId: EXTENSION_ID, availableIds: vscode.extensions.all.map(item => item.id),
   }))
   if (await read('phase') !== 'revoking') {
     if (!await read('phase')) {
       assert.equal(vscode.workspace.isTrusted, false)
       assert.notEqual(extension()?.isActive, true)
+      // Observer activation does not establish installed-extension discovery.
+      await vscode.commands.executeCommand('workbench.extensions.search', '@installed')
       await vscode.commands.executeCommand('workbench.trust.manage')
       await writeFile(join(root, 'ready'), 'restricted')
     }
