@@ -1,9 +1,10 @@
 /** Change trust only through the isolated editor's native Workspace Trust controls. */
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import manifest from '../extension.manifest.json' with { type: 'json' }
 
 /**
- * Grant and revoke trust while an independent test extension observes DSH enablement and process exit.
+ * Grant trust after installed-extension discovery; independently observe enablement and revocation.
  * @param tools Isolated editor and file-based readiness observations.
  * @returns Completion after the revoked state is acknowledged.
  */
@@ -15,6 +16,8 @@ export async function runWorkspaceTrustCheck({ browser, root, waitFor, readIfPre
   }
   const page = await waitFor(() => browser.contexts()[0].pages().find(page => page.url().includes('workbench')))
   if (heldDesktop && await heldDesktop.control('inspect-update')) throw new Error('Restricted Mode acquired an editor lease')
+  const installed = page.getByText(manifest.displayName, { exact: true }).first()
+  await waitFor(() => installed.isVisible())
   await writeFile(join(root, 'phase'), 'granting')
   await page.getByRole('button', { name: 'Trust', exact: true }).click()
   try { await waitFor(() => observed('granted'), 120_000) }

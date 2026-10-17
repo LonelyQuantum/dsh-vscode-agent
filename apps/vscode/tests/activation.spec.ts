@@ -1,6 +1,6 @@
 /** View replacement, cancellation, and trust admission during asynchronous startup. */
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import type * as vscode from 'vscode'
+import * as vscode from 'vscode'
 import type { RuntimeReady } from '../src/runtime.ts'
 
 const state = vi.hoisted(() => ({
@@ -61,9 +61,9 @@ afterEach(async () => { await deactivate() })
 
 function initialize(): void {
   // The test supplies only activation-owned VS Code members; native editor services are mocked above.
-  const context = { subscriptions: [], extensionUri: {}, extensionPath: '/extension', globalStorageUri: { fsPath: '/storage' },
-    secrets: { get: state.secret } } as vscode.ExtensionContext
-  activate(context)
+  const context: Partial<vscode.ExtensionContext> = { subscriptions: [], extensionUri: vscode.Uri.file('/extension'), extensionPath: '/extension', globalStorageUri: vscode.Uri.file('/storage'),
+    secrets: { get: state.secret, store: vi.fn(), delete: vi.fn(), onDidChange: () => ({ dispose() {} }) } }
+  activate(context as vscode.ExtensionContext)
 }
 
 class TestView {
@@ -326,7 +326,7 @@ it.each(['untrusted', 'remote', 'multi-root', 'virtual'])('refuses %s workspaces
   if (mode === 'untrusted') state.trusted = false
   if (mode === 'remote') state.remote = 'ssh-remote'
   if (mode === 'multi-root') state.folders.push({ uri: { scheme: 'file', fsPath: '/other' } })
-  if (mode === 'virtual') state.folders[0].uri.scheme = 'vscode-vfs'
+  if (mode === 'virtual') state.folders[0]!.uri.scheme = 'vscode-vfs'
   await open()
   expect(state.secret).not.toHaveBeenCalled()
   expect(state.start).not.toHaveBeenCalled()
