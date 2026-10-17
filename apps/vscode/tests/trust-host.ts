@@ -29,6 +29,9 @@ export async function run(): Promise<void> {
   }
   const extension = (): vscode.Extension<{ diagnostics(): PreviewDiagnostics }> | undefined =>
     vscode.extensions.getExtension(EXTENSION_ID)
+  const mark = (stage: string): Promise<void> => writeFile(join(root, 'trust-stage'), JSON.stringify({
+    stage, trusted: vscode.workspace.isTrusted, active: extension()?.isActive === true,
+  }))
   if (await read('phase') !== 'revoking') {
     if (!await read('phase')) {
       assert.equal(vscode.workspace.isTrusted, false)
@@ -36,12 +39,17 @@ export async function run(): Promise<void> {
       await vscode.commands.executeCommand('workbench.trust.manage')
       await writeFile(join(root, 'ready'), 'restricted')
     }
+    await mark('waiting-for-trust')
     await waitFor(() => vscode.workspace.isTrusted)
+    await mark('waiting-for-extension')
     await waitFor(() => extension() !== undefined)
     const installed = extension()
     assert.ok(installed, 'Trusted workspace cannot see the installed extension')
+    await mark('activating-extension')
     const api = await installed.activate()
+    await mark('opening-view')
     await vscode.commands.executeCommand('dsh.open')
+    await mark('waiting-for-view')
     await waitFor(() => api.diagnostics().boot && !!api.diagnostics().editorUI)
     assert.equal(api.diagnostics().clientFailure, false)
     await writeFile(join(root, 'granted'), String(api.diagnostics().pid))

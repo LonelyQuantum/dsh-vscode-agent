@@ -33,6 +33,9 @@ function fixture(state: 'ready' | 'loading' | 'error' = 'ready', blank = false) 
     t: key => dictionary[key] ?? key, renderFactorySlot: factory,
     selected: vi.fn(), ready: vi.fn(), showConversations: vi.fn(), openSession: vi.fn(), configure: vi.fn(), retry: vi.fn(),
     capture: vi.fn(),
+    inputActions: { captureInsertion: vi.fn(() => ({ start: 1, end: 3, draftRev: 9 })), insertText: vi.fn(() => true),
+      setDraft: vi.fn(), persistDraft: vi.fn(), addAttachments: vi.fn(() => true), removeAttachment: vi.fn(),
+      pruneAttachments: vi.fn(), submit: vi.fn() },
   }
   const view = render(<Conversation {...props} />)
   return { props, factory, view }
@@ -134,9 +137,9 @@ it('keeps context actions below the composer and cancels capture on unmount', ()
   const action = screen.getByRole('button', { name: en.selection })
   expect(composer.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   fireEvent.click(action)
-  expect(props.capture).toHaveBeenCalledWith('selection', expect.any(AbortSignal))
+  expect(props.capture).toHaveBeenCalledWith('selection', expect.any(AbortSignal), { start: 3, end: 3, draftRev: 9 })
   fireEvent.click(screen.getByRole('button', { name: en.problems }))
-  expect(props.capture).toHaveBeenLastCalledWith('problems', expect.any(AbortSignal))
+  expect(props.capture).toHaveBeenLastCalledWith('problems', expect.any(AbortSignal), { start: 3, end: 3, draftRev: 9 })
   const signal = vi.mocked(props.capture).mock.calls[0]![1]
   cleanup()
   expect(signal.aborted).toBe(true)

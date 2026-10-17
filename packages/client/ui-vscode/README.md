@@ -29,6 +29,8 @@ Opening the plugin shows the current workspace's nonblank, unarchived conversati
 
 Messages can use the full transcript width with 12 px side clearance in narrow editor columns. The native carrier supplies VS Code colors for messages, input, menus, code, and scrollbars. Editor theme classes select non-persistent light/dark registry entries, including high-contrast variants, so shared cards use the matching palette without changing saved DSH theme preferences. Ordinary browser compositions retain their own theme.
 
+Sent user messages use the shared content and text Factories, including the [credential display mask](../ui-secret-mask/README.md) when mounted by the Web bundle. Masking does not remove secrets from copied text, model input, or Session storage.
+
 Conversation rows use the shared DSH radius and focus-ring tokens, including keyboard focus and pointer-modality suppression.
 
 The [Web bundle](../../bundle/web-app/README.md) mounts this row for the [VS Code preview](../../../apps/vscode/README.md), including shared Desktop-profile clients. It activates only when the native editor bridge is present; ordinary browser and Desktop documents retain their existing layout. No plugin configuration is required:
@@ -40,6 +42,10 @@ The [Web bundle](../../bundle/web-app/README.md) mounts this row for the [VS Cod
 The carrier supplies its trusted local workspace before Client boot. Both list modes exclude archived Sessions, blank drafts, and delegated agents. Its composer uses the shared workspace navigation policy, including reuse of an existing blank Session. The Agent view's upper-right key action opens native API configuration; the bottom toolbar has no API settings button. No key enters this Client plugin.
 
 The composer's plus menu opens the shared file picker for file and image attachments. The bottom toolbar captures selected text or Problems explicitly, without separate file, History, or new-conversation buttons. Each editor-reference chip contains the carrier's immutable snapshot; clicking it opens a read-only preview of the exact submitted text. Copying or restoring the draft preserves that text. Capture is rejected if the draft revision changes, navigation starts, the Session changes, or the view closes before it finishes.
+
+Captures insert at the composer caret without replacing selected draft text. A command label must remain first; if the caret precedes it, move the caret after the label when prompted, then attach again.
+
+When the connected Host announces another release, an editor notice offers **Not now** or **Reload DSH view** without taking input focus. The shared module system keeps the loaded plugin graph unchanged until reload, including when only the build commit differs. Reload reads current startup data and replaces only the editor page; it keeps the native backend lease and running tasks. The list reopens, and selecting a conversation restores its unsent structured draft, including command and editor-reference chips. Dismissing the notice does not make a different release's plugins safe to load.
 
 -----
 
@@ -93,5 +99,3 @@ The editor carrier defines the supported workspace types.
 None.
 
 </details>
-
-**Runtime invariant:** No companion is published. This presentation owns no Session events or independently produced runtime observations; its startup and rendering tests check navigation and disposal directly.

@@ -239,11 +239,7 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
       assert.equal((await currentEvents()).filter(event => event.type === 'user/message'
         && event.data.source.kind === 'user-question-reply').length, 1)
     } else if (selected === 'reminder') {
-      phase = 'enable the optional RC Schedule bundle in the test-owned profile'
-      const changed = await rpc('pluginManager/setBundleEnabled', { name: '@deepseek-ai/dsh-experimental-schedule-bundle', enabled: true })
-      assert.equal(changed.application, 'applied', 'The optional Schedule bundle did not activate')
-      await ready()
-      phase = 'create a reminder through the enabled Schedule tools'
+      phase = 'create a reminder through the standard alpha Schedule tools'
       await send('Call schedule_create exactly once with {"title":"Editor reminder","after_seconds":5,"prompt":"Reply exactly REMINDER_DELIVERED. Do not call any tools."}. After successful creation reply only REMINDER_CREATED. Do not repeat the reminder instructions or claim it has run; its due follow-up will arrive as new user input. Do not call any other tool.')
       await completed('REMINDER_CREATED')
       const createdEvents = await currentEvents()

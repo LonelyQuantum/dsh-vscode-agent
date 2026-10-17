@@ -6,7 +6,7 @@ export const MAX_CONTROL_BYTES = 16 * 1024 * 1024
 /** Native client identity; browser pages never hold a backend lease. */
 export type ClientRole = 'desktop' | 'vscode'
 /** Commands cannot run arbitrary code or select another filesystem path. */
-export type ControlAction = 'inspect-quit' | 'inspect-update' | 'lock-update' | 'unlock-update' | 'release' | 'release-exclusive'
+export type ControlAction = 'read-boot' | 'inspect-quit' | 'inspect-update' | 'lock-update' | 'unlock-update' | 'release' | 'release-exclusive'
 /** Boot information remains in the native carrier, except for the public Client graph. */
 export interface SharedReady { url: string; injections: unknown[]; pid: number }
 /** Authenticated endpoint persisted only inside the user-private control directory. */

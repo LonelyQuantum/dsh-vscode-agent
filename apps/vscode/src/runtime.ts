@@ -32,6 +32,36 @@ export class AgentRuntime {
   private exited: Promise<void> = Promise.resolve()
   private stopping: Promise<void> | undefined
   private shared: Promise<SharedHostClient> | undefined
+  private nextBootId = 0
+
+  /** Read current startup data without releasing the native lease or interrupting a turn. @returns Public Client injections. */
+  async readBoot(): Promise<unknown[]> {
+    if (this.stopping) throw new Error('DSH runtime is stopping')
+    if (this.shared) {
+      const value = await (await this.shared).control('read-boot')
+      if (!Array.isArray(value)) throw new Error('DSH bootstrap response is invalid')
+      const injections: unknown[] = value
+      return injections
+    }
+    const child = this.child
+    if (!child?.connected) throw new Error('DSH runtime is disconnected')
+    const id = ++this.nextBootId
+    return new Promise((resolve, reject) => {
+      const cleanup = (): void => { clearTimeout(timeout); child.off('message', receive); child.off('close', closed) }
+      const fail = (): void => { cleanup(); reject(new Error('DSH bootstrap is unavailable')) }
+      const receive = (value: unknown): void => {
+        if (typeof value !== 'object' || value === null || !('type' in value) || value.type !== 'boot'
+          || !('id' in value) || value.id !== id) return
+        if (!('injections' in value) || !Array.isArray(value.injections)) { fail(); return }
+        cleanup(); resolve(value.injections)
+      }
+      const closed = (): void => { fail() }
+      const timeout = setTimeout(fail, 15_000)
+      child.on('message', receive)
+      child.once('close', closed)
+      child.send({ type: 'read-boot', id }, (error) => { if (error) fail() })
+    })
+  }
 
   /** Observe post-readiness exit. @param listener Receives no raw process output. @returns Listener disposer. */
   onExit(listener: () => void): () => void {

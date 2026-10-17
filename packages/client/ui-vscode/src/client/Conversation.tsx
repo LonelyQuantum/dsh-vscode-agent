@@ -11,7 +11,7 @@ function NoTranscript() { return null }
  * @param props Framework-owned input.
  * @returns Single-column conversation.
  */
-export function Conversation(props: Pick<EditorProps, 'sessionId' | 'useSession' | 'useSessions' | 'useWorkspaces' | 'useWorkspaceBoot' | 't' | 'renderFactorySlot' | 'selected' | 'ready' | 'showConversations' | 'openSession' | 'configure' | 'retry' | 'capture'>) {
+export function Conversation(props: Pick<EditorProps, 'sessionId' | 'useSession' | 'useSessions' | 'useWorkspaces' | 'useWorkspaceBoot' | 'inputActions' | 't' | 'renderFactorySlot' | 'selected' | 'ready' | 'showConversations' | 'openSession' | 'configure' | 'retry' | 'capture'>) {
   const { sessionId, useSession, useSessions, useWorkspaces, useWorkspaceBoot, t, renderFactorySlot } = props
   const session = useSession(snapshot => snapshot)
   const sessions = useSessions(snapshot => snapshot)
@@ -58,8 +58,12 @@ export function Conversation(props: Pick<EditorProps, 'sessionId' | 'useSession'
       })}
     </div>}
     <footer className={css.toolbar} aria-label={t('actions')}>
-      {(['selection', 'problems'] as const).map(kind => <Button key={kind} size="sm" disabled={sessionId === undefined || boot.state !== 'ready'}
-        onClick={() => { if (captureLifetime.current !== undefined) props.capture(kind, captureLifetime.current.signal) }}>
+      {(['selection', 'problems'] as const).map(kind => <Button key={kind} size="sm" disabled={sessionId === undefined || boot.state !== 'ready' || props.inputActions === undefined}
+        onClick={() => {
+          if (captureLifetime.current === undefined || props.inputActions === undefined) return
+          const span = props.inputActions.captureInsertion()
+          props.capture(kind, captureLifetime.current.signal, { ...span, start: span.end })
+        }}>
         {t(kind)}
       </Button>)}
     </footer>

@@ -7,6 +7,7 @@ import { expect, it, vi } from 'vitest'
 import { acquireSharedHost, type SharedHostClient } from '@deepseek-ai/dsh-shared-host/client'
 import { startMockLlmServer } from '@deepseek-ai/dsh-llm-mock-server'
 import { HostProxy } from '../src/proxy.ts'
+import type { ModelCatalog, SessionProjectionsValue } from '@deepseek-ai/dsh-api-session-controller'
 import { setupSharedProvider, type ProviderSetupUi } from '../src/provider-setup.ts'
 import { extensionCopy } from '../src/locale.ts'
 import { sharedBackendApi } from '../../desktop/tests/shared-backend-harness.ts'
@@ -30,9 +31,9 @@ it('configures a fresh editor home, attaches Desktop, cancels unchanged and rota
       expect(stopped).toBe(true)
     }, { timeout: 30_000 })
   })
-  const attach = async (role: 'desktop' | 'vscode') => {
+  const attach = async (role: 'desktop' | 'vscode', environmentKey?: string) => {
     const client = await acquireSharedHost({ home, version, role,
-      environment: { ...process.env, DEEPSEEK_API_KEY: undefined, DSH_TELEMETRY_DISABLED: '1' },
+      environment: { ...process.env, DEEPSEEK_API_KEY: environmentKey, DSH_TELEMETRY_DISABLED: '1' },
       launch: { protocol: 1, version, node: process.execPath,
         runtime: process.env.DSH_TEST_SHARED_RUNTIME ?? resolve('apps/vscode') } })
     clients.push(client)
@@ -55,6 +56,52 @@ it('configures a fresh editor home, attaches Desktop, cancels unchanged and rota
     },
   }
   const request = connection.nativeRequest.bind(connection)
+  const initialCatalog = await request('session/modelCatalog', {}) as ModelCatalog
+  expect(initialCatalog.groups.some(group => group.id === 'deepseek-official')).toBe(false)
+  const freshPatch = await readFile(join(home, 'profiles/desktop/cordis.patch.yml'))
+  const declaredUi: ProviderSetupUi = { ...ui,
+    pick: async (title, choices) => {
+      if (title === copy.model) {
+        expect(choices).toEqual([
+          { id: 'deepseek-flash', label: 'DeepSeek-V4.1-Flash' },
+          { id: 'deepseek-v4-pro', label: 'DeepSeek-V4-Pro' },
+          { id: '\u0000custom', label: copy.customModel },
+        ])
+        return 'deepseek-flash'
+      }
+      return ui.pick(title, choices)
+    },
+    input: async (title, value, password, validate) => {
+      expect(title).not.toBe(copy.modelId)
+      return ui.input(title, value, password, validate)
+    },
+  }
+  expect(await setupSharedProvider(request, { ...declaredUi,
+    pick: async (title, choices) => title === copy.saveProvider ? 'cancel' : declaredUi.pick(title, choices),
+  }, copy, () => true)).toBe('cancelled')
+  expect(await readFile(join(home, 'profiles/desktop/cordis.patch.yml'))).toEqual(freshPatch)
+  expect(await request('credentials/describe', { refs: ['DEEPSEEK_API_KEY'] }))
+    .toMatchObject({ DEEPSEEK_API_KEY: { configured: false } })
+  expect(await setupSharedProvider(request, declaredUi, copy, () => true)).toBe('saved')
+  const declaredCatalog = await request('session/modelCatalog', {}) as ModelCatalog
+  expect(declaredCatalog.default).toMatchObject({ provider: 'deepseek-official', model: 'deepseek-flash' })
+  const catalogModels = declaredCatalog.groups.find(group => group.id === 'deepseek-official')?.models
+  expect(catalogModels?.find(model => model.id === 'deepseek-flash')).toMatchObject({
+    id: 'deepseek-flash', name: 'DeepSeek-V4.1-Flash',
+  })
+  const directory = await request('llm/listConfigurableProviders', {}) as { provider: string; settingsNs: string }[]
+  const providerNs = directory.find(entry => entry.provider === 'deepseek-official')!.settingsNs
+  const declaredSettings = await request('settings/describe', {}) as {
+    namespaces: { ns: string; value: { models?: { id: string }[] } }[]
+  }
+  const configuredModels = declaredSettings.namespaces.find(section => section.ns === providerNs)?.value.models
+  expect(configuredModels?.find(model => model.id === 'deepseek-flash')).toMatchObject({
+    id: 'deepseek-flash', inputModalities: ['text', 'image'],
+    systemPromptUpdate: 'in-history', toolUpdate: 'addition-only',
+  })
+  const defaultPatch = await readFile(join(home, 'profiles/desktop/cordis.patch.yml'), 'utf8')
+  expect(defaultPatch).not.toMatch(/^\s+models:/m)
+  expect(provider.requests).toHaveLength(0)
   expect(await setupSharedProvider(request, ui, copy, () => true)).toBe('saved')
   expect(provider.requests).toHaveLength(0)
   const desktop = await attach('desktop')
@@ -79,7 +126,8 @@ it('configures a fresh editor home, attaches Desktop, cancels unchanged and rota
       content: [{ type: 'text', text: marker }] } })
     await vi.waitFor(() => { expect(provider.requests.length).toBeGreaterThan(count) }, { timeout: 30_000 })
     await vi.waitFor(async () => {
-      const projection = await api('session/projections', { request: { sessionId: session.sessionId } }) as { asOfSeq: number }
+      const projection = await api('session/projections', { request: { sessionId: session.sessionId } }) as SessionProjectionsValue
+      if (projection?.kind !== 'sequenced') throw new Error('Live Session has no sequenced projection')
       const page = await api('session/page', { request: { address: { kind: 'session', sessionId: session.sessionId }, throughSeq: projection.asOfSeq, maxMessages: 20 } })
       expect(JSON.stringify(page)).toContain('NATIVE_PROVIDER_DONE')
     }, { timeout: 30_000 })
@@ -92,4 +140,22 @@ it('configures a fresh editor home, attaches Desktop, cancels unchanged and rota
   expect(provider.requests.at(-1)?.headers['x-api-key']).toBe(key.value)
   await editor.close()
   expect(JSON.stringify(await api('session/list', { _request: {} }))).toContain(session.sessionId)
+  await desktop.close()
+  await vi.waitFor(() => {
+    let stopped = false
+    try { process.kill(desktop.ready.pid, 0) } catch (error) {
+      if (!(error instanceof Error) || !('code' in error) || error.code !== 'ESRCH') throw error
+      stopped = true
+    }
+    expect(stopped).toBe(true)
+  }, { timeout: 30_000 })
+  const restarted = await attach('vscode', 'fixture-only-launch-fallback')
+  const restoredApi = await sharedBackendApi(restarted)
+  expect(await restoredApi('credentials/describe', { refs: ['DEEPSEEK_API_KEY'] }))
+    .toMatchObject({ DEEPSEEK_API_KEY: { configured: true, source: 'file', writable: true } })
+  const beforeRestartPrompt = provider.requests.length
+  await restoredApi('session/prompt', { request: { sessionId: session.sessionId, requestId: randomUUID(), mode: 'queue',
+    content: [{ type: 'text', text: 'Stored credential after shared restart' }] } })
+  await vi.waitFor(() => { expect(provider.requests.length).toBeGreaterThan(beforeRestartPrompt) }, { timeout: 30_000 })
+  expect(provider.requests.at(-1)?.headers['x-api-key']).toBe(key.value)
 }, 120_000)

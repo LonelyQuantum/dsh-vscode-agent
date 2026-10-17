@@ -5,22 +5,83 @@ import { NativeRequestError } from '../src/proxy.ts'
 import { extensionCopy } from '../src/locale.ts'
 
 const copy = extensionCopy('en')
-function fixture() {
+const declaredModel = { id: 'fixture', name: 'Declared fixture', contextWindow: 64000,
+  inputModalities: ['text', 'image'], systemPromptUpdate: 'in-history', toolUpdate: 'addition-only',
+  reasoningEfforts: ['off', 'low', 'high'], defaultReasoningEffort: 'high' }
+function fixture(options: { configured?: boolean; catalog?: 'ready' | 'hidden' | 'empty'; models?: Record<string, unknown>[] } = {}) {
   const writes: { method: string; args: object }[] = []
   const request = vi.fn(async (method: string, args: object): Promise<unknown> => {
     if (method === 'settings/describe') return { writable: true, namespaces: [
-      { ns: 'provider-entry', revision: 7, value: { apiKeyEnv: 'FIXTURE_KEY', baseURL: 'https://example.test/api', models: [{ id: 'fixture' }] } },
+      { ns: 'provider-entry', revision: 7, value: { apiKeyEnv: 'FIXTURE_KEY', baseURL: 'https://example.test/api', models: options.models ?? [declaredModel] } },
       { ns: 'agent-default-model', revision: 2, value: { provider: 'fixture', model: 'fixture' } },
     ] }
     if (method === 'llm/listConfigurableProviders') return [{ provider: 'fixture', displayName: 'Fixture', settingsNs: 'provider-entry', settingsPath: [] }]
-    if (method === 'session/modelCatalog') return { groups: [{ id: 'fixture', models: [{ id: 'fixture', name: 'Fixture model' }] }] }
-    if (method === 'credentials/describe') return { FIXTURE_KEY: { writable: true, configured: true } }
+    if (method === 'session/modelCatalog') return { groups: options.catalog === 'hidden' ? [] :
+      [{ id: 'fixture', models: options.catalog === 'empty' ? [] : [{ id: 'fixture', name: 'Fixture model' }] }] }
+    if (method === 'credentials/describe') return { FIXTURE_KEY: { writable: true, configured: options.configured ?? true } }
     writes.push({ method, args })
   })
   const ui: ProviderSetupUi = { pick: vi.fn(async title => title === copy.saveProvider ? 'save' : 'fixture'),
     input: vi.fn(async title => title === copy.endpoint ? 'https://example.test/new' : 'fixture-only-rotated-key') }
   return { writes, request, ui }
 }
+
+it.each(['hidden', 'empty'] as const)('offers declared models before saving a first key when the live catalog is %s', async (catalog) => {
+  const f = fixture({ configured: false, catalog })
+  const pick = f.ui.pick
+  f.ui.pick = async (title, choices) => {
+    if (title === copy.model) {
+      expect(f.writes).toEqual([])
+      expect(choices).toEqual([{ label: declaredModel.name, id: declaredModel.id }, { label: copy.customModel, id: '\u0000custom' }])
+    }
+    return pick(title, choices)
+  }
+  expect(await setupSharedProvider(f.request, f.ui, copy, () => true)).toBe('saved')
+  expect(vi.mocked(f.ui.input).mock.calls.some(call => call[0] === copy.modelId)).toBe(false)
+  expect(vi.mocked(f.ui.input).mock.calls.find(call => call[0] === copy.sharedKey)?.[2]).toBe(true)
+  expect(f.writes[0]?.args).toMatchObject({ ops: [
+    { op: 'set', path: ['apiKeyEnv'], value: 'FIXTURE_KEY' },
+    { op: 'set', path: ['baseURL'], value: 'https://example.test/new' },
+  ] })
+})
+
+it('cancels first-key confirmation without saving a provider or credential', async () => {
+  const f = fixture({ configured: false, catalog: 'hidden' })
+  const pick = f.ui.pick
+  f.ui.pick = async (title, choices) => title === copy.saveProvider ? 'cancel' : pick(title, choices)
+  expect(await setupSharedProvider(f.request, f.ui, copy, () => true)).toBe('cancelled')
+  expect(f.writes).toEqual([])
+})
+
+it('labels a declared model by its ID when no display name is configured', async () => {
+  const f = fixture({ configured: false, catalog: 'hidden', models: [{ id: 'fixture' }] })
+  const pick = f.ui.pick
+  f.ui.pick = async (title, choices) => {
+    if (title === copy.model) expect(choices[0]).toEqual({ id: 'fixture', label: 'fixture' })
+    return pick(title, choices)
+  }
+  expect(await setupSharedProvider(f.request, f.ui, copy, () => true)).toBe('saved')
+})
+
+it.each([{ id: 1 }, { id: 'fixture', name: 1 }])('refuses malformed declared model fields without saving the key: %j', async (model) => {
+  const f = fixture({ configured: false, catalog: 'hidden', models: [model] })
+  await expect(setupSharedProvider(f.request, f.ui, copy, () => true)).rejects.toMatchObject({ code: 'response' })
+  expect(f.writes).toEqual([])
+})
+
+it('retains declared capabilities when a custom model ID names an existing entry', async () => {
+  const f = fixture()
+  const pick = f.ui.pick
+  const input = f.ui.input
+  f.ui.pick = async (title, choices) => title === copy.model ? '\u0000custom' : pick(title, choices)
+  f.ui.input = async (title, value, password, validate) =>
+    title === copy.modelId ? declaredModel.id : input(title, value, password, validate)
+  expect(await setupSharedProvider(f.request, f.ui, copy, () => true)).toBe('saved')
+  expect(f.writes[0]?.args).toMatchObject({ ops: [
+    { op: 'set', path: ['apiKeyEnv'], value: 'FIXTURE_KEY' },
+    { op: 'set', path: ['baseURL'], value: 'https://example.test/new' },
+  ] })
+})
 
 it('uses directory-owned settings addresses, CAS revisions and native-only credential writes', async () => {
   const f = fixture()

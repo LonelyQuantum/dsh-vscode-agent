@@ -17,7 +17,9 @@ describe('cordisConfigFiles', () => {
   it('finds Loader YAML without treating translation records as configs', () => {
     const root = mkdtempSync(join(tmpdir(), 'dsh-cordis-config-files-'))
     roots.push(root)
-    for (const directory of ['.claude', 'apps/cli/config/examples', 'docs', 'node_modules/pkg', 'vendor/pkg']) {
+    for (const directory of ['.claude', 'apps/cli/config/examples', 'docs', 'node_modules/pkg', 'vendor/pkg',
+      'apps/vscode/lib/packaged-extension/runtime/pkg', 'apps/vscode/node_modules/pkg',
+      'apps/desktop/.desktop-build/development/home', 'tmp/alpha-migration/runtime/pkg']) {
       mkdirSync(join(root, directory), { recursive: true })
     }
     for (const file of [
@@ -27,6 +29,10 @@ describe('cordisConfigFiles', () => {
       'apps/cli/config/examples/headless.cordis.yml',
       'node_modules/pkg/hidden.cordis.yml',
       'vendor/pkg/hidden.cordis.yml',
+      'apps/vscode/lib/packaged-extension/runtime/pkg/cordis.patch.yml',
+      'apps/vscode/node_modules/pkg/cordis.patch.yml',
+      'apps/desktop/.desktop-build/development/home/cordis.yml',
+      'tmp/alpha-migration/runtime/pkg/cordis.patch.yml',
     ]) {
       writeFileSync(join(root, file), '[]\n')
     }

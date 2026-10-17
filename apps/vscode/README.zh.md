@@ -6,7 +6,7 @@
 
 ## 启动预览
 
-源码基线为 DSH `0.2.0-rc.2`。更新后须重新构建；旧 VSIX 包含不同的运行时。源码检查与安装产物验收分别记录。保留现有会话代际；用新写入器打开重要历史前，先在隔离 Harness 主目录中验证升级。
+此 RC 开发线基于 DSH `0.2.1-rc.2`；已发布的 `0.0.1` 预览保留其较早的 RC 运行时。更新后须重新构建；旧 VSIX 包含不同的运行时。通过 `dsh.desktopHome` 为 RC 选择独立的 Harness 主目录；共享时使用本 fork 匹配的 RC Desktop。不要跨开发线共用主目录，也不要因会话格式均为 V4 就假定允许降级。保留已有代际，在升级前先使用主目录副本验证。源码检查与安装产物验收分别记录。
 
 需要桌面版 VS Code 1.106 或更新版本，以及一个已信任的本地文件夹；编辑器自行冷启动或独立模式还需要满足 `^22.19.0 || >=24.0.0` 的 Node。在仓库根目录先构建共享应用，再构建扩展：
 
@@ -22,18 +22,20 @@ pnpm.cmd run dev:vscode
 
 打开扩展即可连接共享后台，或使用扩展自身运行时初始化并启动后台；无需先安装或打开 Desktop。机器级设置 `dsh.desktopHome` 选择已有或新的 Harness 主目录。未设置时按优先级使用第一个可用配置：`DSH_HOME`、当前仓库的开发主目录、账户的 `.dsh` 目录。缺失目录在受信任启动时创建，不会跳过并改用其他主目录。`DSH: 连接桌面版共享后台` 可选择其他主目录。两端需要相同 DSH 版本和主目录；已有 profile 文件及历史保持不变。共享需要本 fork 中支持共享宿主的匹配 Desktop；仅版本号相同的官方 Desktop 构建并不满足条件。
 
-`DSH: 配置 API` 提供原生共享提供方配置、选择另一共享主目录，以及显式使用 `dsh.backend = isolated` 和 SecretStorage 独立密钥的选项。共享配置读取 DSH 的可配置提供方目录和模型列表，再输入 API 地址、密码保护的密钥及模型。不会读回已有密钥，替换时留空保留原凭据。确认后通过后台设置和凭据服务写入，在替换密钥前检查设置修订号。保存不会测试 API 地址或发送模型请求。多步骤保存未完成时会明确提示恢复操作；请重新打开配置，不要假定所有写入均已回滚。重新连接后新会话使用所选默认模型，已有会话保留原模型。删除扩展密钥不会删除共享凭据，私有历史也不会自动合并。
+`DSH: 配置 API` 提供原生共享提供方配置、选择另一共享主目录，以及显式使用 `dsh.backend = isolated` 和 SecretStorage 独立密钥的选项。共享配置读取 DSH 的可配置提供方目录和模型列表，再输入 API 地址、密码保护的密钥及模型。首次配置在保存凭据前提供由提供方声明的模型；普通会话选择器仍要求已配置凭据。选择已声明模型，包括手填已有 ID，均保留其能力元数据。不会读回已有密钥，替换时留空保留原凭据。确认后通过后台设置和凭据服务写入，在替换密钥前检查设置修订号。保存不会测试 API 地址或发送模型请求。多步骤保存未完成时会明确提示恢复操作；请重新打开配置，不要假定所有写入均已回滚。重新连接后新会话使用所选默认模型，已有会话保留原模型。删除扩展密钥不会删除共享凭据，私有历史也不会自动合并。
+
+临时的 `1017` 模型徽标只改变显示标签；官方 Flash 模型 ID 仍为 `deepseek-flash`。原生 API 配置面向模型提供方，不配置独立选择的 Search/Fetch API。这些工具在共享设置中被选择前保留出厂默认值；其地址和问题传输行为见[隐私说明](PRIVACY.zh.md#optional-deepseek-searchfetch)。
 
 <a id="windows-vsix"></a>
 ## Windows VSIX 预览
 
 面向社区用户的安装与数据处理说明位于[介绍页](MARKETPLACE.zh.md)和[隐私说明](PRIVACY.zh.md)。[发布清单](RELEASING.zh.md)将包校验与发布者注册、安装后的编辑器验收分开说明。
 
-构建共享应用后，运行 `pnpm.cmd run package:vscode`。本地产物为 `apps/vscode/lib/dsh-vscode-agent-0.0.1-win32-x64.vsix`；通过 VS Code 的 **扩展: 从 VSIX 安装** 命令安装。打包使用本地 npm tarball 和隔离的生产依赖安装，包含必需的 peer 和 Client 注入包。包内包含共享 Node Host、Web 组合及 Office 转换依赖，不包含 Desktop 的 Electron 外壳、Python/Office skills 载荷、Node 或 pnpm 分发。打包运行时清单记录生产依赖集合。客户端 JavaScript 不包含构建机器的调试路径注释，但保留许可证文本；Windows VSIX 不包含 source map、本机 pnpm 记录或 POSIX 启动脚本。仍需兼容的外部 Node。不执行 Marketplace 发布或签名。
+构建共享应用后，运行 `pnpm.cmd run package:vscode`。本地产物为 `apps/vscode/lib/dsh-vscode-agent-0.0.1-dsh-0.2.1-rc.2-win32-x64.vsix`；通过 VS Code 的 **扩展: 从 VSIX 安装** 命令安装。打包使用本地 npm tarball 和隔离的生产依赖安装，包含必需的 peer 和 Client 注入包。包内包含共享 Node Host、Web 组合及 Office 转换依赖，不包含 Desktop 的 Electron 外壳、Python/Office skills 载荷、Node 或 pnpm 分发。打包运行时清单记录生产依赖集合。客户端 JavaScript 不包含构建机器的调试路径注释，但保留许可证文本；Windows VSIX 不包含 source map、本机 pnpm 记录或 POSIX 启动脚本。仍需兼容的外部 Node。不执行 Marketplace 发布或签名。
 
 打包的客户端资源与 DSH 包记录匹配版本。`runtime.json` 记录平台、架构、包版本和生产锁文件摘要。启动器拒绝版本或平台不匹配，打包元数据无效时不会回退到源码仓库。启动器在加载模块前规范化安装路径，使 Windows 盘符别名共享 DSH 的模块状态。`dsh.repositoryPath` 仅适用于源码开发。构建只替换自己生成的扩展暂存目录；重新构建前请停止开发窗口。
 
-产物冒烟测试将 VSIX 安装到仓库外的临时扩展目录并检查已安装文件：`node apps/vscode/scripts/test-extension.mjs "C:/path/to/Microsoft VS Code/Code.exe" --vsix apps/vscode/lib/dsh-vscode-agent-0.0.1-win32-x64.vsix --fresh-shared`。它在未注册 Desktop 的空测试主目录中启动默认共享后台，再检查重启、崩溃恢复和最终进程退出。它不会修改用户日常使用的 VS Code 安装。
+产物冒烟测试将 VSIX 安装到仓库外的临时扩展目录并检查已安装文件：`node apps/vscode/scripts/test-extension.mjs "C:/path/to/Microsoft VS Code/Code.exe" --vsix apps/vscode/lib/dsh-vscode-agent-0.0.1-dsh-0.2.1-rc.2-win32-x64.vsix --fresh-shared`。它在未注册 Desktop 的空测试主目录中启动默认共享后台，再检查重启、崩溃恢复和最终进程退出。它不会修改用户日常使用的 VS Code 安装。
 
 <a id="editor-context"></a>
 ## 编辑器上下文
@@ -44,9 +46,11 @@ pnpm.cmd run dev:vscode
 
 ## 运行时与传输
 
+共享配置采用 DSH 的已保存凭据优先级：已保存的密钥优先于同名环境变量。原生配置流程不会将已保存的秘密读回编辑器。浏览器认证保留 owner Peer 和转发交互；宿主不会为页面创建不参与交互的 API operator。
+
 启动期间替换视图会等待旧视图启动结束，再仅连接当前视图。同一视图的并发打开命令共用一次启动。停止或扩展关闭会取消排队的打开请求；停止后可显式再次打开以重连。释放已被替换的视图不会断开当前视图。
 
-文件链接仅在当前查看的会话目录和规范化文件属于此工作区时，才在原生编辑器的指定行打开。相对链接按该会话目录解析，支持子目录；目录消失、符号链接或 worktree 越界均被拒绝。改动文件卡片使用 DSH 捕获的完整前后版本打开只读 `vscode.diff` 标签页，两侧合计最多 4 MiB。新建和删除文件不存在的一侧为空，并由标题明确标注。重命名使用 DSH 的旧路径和新路径快照；捕获也可能包含用户同时编辑的内容，并非仅归因于 Agent。拒绝二进制和超大文件对比。捕获随 Host 会话或运行时结束而过期；已打开的标签页保留其副本直到关闭。不提供应用或回退操作。
+文件链接仅在当前查看会话的原项目目录和规范化文件属于此工作区时，才在原生编辑器的指定行打开。相对链接按该原项目目录解析，支持子目录；Agent 改变工作目录不会改变这些链接的基准。请使用相对于原项目的路径或绝对路径；当前工作目录相对的 Markdown 目标尚不能消除歧义。捕获的改动目标保留记录时的路径；目录消失、符号链接或 worktree 越界均被拒绝。改动文件卡片使用 DSH 捕获的完整前后版本打开只读 `vscode.diff` 标签页，两侧合计最多 4 MiB。新建和删除文件不存在的一侧为空，并由标题明确标注。重命名使用 DSH 的旧路径和新路径快照；捕获也可能包含用户同时编辑的内容，并非仅归因于 Agent。拒绝二进制和超大文件对比。捕获随 Host 会话或运行时结束而过期；已打开的标签页保留其副本直到关闭。不提供应用或回退操作。
 
 默认 `shared` 模式为每个原生客户端提供一个租约，连接规范化 Harness 主目录对应的同一个 Desktop profile 后台。多个编辑器窗口与 Desktop 共用一个写入器。每个编辑器优先显示当前工作区的会话，没有时显示全部会话。在列表页发送新消息会在编辑器工作区开始对话。关闭面板保留原生租约；停止、重启或退出只释放该窗口租约。最后一个租约释放后关闭 profile。
 
@@ -54,7 +58,7 @@ pnpm.cmd run dev:vscode
 
 后台监听临时 IPv4 回环端口。共享模式通过认证控制 socket 传送原生启动数据；独立模式使用私有子进程 IPC。Extension Host 用启动 token 交换 HTTP-only cookie。限制路由的 Webview 适配器不接收 URL 或 cookie。Gateway 保留流分帧。HTTP 响应逐步读取；拒绝超过 8 MiB 的缓冲上传。
 
-插件图事件使用 `eventsource` 库经同一带认证的 Fetch 桥接传输，仅允许 `/plugins/events`。适配器在流错误或 EOF 后重连；关闭时中止请求并取消待执行的重试。认证保留在 Extension Host。SSE 解析和重试语义由该库负责，扩展不维护第二套事件解析器。
+插件图事件使用 `eventsource` 库经同一带认证的 Fetch 桥接传输，仅允许 `/plugins/events`。同一事件源也为上游 HMR Fetch 流提供数据，保留流错误或 EOF 后的重连；关闭任一消费方时中止请求并取消待执行的重试。Fetch 适配器将缓冲的事件字节限制为 16 MiB。不可恢复的 HTTP 拒绝或缓冲溢出会明确使流失败，需要重新加载视图；普通 API 和文件请求保留既有传输方式。认证保留在 Extension Host。SSE 解析和重试语义由该库负责，扩展不维护独立事件解析器。
 
 静态资源限定于 `web/`、`resources/` 和 `carrier/`；工作区、Host 入口及打包运行时都不属于 Webview 资源根目录。CSP 拒绝未列出的来源、任意内联脚本、动态字符串编译（`eval` 和 `Function`）、外部连接/图片、基础 URL 更改、表单、frame 和 object。插件脚本和生成的 style 元素携带页面 nonce；blob worker 仍可使用。共享 Loader 只在求值时编译受信任的 Host 配置表达式，因此仅含字面值的 Client 启动不需要 `unsafe-eval`。共享布局与数学公式渲染仍通过 `style-src-attr 'unsafe-inline'` 使用内联样式属性；不带 nonce 的内联 style 元素会被阻止。这不是 XSS 安全保证，也不代表已完成 Marketplace 发行加固：已安装的 Cordis 插件属于受信任代码，启用前必须审查。
 
@@ -91,11 +95,17 @@ node apps/vscode/scripts/test-extension.mjs "C:/path/to/Microsoft VS Code/Code.e
 
 活动 Auto 移除测试会等待 Host 确认 Agent 已挂载、空闲且使用 Auto 权限；历史记录恢复后显示权限标签不等于就绪。拒绝写入探针显式申请 `workspace-write` 提权，因为 Read Only 下的普通写入可能直接失败而不请求审批。测试会等待审批记录写入会话文件后再检查。失败诊断只包含已持久化的生命周期计数和可用性标志，不包含对话内容或工具参数；后台仍运行时，文件计数可能落后于已显示的审批卡。
 
-另有两项真实模型场景在临时 profile 验证 RC 可选功能：`--compat-case timed-question` 启用限时反问，让未回答的问题超时后继续工作，再提交晚到的回答，验证只持久化一次回复且不改写已完成的工具结果。`--compat-case reminder` 启用默认关闭的实验性 Schedule 组合包，要求显示提醒卡并实际触发后续轮次，检查重启不重复投递。两者均接受 `--vsix --fresh-shared`。最后一个原生租约释放后停止执行提醒；这些检查不验证无人值守服务或任务管理界面。
+另有两项真实模型场景在临时共享 profile 验证限时反问和提醒：`--compat-case timed-question` 启用限时反问，让未回答的问题超时后继续工作，再提交晚到的回答，验证只持久化一次回复且不改写已完成的工具结果。`--compat-case reminder` 使用标准 Schedule 工具，要求显示提醒卡并实际触发后续轮次，检查重启不重复投递。两者均接受 `--vsix --fresh-shared`。最后一个原生租约释放后停止执行提醒；这些检查不验证无人值守服务或任务管理界面。
 
 在扩展宿主冒烟测试中追加 `--ux`，可在真实 Webview 中检查原生键盘路由、输入法 Enter、多行草稿、会话列表、文件菜单点击命中及捕获焦点。此无密钥选项接受 `--vsix`，但不能与模型或故障选项组合。
 
 追加 `--security` 可无密钥检查浏览器实际执行的 CSP/资源限制、子进程归属竞争及两个真实对等窗口。独立模式拒绝目录 junction 别名，不同工作区启动独立写入方。追加 `--fresh-shared` 时，两个对等窗口连接同一写入方；编辑器停止或重连保留 Desktop 租约，不兼容客户端不能创建第二个写入方，另有客户端连接时更新锁被拒绝。将 `--trust` 与 `--vsix` 一起使用，可验证安装扩展从受限模式到信任后启动，再回到受限模式的周期。追加 `--fresh-shared` 时，独立 Desktop 租约保持存活，信任前及撤销信任后编辑器没有租约，最后租约释放后写入方必须退出。独立模式要求撤销信任时所属子进程退出。该检查在临时用户数据、共享数据和扩展目录中操作原生 Workspace Trust 按钮。这些选项与 `--ux`、模型和故障检查分开运行。
+
+授予信任失败时，检查会在清理临时状态前报告信任观察器的阶段及信任/激活标记，然后继续传播原始错误。此诊断不包含对话或凭据，也不延长测试期限。
+
+临时测试配置关闭编辑器自动更新，不更改用户的编辑器设置。
+
+`pnpm run test:e2e apps/vscode/tests/shared-approval.e2e.ts --retry=0` 使用本地模拟提供方，让三个浏览器客户端连接同一原生共享后台。它先验证 Desktop 审批，再拦住两个编辑器的答案请求，分别让允许和拒绝先到达。迟到答案不得增加持久化决定或改变胜出答案的工具结果。这不能替代已安装 Webview 传输或原生 Electron 检查。
 
 ## 已知限制
 

@@ -4,6 +4,9 @@ English | [中文](CHANGELOG.zh.md)
 
 ## Unreleased
 
+- Adapt RC to DSH `0.2.1-rc.2`, retaining extension version `0.0.1` and existing published artifacts.
+- Port command-safe editor capture, declared-model onboarding, release-aware page reload and reconnecting shell HMR Fetch from the Alpha line.
+- Preserve the upstream display-only `1017` badge and opt-in Search/Fetch defaults; document their separate endpoint and original-question transmission.
 - Fix view replacement during asynchronous startup; retain one runtime and transport, cancel queued opens on stop, and ignore superseded view disposal.
 
 ## 0.0.1 — 2026-10-11

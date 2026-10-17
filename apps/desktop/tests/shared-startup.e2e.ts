@@ -32,7 +32,8 @@ it('serializes two process launchers and keeps the backend until the last proces
     // Both processes are waiting on the same barrier before either can acquire the startup lock.
     peers.forEach(peer => peer.child.send({ type: 'acquire', options: {
       home, version, role: peer.role,
-      launch: { protocol: 1, version, node: process.execPath, runtime: join(repository, 'apps/vscode') },
+      launch: { protocol: 1, version, node: process.execPath,
+        runtime: process.env.DSH_TEST_SHARED_RUNTIME ?? join(repository, 'apps/vscode') },
     } }))
     await vi.waitFor(() => {
       for (const peer of peers) {

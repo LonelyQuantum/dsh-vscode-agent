@@ -24,7 +24,7 @@ it('replays the exact immutable editor snapshot admitted to the model and Sessio
     await writeFile(overlay, bundle + '\n- id: agent-default-model\n  config:\n    provider: deepseek-official\n    model: deepseek-flash\n')
     const scaffold = await launchWebScaffold({ extraOverlayPath: overlay,
       ...(mode === 'record' ? {} : { replayFixture: fixture, replayProviders: [{ id: 'deepseek-official', name: 'DeepSeek',
-        models: [{ id: 'deepseek-flash', name: 'DeepSeek Flash', contextWindow: 1_000_000,
+        models: [{ id: 'deepseek-flash', name: 'DeepSeek-V4.1-Flash', contextWindow: 1_000_000,
           defaultMaxTokens: 256_000, reasoningEfforts: ['off', 'low', 'high', 'max'], defaultReasoningEffort: 'high',
           systemPromptUpdate: 'in-history' }] }] }),
     })
@@ -62,6 +62,7 @@ it('replays the exact immutable editor snapshot admitted to the model and Sessio
         const root = page.locator('[data-vscode-conversation]')
         const input = root.locator('[data-composer-input][contenteditable="true"]').first()
         await input.waitFor()
+        await root.getByText('1017', { exact: true }).waitFor()
         await root.getByRole('navigation', { name: 'All conversations' }).waitFor()
         await root.getByRole('button', { name: 'Attach selection', exact: true }).click()
         await input.locator('[data-composer-chip="editor-context"]').waitFor()
@@ -83,6 +84,11 @@ it('replays the exact immutable editor snapshot admitted to the model and Sessio
         release.resolve(undefined)
         const id = await settled
         const session = scaffold.ctx.agents.get(id)!.session
+        const runtimeSections = session.snapshotEvents().flatMap(event => event.type === 'user/message'
+          && event.data.source.kind === 'runtime-context' && event.data.source.form === 'snapshot'
+          ? event.data.source.sections.map(section => section.name) : [])
+        expect(runtimeSections).not.toContain('harness:source')
+        expect(runtimeSections).not.toContain('app:web-surface')
         const messages = session.snapshotEvents().filter(event => event.type === 'user/message')
           .filter(event => event.data.source.kind === 'user')
         expect(messages).toHaveLength(1)

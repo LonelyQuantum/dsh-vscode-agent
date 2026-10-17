@@ -8,7 +8,7 @@ const state = vi.hoisted(() => ({
   folders: [{ uri: { scheme: 'file', fsPath: '/workspace' } }],
   commands: new Map<string, (...args: never[]) => unknown>(),
   resolve: undefined as ((view: object) => void) | undefined,
-  start: vi.fn(), stop: vi.fn(), secret: vi.fn(), realpath: vi.fn(),
+  start: vi.fn(), stop: vi.fn(), readBoot: vi.fn(), secret: vi.fn(), realpath: vi.fn(),
   desktop: vi.fn(), connect: vi.fn(), disconnect: vi.fn(), readFile: vi.fn(),
 }))
 vi.mock('node:fs/promises', () => ({ realpath: state.realpath, readFile: state.readFile }))
@@ -16,6 +16,7 @@ vi.mock('../src/proxy.ts', () => ({ CHANNEL: 'dsh', NativeRequestError: class ex
 vi.mock('../src/runtime.ts', () => ({ RuntimeOwnershipError: class extends Error {}, AgentRuntime: class {
   start = state.start
   stop = state.stop
+  readBoot = state.readBoot
   onExit = vi.fn()
 } }))
 vi.mock('../src/native-context.ts', () => ({ SnapshotDocuments: class { dispose() {} } }))
@@ -48,6 +49,7 @@ beforeEach(() => {
   state.commands.clear()
   state.start.mockReset().mockResolvedValue({ pid: 123, url: 'http://fixture.invalid', injections: [] })
   state.stop.mockReset()
+  state.readBoot.mockReset().mockResolvedValue([])
   state.secret.mockReset().mockResolvedValue(undefined)
   state.desktop.mockReset().mockResolvedValue('/new-shared-home')
   state.realpath.mockReset().mockResolvedValue('/workspace')
@@ -67,8 +69,13 @@ function initialize(): void {
 class TestView {
   show = vi.fn()
   private disposed: (() => void)[] = []
+  private receive: ((message: object) => void) | undefined
+  emit(message: object): void { this.receive?.(message) }
   webview = { options: {}, html: '', cspSource: 'fixture-resource:',
-    onDidReceiveMessage: () => ({ dispose() {} }), postMessage: vi.fn(async () => true),
+    onDidReceiveMessage: (callback: (message: object) => void) => {
+      this.receive = callback
+      return { dispose: () => { this.receive = undefined } }
+    }, postMessage: vi.fn(async () => true),
     asWebviewUri: () => ({ toString: () => 'fixture-resource:/asset' }) }
   onDidDispose(callback: () => void): void { this.disposed.push(callback) }
   dispose(): void { for (const callback of this.disposed.splice(0)) callback() }
@@ -87,6 +94,52 @@ function barrier<T>(): { promise: Promise<T>; release(value: T): void } {
 }
 
 const ready: RuntimeReady = { pid: 123, url: 'http://fixture.invalid', injections: [] }
+
+it('reloads the editor page using fresh boot data while keeping its native runtime lease', async () => {
+  initialize()
+  const view = new TestView()
+  state.resolve!(view)
+  await command('dsh.open')
+  const fresh = [{ kind: 'global', name: '__DSH_BOOT__', value: { release: { version: 'next-fixture' } } }]
+  state.readBoot.mockResolvedValue(fresh)
+  view.emit({ channel: 'dsh', kind: 'boot', id: 1 })
+  await vi.waitFor(() => { expect(view.webview.postMessage).toHaveBeenCalledWith({ channel: 'dsh', kind: 'boot', id: 1,
+    injections: fresh, workspace: '/workspace' }) })
+  view.emit({ channel: 'dsh', kind: 'native-reload' })
+  await vi.waitFor(() => { expect(state.connect).toHaveBeenCalledTimes(2) })
+  await command('dsh.open')
+  expect(state.start).toHaveBeenCalledOnce()
+  expect(state.stop).not.toHaveBeenCalled()
+  view.emit({ channel: 'dsh', kind: 'boot', id: 2 })
+  await vi.waitFor(() => { expect(state.readBoot).toHaveBeenCalledTimes(2) })
+})
+
+it('reports a failed fresh bootstrap without forwarding backend diagnostics', async () => {
+  initialize()
+  const view = new TestView()
+  state.resolve!(view)
+  await command('dsh.open')
+  state.readBoot.mockRejectedValue(new Error('fixture-only-secret diagnostic'))
+  view.emit({ channel: 'dsh', kind: 'boot', id: 9 })
+  await vi.waitFor(() => { expect(view.webview.postMessage).toHaveBeenCalledWith({ channel: 'dsh', kind: 'boot-failed', id: 9 }) })
+  expect(JSON.stringify(view.webview.postMessage.mock.calls)).not.toContain('fixture-only-secret')
+})
+
+it('does not forward a delayed boot response after the originating view closes', async () => {
+  initialize()
+  const view = new TestView()
+  state.resolve!(view)
+  await command('dsh.open')
+  const pending = barrier<unknown[]>()
+  state.readBoot.mockReturnValue(pending.promise)
+  view.emit({ channel: 'dsh', kind: 'boot', id: 10 })
+  expect(state.readBoot).toHaveBeenCalledOnce()
+  view.dispose()
+  pending.release([])
+  await pending.promise
+  await Promise.resolve()
+  expect(view.webview.postMessage).not.toHaveBeenCalled()
+})
 
 it('opens a replacement view after the disposed view finishes its credential read', async () => {
   const entered = barrier<undefined>()

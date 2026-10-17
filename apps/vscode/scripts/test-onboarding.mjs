@@ -32,8 +32,7 @@ export async function runOnboardingCheck({ browser, root, evaluate, request, wai
     await pick('Shared provider', 'DeepSeek')
     await input('API endpoint', endpoint)
     await input(rotating ? 'New API key' : 'API key', value, true)
-    await pick('Model for new conversations', 'Enter a custom model ID')
-    await input('Custom model ID', 'native-editor-fixture')
+    await pick('Model for new conversations', 'DeepSeek-V4.1-Flash')
     await pick('Save shared provider settings?', 'Save')
     await evaluate('doc.defaultView.__DSH_ONBOARDING_RECONNECT__ = true')
     await page.getByRole('button', { name: 'Reconnect DSH', exact: true }).click()
@@ -44,7 +43,7 @@ export async function runOnboardingCheck({ browser, root, evaluate, request, wai
   const credentials = await readFile(join(home, '.credentials.yaml'), 'utf8')
   assert.ok(credentials.includes(key))
   const patch = await readFile(join(home, 'profiles/desktop/cordis.patch.yml'), 'utf8')
-  assert.ok(patch.includes('native-editor-fixture'))
+  assert.equal(/^\s+models:/m.test(patch), false, 'Selecting a declared model must not replace its capabilities')
   assert.ok(patch.includes(endpoint))
   assert.equal(patch.includes(key), false)
   const body = await evaluate('return { html: doc.documentElement.outerHTML, state: doc.defaultView.__DSH_VSCODE__?.lastSession() }')
@@ -60,11 +59,13 @@ export async function runOnboardingCheck({ browser, root, evaluate, request, wai
     await waitFor(() => evaluate('return root?.innerText.includes("NATIVE_ONBOARDING_DONE") && !root.querySelector("[data-streaming=true]")'))
   }
   await send('Native onboarding first turn')
+  assert.equal(provider.requests.at(-1)?.body?.model, 'deepseek-flash')
   assert.equal(provider.requests.at(-1)?.headers['x-api-key'], key)
   await configure('fixture-only-editor-rotated-key', true)
   const count = provider.requests.length
   await send('Native onboarding rotated turn')
   await waitFor(() => provider.requests.length > count)
+  assert.equal(provider.requests.at(-1)?.body?.model, 'deepseek-flash')
   assert.equal(provider.requests.at(-1)?.headers['x-api-key'], 'fixture-only-editor-rotated-key')
   const { readSessionLog } = await import('../lib/session-log.mjs')
   let submitted = 0

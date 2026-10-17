@@ -34,6 +34,7 @@ async function fixture(saved?: string, delayed = false) {
   ctx.provide('workspaces', { list: workspaces, create } as never)
   ctx.provide('uiWorkspace', { openSession, openWorkspace } as never)
   ctx.provide('uiConversation', {} as never)
+  ctx.provide('modules', { entries: { releaseChange: createSnapshotStore(undefined), dismissRelease: vi.fn() } } as never)
   ctx.provide('conversation', {} as never)
   ctx.provide('inputTriggers', { registerSource: () => () => {} } as never)
   ctx.provide('theme', { register: () => () => {} } as never)

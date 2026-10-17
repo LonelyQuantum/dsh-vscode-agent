@@ -1,7 +1,10 @@
 /** Capture admission and serialization preserve immutable text across asynchronous editor reads. */
 import { expect, it, vi } from 'vitest'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { EditorBridge } from '../src/client/contract.ts'
 import { captureSource, insertCapture } from '../src/client/capture.ts'
+
+const span = { start: 7, end: 7, draftRev: 9 }
 
 function fixture() {
   let complete!: (value: { label: string; text: string }) => void
@@ -9,27 +12,26 @@ function fixture() {
   const preview = vi.fn()
   const editor: EditorBridge = { capture: () => pending, preview, workspace: () => '/workspace',
     openFile: vi.fn(), openChanges: vi.fn(),
-    lastSession: () => undefined, configure: vi.fn(), selected: vi.fn(), ready: vi.fn() }
+    lastSession: () => undefined, configure: vi.fn(), reload: vi.fn(), selected: vi.fn(), ready: vi.fn() }
   const insertReference = vi.fn(() => true)
-  // This function only reads the revision and invokes the guarded insertion.
-  const input = { state: { getSnapshot: () => ({ draftRev: 9 }) }, insertReference }
+  const input = { insertReference }
   return { complete, editor, input, insertReference, preview }
 }
 
 it('keeps the initiating draft revision and exact snapshot in the visible reference', async () => {
   const f = fixture()
-  const pending = insertCapture(f.editor, 'selection', f.input, new AbortController().signal, () => true)
+  const pending = insertCapture(f.editor, 'selection', f.input, new AbortController().signal, () => true, span)
   f.complete({ label: 'file.ts · v9*', text: 'exact unsaved text' })
   expect(await pending).toBe(true)
   expect(f.insertReference).toHaveBeenCalledWith({ source: 'editor-context', ref: 'exact unsaved text', label: 'file.ts · v9*',
-    appearance: 'file', clipboardText: 'exact unsaved text' }, { start: 0, end: 0, draftRev: 9 })
+    appearance: 'file', clipboardText: 'exact unsaved text' }, span)
 })
 
 it.each(['cancel', 'switch'] as const)('does not attach after %s', async (reason) => {
   const f = fixture()
   const controller = new AbortController()
   let current = true
-  const pending = insertCapture(f.editor, 'file', f.input, controller.signal, () => current)
+  const pending = insertCapture(f.editor, 'file', f.input, controller.signal, () => current, span)
   if (reason === 'cancel') controller.abort()
   else current = false
   f.complete({ label: 'file', text: 'private snapshot' })
@@ -40,7 +42,7 @@ it.each(['cancel', 'switch'] as const)('does not attach after %s', async (reason
 it('reports a draft revision conflict without replacing the draft', async () => {
   const f = fixture()
   f.insertReference.mockReturnValue(false)
-  const pending = insertCapture(f.editor, 'file', f.input, new AbortController().signal, () => true)
+  const pending = insertCapture(f.editor, 'file', f.input, new AbortController().signal, () => true, span)
   f.complete({ label: 'file', text: 'snapshot' })
   expect(await pending).toBe(false)
 })
@@ -48,6 +50,10 @@ it('reports a draft revision conflict without replacing the draft', async () => 
 it('serializes the captured text and preserves it for copied or restored drafts', async () => {
   const f = fixture()
   const source = captureSource(f.editor)
+  const session = { sessionId: 'fixture-session' as SessionId }
+  expect(await source.candidates(session, { query: '', position: 'inline', drilled: false,
+    signal: new AbortController().signal })).toEqual([])
+  expect(source.onPick({ session, candidate: { name: 'fixture' }, position: 'inline', via: 'menu', action: 'pick', span })).toBeUndefined()
   const codec = source.codec!
   const text = 'snapshot\n{"version":7,"dirty":true,"text":"unsaved"}\n'
   expect(await codec.serialize(text, new AbortController().signal)).toBe(text)

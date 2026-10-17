@@ -1,6 +1,7 @@
 /** Browser-to-editor operations exclude credentials and arbitrary command execution. */
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
+import type { TokenSpan } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { HostObservable, InjectFace, PropsLocale, PropsRenderFactories, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { VscodeKey } from './locales.ts'
 
@@ -21,6 +22,8 @@ export interface EditorBridge {
   workspace(): string
   /** Open native API source selection without exposing credentials to the Client. */
   configure(): void
+  /** Reload only the editor page from current Host data; keep the backend lease and tasks. */
+  reload(): void
   /** Persist a selection, never conversation contents. @param id Selected Session id. */
   selected(id: string): void
   /** Read the carrier's selection. @returns Saved id, subject to workspace membership verification. */
@@ -37,8 +40,13 @@ export interface WorkspaceBoot {
 
 /** Callbacks and the one private startup observable bound by the renderer. */
 export type EditorInjected = {
-  /** Attach to this Session's unchanged draft. @param kind Explicit action. @param signal View lifetime. */
-  capture(kind: CaptureKind, signal: AbortSignal): void
+  /**
+   * Attach to this Session's unchanged draft.
+   * @param kind Explicit action.
+   * @param signal View lifetime.
+   * @param span Composer-owned insertion coordinates.
+   */
+  capture(kind: CaptureKind, signal: AbortSignal, span: TokenSpan): void
   hooks: { workspaceBoot: HostObservable<WorkspaceBoot> }
   /** Return to the workspace list and its blank draft without stopping other Sessions. */
   showConversations(): void

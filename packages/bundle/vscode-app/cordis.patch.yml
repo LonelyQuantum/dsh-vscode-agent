@@ -3,7 +3,8 @@
     openBrowser: false
     printUrl: false
     surfaceContext: false
-    trustedHosts: []
+- id: harness-dev-context
+  disabled: true
 - insert:
     - id: vscode-runtime
       name: '@deepseek-ai/dsh-vscode-app'

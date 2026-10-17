@@ -3,8 +3,131 @@ import { fileURLToPath } from 'node:url'
 import { readFile } from 'node:fs/promises'
 import { chromium } from 'playwright'
 import { expect, it } from 'vitest'
-import { compareOrRefreshGolden, launchWebScaffold, webSnapshotMode } from './scaffold.ts'
+import { compareOrRefreshGolden, fixtureUserPrompts, launchWebScaffold, seedSession, webSnapshotMode } from './scaffold.ts'
 import { writeComposerDraft } from './support.ts'
+
+it('retains claimed commands and editor captures through a Host release notice and page reload', async (context) => {
+  const scaffold = await launchWebScaffold({
+    extraOverlayPath: fileURLToPath(new URL('../../../packages/bundle/vscode-app/cordis.patch.yml', import.meta.url)),
+  })
+  context.onTestFinished(() => scaffold.close())
+  const browser = await chromium.launch(process.env.DSH_VSCODE_TEST_BROWSER === 'msedge' ? { channel: 'msedge' } : {})
+  const page = await browser.newPage({ viewport: { width: 390, height: 900 }, locale: 'en-US' })
+  const announced = Promise.withResolvers<undefined>()
+  const streamEntered = Promise.withResolvers<undefined>()
+  context.onTestFinished(async () => {
+    announced.resolve(undefined)
+    try { await page.unrouteAll({ behavior: 'wait' }) }
+    finally { await browser.close() }
+  })
+  await page.route('**/plugins/events', async (route) => {
+    streamEntered.resolve(undefined)
+    await announced.promise
+    const graph = scaffold.ctx.clientModules.graph()
+    await route.fulfill({ contentType: 'text/event-stream', body: `data: ${JSON.stringify({ type: 'graph',
+      graph: { ...graph, release: { version: graph.release?.version ?? 'fixture', commit: 'fixture-next-build' },
+        entries: [] } })}\n\n` })
+  })
+  await page.addInitScript((workspace) => {
+    Reflect.set(globalThis, '__DSH_VSCODE__', { workspace: () => workspace,
+      capture: async () => ({ label: 'context.ts · v7*', text: 'UNSENT_EDITOR_CAPTURE' }),
+      reload: () => { location.reload() }, preview: () => {}, configure: () => {}, selected: () => {},
+      lastSession: () => undefined, ready: () => {}, openFile: () => {}, openChanges: () => {},
+    })
+  }, scaffold.workspaceCwd)
+  await page.goto(scaffold.authenticatedUrl)
+  const root = page.locator('[data-vscode-conversation]')
+  const input = root.locator('[data-composer-input][contenteditable="true"]').first()
+  await input.waitFor()
+  await streamEntered.promise
+  await writeComposerDraft(page, input, '/')
+  await page.getByRole('option', { name: 'Goal Set or view the goal for a long-running task', exact: true }).click()
+  await input.press('End')
+  await page.keyboard.insertText('unsent objective')
+  await input.press(process.platform === 'darwin' ? 'Meta+ArrowUp' : 'Control+Home')
+  await root.getByRole('button', { name: 'Attach selection', exact: true }).click()
+  await page.getByText('Place the composer caret after the command label, then attach the context again.', { exact: true }).waitFor()
+  expect(await input.locator('[data-composer-command]').textContent()).toBe('/goal')
+  expect(await input.locator('[data-composer-chip="editor-context"]').count()).toBe(0)
+  await input.press(process.platform === 'darwin' ? 'Meta+ArrowDown' : 'Control+End')
+  await expect.poll(() => input.evaluate((element) => {
+    const selection = window.getSelection()
+    if (selection?.focusNode === null || selection === null) return false
+    const range = document.createRange()
+    range.selectNodeContents(element)
+    range.setEnd(selection.focusNode, selection.focusOffset)
+    return range.toString() === element.textContent
+  })).toBe(true)
+  await root.getByRole('button', { name: 'Attach selection', exact: true }).click()
+  await input.locator('[data-composer-chip="editor-context"]').waitFor()
+  const before = await input.innerText()
+  await input.focus()
+  announced.resolve(undefined)
+  const notice = page.getByRole('status').filter({ hasText: 'The shared backend changed versions' })
+  await notice.waitFor()
+  expect(await input.evaluate(element => document.activeElement === element)).toBe(true)
+  expect(await input.innerText()).toBe(before)
+  expect(await input.locator('[data-composer-command]').textContent()).toBe('/goal')
+  expect(await root.locator('[data-user-message]').count()).toBe(0)
+  expect(await notice.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+  await notice.getByRole('button', { name: 'Not now', exact: true }).click()
+  await notice.waitFor({ state: 'hidden' })
+  expect(await input.innerText()).toBe(before)
+  await expect.poll(() => page.evaluate(() => Object.keys(localStorage)
+    .filter(key => key.startsWith('dsh.conversation.')).some((key) => {
+      const value = localStorage.getItem(key)
+      return value !== null && value.includes('unsent objective')
+        && value.includes('UNSENT_EDITOR_CAPTURE') && value.includes('"command"')
+    }))).toBe(true)
+  await page.unroute('**/plugins/events')
+  await page.reload()
+  await input.locator('[data-composer-command]').waitFor()
+  expect(await input.locator('[data-composer-command]').textContent()).toBe('/goal')
+  expect(await input.innerText()).toBe(before)
+  expect(await input.locator('[data-composer-chip="editor-context"]').textContent()).toContain('context.ts · v7*')
+  expect(await root.locator('[data-user-message]').count()).toBe(0)
+  await compareOrRefreshGolden(fileURLToPath(new URL('./expected/vscode-context/release.expected.md', import.meta.url)),
+    ['- Release notice: same version with a different build; editor plugins and focused draft remain mounted',
+      '- Capture guard: inserting before the command is refused; moving after it retains the command and argument text',
+      '- Not now: dismisses the notice without submitting or clearing the draft',
+      '- Page reload: restores the atomic /goal command and immutable editor capture without sending a message',
+      '- Layout: notice and actions remain contained at 390 px'].join('\n'), webSnapshotMode())
+})
+
+it('keeps shared credential masking and reveal controls in an editor conversation', async (context) => {
+  const scaffold = await launchWebScaffold({
+    extraOverlayPath: fileURLToPath(new URL('../../../packages/bundle/vscode-app/cordis.patch.yml', import.meta.url)),
+  })
+  context.onTestFinished(() => scaffold.close())
+  const fixture = await readFile(new URL('../../../snapshots/web/seeded-history/session.v3.jsonl', import.meta.url), 'utf8')
+  const original = 'Use the read tool twice in one assistant message: read a.txt and b.txt. Then reply with the single word DONE and stop.'
+  const key = ['sk', '-', '0123456789abcdef0123456789abcdef'].join('')
+  const prompt = `${key} is the key for this task.`
+  const recording = fixture.replace(original, prompt)
+  expect(fixtureUserPrompts(recording)).toContain(prompt)
+  const sessionId = await seedSession(scaffold, recording, 'vscode-secret-mask')
+  const browser = await chromium.launch(process.env.DSH_VSCODE_TEST_BROWSER === 'msedge' ? { channel: 'msedge' } : {})
+  context.onTestFinished(() => browser.close())
+  const page = await browser.newPage({ viewport: { width: 420, height: 900 }, locale: 'en-US' })
+  await page.addInitScript((workspace) => {
+    Reflect.set(globalThis, '__DSH_VSCODE__', {
+      workspace: () => workspace, capture: async () => null, preview: () => {}, configure: () => {},
+      selected: () => {}, lastSession: () => undefined, ready: () => {}, openFile: () => {}, openChanges: () => {},
+    })
+  }, scaffold.workspaceCwd)
+  await page.goto(scaffold.authenticatedUrl)
+  const root = page.locator('[data-vscode-conversation]')
+  const row = root.locator(`nav button[data-session-id="${sessionId}"]`)
+  await row.click()
+  const run = root.locator('[data-user-message] [data-secret]').first()
+  const masked = key.slice(0, 8) + '*'.repeat(key.length - 8)
+  await expect.poll(() => run.textContent()).toBe(masked)
+  await run.getByRole('button', { name: 'Show secret', exact: true }).click()
+  await expect.poll(() => run.textContent()).toBe(key)
+  await root.getByRole('button', { name: 'Back to conversations', exact: true }).click()
+  await row.click()
+  await expect.poll(() => run.textContent()).toBe(masked)
+})
 
 it('renders explicit editor references and native previews in a narrow conversation', async () => {
   const scaffold = await launchWebScaffold({

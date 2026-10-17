@@ -14,6 +14,11 @@ Conversation logs and attachments can contain source code, local paths, tool out
 
 Sending a prompt can transmit messages, selected editor context, attachments, tool results and assembled agent context to the configured model provider. Capturing selected text or Problems alone does not send a model request; submission includes the captured snapshot. Tools and installed plugins can access files, run commands and contact external services according to configuration and permissions. The maintainer cannot control provider retention or guarantee that plugins redact private data.
 
+<a id="optional-deepseek-searchfetch"></a>
+### Optional DeepSeek Search/Fetch
+
+The bundled providers are registered but not selected by default. Enabling **Use the new Web Search API** in shared Web search settings selects both. Search transmits its query; Fetch transmits the requested URL. Their API base defaults to `https://api.deepseek.com/v1/tools`, independently of the model endpoint. Search additionally sends the latest human message with whitespace collapsed and cut to 128 characters when `sendOriginalQuestion` is enabled, which is its default; that message can include pasted or attached context. Disable this field in shared provider configuration to omit the question. Authentication uses the configured credential reference or account authorization; keys remain outside the Webview. Retrieval billing is separate from model-token statistics. See [provider configuration](../../packages/web/web-deepseek-api/README.md).
+
 ## Product analytics
 
 New shared homes initialized by either community client disable product analytics. Existing profiles retain their policy, including an enabled upstream default; attaching this extension does not disable collection in an existing backend. When enabled, Desktop interactions and Host compaction events can reach DeepSeek's product collector, separately from Session feedback. The [product policy](../../packages/client/product-analytics/README.md) lists fields and timing. `DSH_TELEMETRY_DISABLED` does not disable this product exporter; change the profile's `product-analytics` configuration instead. Model requests and tool networking are unaffected.

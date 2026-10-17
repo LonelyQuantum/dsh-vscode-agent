@@ -104,11 +104,12 @@ try {
   const files = await listFiles({ cwd: output, packageManager: PackageManager.None })
   const problems = artifactProblems(files)
   if (problems.length) throw new Error(problems.join('\n'))
-  const packagePath = join(app, `lib/dsh-vscode-agent-${manifest.version}-win32-x64.vsix`)
+  const artifactName = `dsh-vscode-agent-${manifest.version}-dsh-${dshVersion}-win32-x64.vsix`
+  const packagePath = join(app, 'lib', artifactName)
   await createVSIX({ cwd: output, packagePath, target: 'win32-x64', dependencies: false,
     preRelease: true, baseContentUrl: sourceUrl, baseImagesUrl: sourceUrl.replace('/blob/', '/raw/') })
   const sha256 = createHash('sha256').update(await readFile(packagePath)).digest('hex')
-  await writeFile(`${packagePath}.sha256`, `${sha256}  dsh-vscode-agent-${manifest.version}-win32-x64.vsix\n`)
+  await writeFile(`${packagePath}.sha256`, `${sha256}  ${artifactName}\n`)
   console.log(`VSIX: ${packagePath}`)
 } finally {
   await rm(temporary, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })

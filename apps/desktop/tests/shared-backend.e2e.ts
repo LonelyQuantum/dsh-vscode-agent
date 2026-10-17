@@ -83,7 +83,9 @@ it.each(['desktop', 'vscode', 'concurrent'] as const)('shares one backend and du
     const created = await desktopApi('workspace/create', { request: { path: workspace } }) as { workspace: { workspaceId: string } }
     const session = await desktopApi('session/create', { request: { workspaceId: created.workspace.workspaceId } }) as { sessionId: string }
     const history = async (request: typeof desktopApi): Promise<string> => {
-      const projection = await request('session/projections', { request: { sessionId: session.sessionId } }) as { asOfSeq: number }
+      const projection = await request('session/projections', { request: { sessionId: session.sessionId } }) as { kind: string; asOfSeq?: number }
+      expect(projection.kind).toBe('sequenced')
+      expect(projection.asOfSeq).toBeTypeOf('number')
       return JSON.stringify(await request('session/page', { request: { address: { kind: 'session', sessionId: session.sessionId },
         throughSeq: projection.asOfSeq, maxMessages: 20 } }))
     }

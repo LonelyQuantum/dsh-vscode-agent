@@ -6,9 +6,11 @@ This reference covers the Windows x64 VSIX owned by this community fork, not ups
 
 ## Version policy
 
-The packaged runtime record includes its DSH version, official release tag, source branch, dependency versions, and lock checksum. Packaging requires that tag to be an ancestor of the source branch; alpha and RC artifacts are qualified separately.
+The packaged runtime record includes its DSH version, official release tag, source branch, dependency versions, and lock checksum. Packaging requires that tag to be an ancestor of the source branch; alpha and RC artifacts are qualified separately. Local filenames include the DSH version (`dsh-vscode-agent-<extension-version>-dsh-<dsh-version>-win32-x64.vsix`) so an alpha build does not overwrite a retained RC VSIX.
 
-The extension version is owned by `extension.manifest.json`; the workspace `package.json` version follows DSH independently. Until the first public release, keep the extension at `0.0.1`. Ordinary commits and local builds do not increment it; accumulate changes under `Unreleased` in the [change log](CHANGELOG.md).
+The extension version is owned by `extension.manifest.json`; the workspace `package.json` version follows DSH independently. The extension uses `MAJOR.MINOR.PATCH-alpha.N`, `MAJOR.MINOR.PATCH-rc.N`, and `MAJOR.MINOR.PATCH`, without copying DSH's version numbers. Alpha and RC keep separate prerelease counters for a target release; promotion follows SemVer precedence from alpha to RC to stable. Ordinary commits and local builds retain the declared version; accumulate changes under `Unreleased` in the [change log](CHANGELOG.md).
+
+GitHub VSIX previews retain the full extension version in the manifest, asset filename and `vscode-v<version>` tag. Validate installation in the supported editor before distribution. Marketplace does not support SemVer prerelease identifiers; its preparation check rejects these manifests. A future Marketplace release requires a separately approved compatible numbering scheme, not silently stripping the channel suffix.
 
 For a public release, choose the release version, update the manifest, change log and versioned examples, and commit those changes before tagging. Build and validate that commit, then tag it as `vscode-v<version>` to distinguish extension releases from upstream DSH releases. After publication, use a new version for each subsequent public release, including previews; never replace an existing release with different contents under the same version.
 

@@ -14,6 +14,11 @@
 
 发送提示词时，消息、所选编辑器上下文、附件、工具结果及组装后的 agent（智能体）上下文可能发送给配置的模型提供方。仅捕获选中文字或 Problems 不会发送模型请求；提交消息时会包含捕获的快照。工具和已安装插件可以根据配置及权限访问文件、执行命令或联系外部服务。维护者无法控制提供方的数据保留，也不能保证插件会对私有数据进行脱敏。
 
+<a id="optional-deepseek-searchfetch"></a>
+### 可选 DeepSeek Search/Fetch
+
+组合中的提供方已注册，但默认未被选用。在共享的 Web 搜索设置中启用**使用新的 Web Search API**会同时选择两者。Search 发送搜索词，Fetch 发送请求的 URL。两者的 API 基地址默认为 `https://api.deepseek.com/v1/tools`，独立于模型地址。Search 在 `sendOriginalQuestion` 开启时，还会发送最新一条人类消息折叠空白后截取的前 128 个字符；该项默认开启，消息可能包含粘贴或附加的上下文。在共享提供方配置中关闭该字段即可不发送问题。认证使用配置的凭据引用或账户授权，密钥不进入 Webview。检索计费独立于模型 token 统计。详见[提供方配置](../../packages/web/web-deepseek-api/README.zh.md)。
+
 ## 产品分析
 
 任一社区客户端初始化的新共享主目录均禁用产品分析。已有 profile 保留其策略，包括已开启的上游默认值；连接本扩展不会禁用已有后端的采集。启用时，Desktop 交互及 Host 上下文压缩事件可能发送到 DeepSeek 产品收集服务，与会话反馈独立。[产品策略](../../packages/client/product-analytics/README.zh.md)列出字段及触发时机。`DSH_TELEMETRY_DISABLED` 不禁用此产品导出器；应修改 profile 的 `product-analytics` 配置。模型请求和工具联网不受影响。

@@ -1,4 +1,4 @@
-/** Offline source compilation preserves npm inputs and includes the browser's graph-external resources. */
+/** Offline compilation preserves npm inputs and excludes build-host paths from browser resources. */
 import { createHash } from 'node:crypto'
 import http from 'node:http'
 import https from 'node:https'
@@ -39,6 +39,19 @@ it('builds from fixed installed sources with network APIs blocked and includes M
   ]
   onTestFinished(() => { for (const guard of guards) guard.mockRestore() })
   await buildFrontend(root)
+  const localPaths = [process.cwd(), source, root].flatMap(path =>
+    [path, path.replaceAll('\\', '/'), path.replaceAll('\\', '\\\\')].map(value => Buffer.from(value)))
+  const inspectPaths = async (directory: string): Promise<void> => {
+    for (const entry of await readdir(join(root, directory), { withFileTypes: true })) {
+      const path = directory ? `${directory}/${entry.name}` : entry.name
+      if (entry.isDirectory()) await inspectPaths(path)
+      else {
+        const bytes = await readFile(join(root, path))
+        for (const needle of localPaths) expect(bytes.includes(needle), path).toBe(false)
+      }
+    }
+  }
+  await inspectPaths('')
   for (const guard of guards) expect(guard).not.toHaveBeenCalled()
   expect(await sourceHash(source)).toBe(before)
   for (const path of [
