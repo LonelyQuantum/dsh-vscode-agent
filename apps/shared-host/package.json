@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-shared-host",
-  "version": "0.2.1-alpha.3",
+  "version": "0.2.1-alpha.5",
   "private": true,
   "description": "Authenticated local backend leases for Desktop and VS Code",
   "license": "MIT",

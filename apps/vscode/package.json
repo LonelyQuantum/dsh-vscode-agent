@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-vscode",
-  "version": "0.2.1-alpha.3",
+  "version": "0.2.1-alpha.5",
   "private": true,
   "description": "VS Code development host for the shared DSH Web application",
   "license": "MIT",
