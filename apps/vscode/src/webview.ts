@@ -1,5 +1,5 @@
 /** Webview carrier for the unmodified DSH Web entry and Gateway wire frames. */
-import { pluginEventSource } from './plugin-events.ts'
+import { pluginEventFetch, pluginEventSource } from './plugin-events.ts'
 
 declare function acquireVsCodeApi(): { postMessage(message: object): void; getState(): unknown; setState(state: object): void }
 const editor = acquireVsCodeApi()
@@ -203,8 +203,10 @@ async function capture(kind: 'file' | 'selection' | 'problems', signal: AbortSig
 
 globalThis.fetch = proxyFetch
 globalThis.WebSocket = GatewaySocket
-globalThis.EventSource = pluginEventSource(proxyFetch)
-Reflect.set(globalThis, '__DSH_TRANSPORT__', { fetch: proxyFetch, loadBundle, ownsHost: true, streamBaseUrl: 'http://dsh.internal' })
+const PluginSource = pluginEventSource(proxyFetch)
+globalThis.EventSource = PluginSource
+Reflect.set(globalThis, '__DSH_TRANSPORT__', { fetch: pluginEventFetch(proxyFetch, PluginSource), loadBundle,
+  ownsHost: true, streamBaseUrl: 'http://dsh.internal' })
 Reflect.set(globalThis, '__DSH_FILE_UPLOAD__', { fetch: proxyFetch })
 Reflect.set(globalThis, '__DSH_VSCODE__', {
   capture,
@@ -216,6 +218,7 @@ Reflect.set(globalThis, '__DSH_VSCODE__', {
     return workspace
   },
   configure: () => { send(++nextId, 'native-configure') },
+  reload: () => { send(++nextId, 'native-reload') },
   selected: (id: string) => { editor.setState({ sessionId: id }) },
   lastSession: () => {
     const state = editor.getState()

@@ -61,7 +61,7 @@ it('shares Desktop decisions and commits only the first competing editor answer'
   }, { timeout: 30_000 })
   await prompt('Prepare the shared conversation without tools.')
   await settled(1)
-  const browser = await chromium.launch()
+  const browser = await chromium.launch(process.env.DSH_VSCODE_TEST_BROWSER === 'msedge' ? { channel: 'msedge' } : {})
   context.onTestFinished(() => browser.close())
   const pages: Page[] = []
   for (let index = 0; index < clients.length; index += 1) {

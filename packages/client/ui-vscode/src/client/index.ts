@@ -2,7 +2,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { createElement } from 'react'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
+import type {} from '@deepseek-ai/dsh-client-modules/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
@@ -14,16 +14,13 @@ import type {} from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { EditorInjected, WorkspaceBoot } from './contract.ts'
 import { Conversation } from './Conversation.tsx'
+import { Root, type RootInjected } from './Root.tsx'
 import { en, zh } from './locales.ts'
 import { captureSource, insertCapture } from './capture.ts'
 import { installEditorTheme } from './theme.ts'
 
 /** Shared Client services required by this presentation. */
-export const inject = ['slots', 'locale', 'sessions', 'workspaces', 'uiWorkspace', 'uiConversation', 'conversation', 'inputTriggers', 'theme']
-
-function Root({ renderSlot }: PropsRenderSlots<'vscode.conversation'>) {
-  return renderSlot('vscode.conversation', {})
-}
+export const inject = ['slots', 'locale', 'modules', 'sessions', 'workspaces', 'uiWorkspace', 'uiConversation', 'conversation', 'inputTriggers', 'theme']
 
 /**
  * Register editor presentation over the shared Web graph.
@@ -66,14 +63,19 @@ export function apply(ctx: Context): void {
     return () => { lifetime.closed = true; offSessions(); offWorkspaces() }
   })
   const injected = (sessionId: SessionId | undefined): EditorInjected => ({
-    capture: (kind, signal) => {
+    capture: (kind, signal, span) => {
       if (sessionId === undefined) return
       const scope = ctx.sessions.scope(sessionId)
       if (scope === undefined) return
       const input = ctx.conversation.input.for(scope)
+      if (input.state.getSnapshot().claim !== undefined && span.end === 0) {
+        input.notify('info', t('commandCapturePosition'))
+        input.focus()
+        return
+      }
       const current = (): boolean => !closed() && ctx.sessions.scope(sessionId) === scope
         && (ctx.sessions.retainInfo(sessionId).getSnapshot().retainedBy.mainView ?? 0) > 0
-      void insertCapture(editor, kind, input, signal, current).then((inserted) => {
+      void insertCapture(editor, kind, input, signal, current, span).then((inserted) => {
         if (!signal.aborted && current()) {
           if (inserted) input.focus()
           else input.notify('info', t('contextChanged'))
@@ -95,7 +97,9 @@ export function apply(ctx: Context): void {
     retry: () => { if (boot.getSnapshot().state === 'error') { started = false; initialize() } },
     ready: () => { editor.ready() },
   })
-  ctx.effect(() => ctx.slots.register({ name: 'root', priority: -100,
+  ctx.effect(() => ctx.slots.register({ name: 'root', priority: -100, locale: 'vscode',
+    inject: (): RootInjected => ({ reload: () => { editor.reload() }, dismiss: () => { ctx.modules.entries.dismissRelease() },
+      hooks: { releaseChange: ctx.modules.entries.releaseChange } }),
     children: { 'vscode.conversation': { kind: 'single', scope: 'session-maybe' } },
   }, Root))
   ctx.slots.inject('vscode.conversation', () => ctx.slots.register({

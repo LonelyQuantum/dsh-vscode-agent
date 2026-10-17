@@ -43,6 +43,10 @@ The carrier supplies its trusted local workspace before Client boot. Both list m
 
 The composer's plus menu opens the shared file picker for file and image attachments. The bottom toolbar captures selected text or Problems explicitly, without separate file, History, or new-conversation buttons. Each editor-reference chip contains the carrier's immutable snapshot; clicking it opens a read-only preview of the exact submitted text. Copying or restoring the draft preserves that text. Capture is rejected if the draft revision changes, navigation starts, the Session changes, or the view closes before it finishes.
 
+Captures insert at the composer caret without replacing selected draft text. A command label must remain first; if the caret precedes it, move the caret after the label when prompted, then attach again.
+
+When the connected Host announces another release, an editor notice offers **Not now** or **Reload DSH view** without taking input focus. The shared module system keeps the loaded plugin graph unchanged until reload, including when only the build commit differs. Reload reads current startup data and replaces only the editor page; it keeps the native backend lease and running tasks. The list reopens, and selecting a conversation restores its unsent structured draft, including command and editor-reference chips. Dismissing the notice does not make a different release's plugins safe to load.
+
 -----
 
 <a id="understand-the-implementation"></a>

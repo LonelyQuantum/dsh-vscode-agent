@@ -1,0 +1,6 @@
+.root { display: flex; flex-direction: column; height: 100%; min-width: 0; min-height: 0; }
+.conversation { flex: 1; min-height: 0; }
+.notice { flex: none; padding: 12px; color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-base); border-bottom: 0.5px solid var(--dsw-alias-border-l3); }
+.notice p { margin: 6px 0; }
+.release { display: block; overflow-wrap: anywhere; }
+.actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }

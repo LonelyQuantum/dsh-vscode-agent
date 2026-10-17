@@ -45,6 +45,8 @@ Desktop 和 VS Code 为每个规范化 Harness 主目录连接同一个 Desktop 
 
 回环控制 socket 要求随机 bearer token、完全匹配的产品及协议版本，以及原生客户端角色。拒绝带浏览器 Origin 的请求。应用流量使用现有认证 HTTP 和 Gateway API。模型提供方密钥不会复制到 VS Code 设置或 Webview。Platform 账户凭据仅发送给 Desktop 租约。
 
+任一原生角色均可通过 `read-boot` 取得应用当前公开的 Client 注入数据。应用以实时 getter 提供 `ready`。读取启动数据不会释放租约、调用更新控制、停止任务或转发 Platform 账户凭据。VS Code 重新加载页面时使用此操作，不复用首次启动快照。
+
 Desktop 更新保留独占访问权，其他原生客户端仍连接时拒绝更新。profile 恢复需要同时取得启动锁和写入锁。原生进程消失会释放其 socket 租约；已启动但无人连接的后台具有有界启动生命周期。原生客户端报告意外断连，不重发用户消息；重新连接会取得新租约，并重新打开持久化会话。
 
 </details>

@@ -1,0 +1,5 @@
+- Release notice: same version with a different build; editor plugins and focused draft remain mounted
+- Capture guard: inserting before the command is refused; moving after it retains the command and argument text
+- Not now: dismisses the notice without submitting or clearing the draft
+- Page reload: restores the atomic /goal command and immutable editor capture without sending a message
+- Layout: notice and actions remain contained at 390 px

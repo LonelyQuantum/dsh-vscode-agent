@@ -11,7 +11,8 @@ import { MAX_CONTROL_BYTES, SHARED_PROTOCOL, record, controlText, type ClientRol
 
 /** Product-owned operations; the broker owns transport, leases, and update exclusion only. */
 export interface SharedApplication {
-  ready: SharedReady
+  /** Read current Client startup injections without changing leases or stopping tasks. */
+  readonly ready: SharedReady
   shutdown(): Promise<void>
   inspectQuit(): Promise<{ activeTasks: boolean; scheduledTasks: boolean }>
   updateTasks(action: 'inspect' | 'lock' | 'unlock'): Promise<boolean>
@@ -25,7 +26,7 @@ export interface ServeSharedHost {
   start(publishPlatform: (session: unknown) => void): Promise<SharedApplication>
 }
 
-const actions = new Set<ControlAction>(['inspect-quit', 'inspect-update', 'lock-update', 'unlock-update', 'release', 'release-exclusive'])
+const actions = new Set<ControlAction>(['read-boot', 'inspect-quit', 'inspect-update', 'lock-update', 'unlock-update', 'release', 'release-exclusive'])
 
 /**
  * Own one Harness home until its last native lease is released and the application stops.
@@ -129,9 +130,13 @@ export async function serveSharedHost(options: ServeSharedHost): Promise<void> {
             if (result.stopped) finish()
             return
           }
-          if (role !== 'desktop') throw new Error('Only Desktop may control backend updates')
           const running = await application
           if (!running) throw new Error('Shared backend has not started')
+          if (action === 'read-boot') {
+            send(socket, { type: 'response', id, result: running.ready.injections })
+            return
+          }
+          if (role !== 'desktop') throw new Error('Only Desktop may control backend updates')
           let result: unknown
           switch (action) {
             case 'inspect-quit':

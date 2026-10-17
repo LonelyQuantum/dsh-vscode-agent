@@ -45,6 +45,8 @@ A cold launcher passes its environment only to the child process, never to disco
 
 The loopback control socket requires a random bearer token, exact product/protocol versions, and a native-client role. Browser Origin requests are refused. Application traffic uses the existing authenticated HTTP and Gateway APIs. Provider keys are not copied into VS Code settings or its Webview. Platform account credentials are sent only to Desktop leases.
 
+Either native role may request `read-boot` to obtain the application's current public Client injections. The application supplies `ready` as a live getter. Reading startup data neither releases a lease nor invokes update control, stops a task, or forwards Platform account credentials. VS Code uses this operation when reloading its page instead of reusing its initial startup snapshot.
+
 Desktop updates reserve exclusive access and refuse while another native client is attached. Profile recovery requires both startup and writer locks. A disappearing native process releases its socket lease; an unclaimed launched backend has a bounded startup lifetime. The native client reports unexpected loss without resending a user message; reconnecting acquires a new lease and reopens durable Sessions.
 
 </details>

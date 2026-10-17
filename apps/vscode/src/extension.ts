@@ -199,6 +199,11 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
             void vscode.commands.executeCommand('dsh.configure')
             return
           }
+          if ('kind' in message && message.kind === 'native-reload') {
+            closeActive?.()
+            void requestOpen()
+            return
+          }
           if ('kind' in message && message.kind === 'ui-ready' && 'mounted' in message) {
             diagnostics.editorUI = message.mounted === true
             return
@@ -214,8 +219,13 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
         }
         if (typeof message === 'object' && message !== null && 'channel' in message && message.channel === CHANNEL
           && 'kind' in message && message.kind === 'boot' && 'id' in message && Number.isSafeInteger(message.id)) {
-          void current.webview.postMessage({ channel: CHANNEL, kind: 'boot', id: message.id, injections: ready.injections, workspace })
-          diagnostics.boot = true
+          void runtime?.readBoot().then((injections) => {
+            if (isClosed()) return
+            void current.webview.postMessage({ channel: CHANNEL, kind: 'boot', id: message.id, injections, workspace })
+            diagnostics.boot = true
+          }).catch(() => {
+            if (!isClosed()) void current.webview.postMessage({ channel: CHANNEL, kind: 'boot-failed', id: message.id })
+          })
         } else activeProxy.receive(message)
       })
       bindings.push(receive)

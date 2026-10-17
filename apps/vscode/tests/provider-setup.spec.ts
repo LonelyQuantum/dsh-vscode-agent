@@ -6,7 +6,8 @@ import { extensionCopy } from '../src/locale.ts'
 
 const copy = extensionCopy('en')
 const declaredModel = { id: 'fixture', name: 'Declared fixture', contextWindow: 64000,
-  inputModalities: ['text', 'image'], systemPromptUpdate: 'in-history', toolUpdate: 'addition-only' }
+  inputModalities: ['text', 'image'], systemPromptUpdate: 'in-history', toolUpdate: 'addition-only',
+  reasoningEfforts: ['off', 'low', 'high'], defaultReasoningEffort: 'high' }
 function fixture(options: { configured?: boolean; catalog?: 'ready' | 'hidden' | 'empty'; models?: Record<string, unknown>[] } = {}) {
   const writes: { method: string; args: object }[] = []
   const request = vi.fn(async (method: string, args: object): Promise<unknown> => {

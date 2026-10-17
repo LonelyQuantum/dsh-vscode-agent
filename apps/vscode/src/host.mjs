@@ -50,7 +50,17 @@ async function run(installation, home, require) {
     if (process.connected) process.disconnect()
     finished()
   })()
-  process.on('message', message => { if (message?.type === 'shutdown') void stop() })
+  process.on('message', message => {
+    if (message?.type === 'shutdown') void stop()
+    else if (message?.type === 'read-boot' && Number.isSafeInteger(message.id)) {
+      void application.then(({ ctx }) => {
+        if (!stopping && process.connected) process.send({ type: 'boot', id: message.id,
+          injections: ctx.webServer.collectIndexInjections() }, () => { /* Parent disconnect owns profile shutdown. */ })
+      }).catch(() => {
+        if (process.connected) process.send({ type: 'boot', id: message.id }, () => { /* Parent disconnect owns profile shutdown. */ })
+      })
+    }
+  })
   process.once('disconnect', () => { void stop() })
   if (!process.connected) void stop()
   const { ctx } = await application

@@ -68,8 +68,8 @@ async function bootShared(publishPlatform: (session: unknown) => void): Promise<
     const { ctx } = running
     if (process.argv[4] !== '') await installOffice(ctx)
     installPlatformSessionPublisher(ctx, publishPlatform)
-    return { ready: { url: ctx.connection.authenticatedUrl(`http://127.0.0.1:${String(ctx.webServer.port)}`),
-      injections: ctx.webServer.collectIndexInjections(), pid: process.pid },
+    return { get ready() { return { url: ctx.connection.authenticatedUrl(`http://127.0.0.1:${String(ctx.webServer.port)}`),
+      injections: ctx.webServer.collectIndexInjections(), pid: process.pid } },
     shutdown: () => running.shutdown.shutdown(0),
     updateTasks: installDesktopUpdateTaskControl(ctx), inspectQuit: installDesktopQuitInspection(ctx) }
   } catch (error) { await running.shutdown.shutdown(1); throw error }

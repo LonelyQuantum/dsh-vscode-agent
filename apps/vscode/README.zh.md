@@ -56,7 +56,7 @@ pnpm.cmd run dev:vscode
 
 后台监听临时 IPv4 回环端口。共享模式通过认证控制 socket 传送原生启动数据；独立模式使用私有子进程 IPC。Extension Host 用启动 token 交换 HTTP-only cookie。限制路由的 Webview 适配器不接收 URL 或 cookie。Gateway 保留流分帧。HTTP 响应逐步读取；拒绝超过 8 MiB 的缓冲上传。
 
-插件图事件使用 `eventsource` 库经同一带认证的 Fetch 桥接传输，仅允许 `/plugins/events`。适配器在流错误或 EOF 后重连；关闭时中止请求并取消待执行的重试。认证保留在 Extension Host。SSE 解析和重试语义由该库负责，扩展不维护第二套事件解析器。
+插件图事件使用 `eventsource` 库经同一带认证的 Fetch 桥接传输，仅允许 `/plugins/events`。同一事件源也为上游 HMR Fetch 流提供数据，保留流错误或 EOF 后的重连；关闭任一消费方时中止请求并取消待执行的重试。Fetch 适配器将缓冲的事件字节限制为 16 MiB。不可恢复的 HTTP 拒绝或缓冲溢出会明确使流失败，需要重新加载视图；普通 API 和文件请求保留既有传输方式。认证保留在 Extension Host。SSE 解析和重试语义由该库负责，扩展不维护独立事件解析器。
 
 静态资源限定于 `web/`、`resources/` 和 `carrier/`；工作区、Host 入口及打包运行时都不属于 Webview 资源根目录。CSP 拒绝未列出的来源、任意内联脚本、动态字符串编译（`eval` 和 `Function`）、外部连接/图片、基础 URL 更改、表单、frame 和 object。插件脚本和生成的 style 元素携带页面 nonce；blob worker 仍可使用。共享 Loader 只在求值时编译受信任的 Host 配置表达式，因此仅含字面值的 Client 启动不需要 `unsafe-eval`。共享布局与数学公式渲染仍通过 `style-src-attr 'unsafe-inline'` 使用内联样式属性；不带 nonce 的内联 style 元素会被阻止。这不是 XSS 安全保证，也不代表已完成 Marketplace 发行加固：已安装的 Cordis 插件属于受信任代码，启用前必须审查。
 

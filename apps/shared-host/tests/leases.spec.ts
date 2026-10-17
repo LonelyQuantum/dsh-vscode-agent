@@ -16,6 +16,7 @@ async function fixture(pauseBoot = false) {
   const home = await mkdtemp(join(tmpdir(), 'dsh-shared-'))
   const shutdown = vi.fn(async () => {})
   const updates = vi.fn(async () => false)
+  let injections: unknown[] = []
   const clients: SharedHostClient[] = []
   const boot = Promise.withResolvers<undefined>()
   let publishAccount: ((session: unknown) => void) | undefined
@@ -24,7 +25,7 @@ async function fixture(pauseBoot = false) {
     publishAccount = publish
     await boot.promise
     publish({ token: 'fixture-only-private-account' })
-    return { ready: { url: 'http://127.0.0.1:49152/?token=fixture-only', injections: [], pid: process.pid },
+    return { get ready() { return { url: 'http://127.0.0.1:49152/?token=fixture-only', injections, pid: process.pid } },
       shutdown, inspectQuit: async () => ({ activeTasks: true, scheduledTasks: true }), updateTasks: updates }
   } })
   let failure: unknown
@@ -53,8 +54,27 @@ async function fixture(pauseBoot = false) {
     return client
   }
   return { home, shutdown, updates, serving, attach, endpoint, completeBoot: () => { boot.resolve(undefined) },
+    setInjections: (value: unknown[]) => { injections = value },
     publishAccount: (value: unknown) => { publishAccount?.(value) } }
 }
+
+it('reads fresh boot data for either native role without releasing leases or exposing account tokens', async () => {
+  const f = await fixture()
+  const editor = await f.attach('vscode')
+  const desktop = await f.attach('desktop')
+  f.setInjections([{ kind: 'global', name: '__DSH_BOOT__', value: { release: { version: 'next-fixture' } } }])
+  const fresh = await editor.control('read-boot')
+  expect(fresh).toEqual(await desktop.control('read-boot'))
+  expect(fresh).not.toEqual(editor.ready.injections)
+  expect(JSON.stringify(fresh)).not.toContain('fixture-only-private-account')
+  expect(f.shutdown).not.toHaveBeenCalled()
+  expect(f.updates).not.toHaveBeenCalled()
+  await editor.close()
+  expect(f.shutdown).not.toHaveBeenCalled()
+  await desktop.close()
+  await f.serving
+  expect(f.shutdown).toHaveBeenCalledOnce()
+})
 
 it('delivers account events only after the native readiness handshake', async () => {
   const fixtureState = await fixture(true)
