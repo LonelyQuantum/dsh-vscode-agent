@@ -2,7 +2,7 @@
   "name": "dsh-vscode-agent",
   "displayName": "DSH Agent (Community Preview)",
   "description": "%description%",
-  "version": "0.0.1",
+  "version": "0.0.2-rc.1",
   "publisher": "LonelyQuantum",
   "author": { "name": "LonelyQuantum", "url": "https://github.com/LonelyQuantum" },
   "license": "MIT",

@@ -20,7 +20,7 @@ it('accepts GitHub preview metadata and refuses SemVer prereleases for Marketpla
 it('identifies the community author and derives the canonical editor identity from the manifest', () => {
   expect(manifest.author).toEqual({ name: 'LonelyQuantum', url: 'https://github.com/LonelyQuantum' })
   expect(manifest.publisher).toBe('LonelyQuantum')
-  expect(manifest.version).toBe('0.0.1')
+  expect(manifest.version).toBe('0.0.2-rc.1')
   expect(EXTENSION_ID).toBe(`${manifest.publisher}.${manifest.name}`.toLowerCase())
   expect(EXTENSION_ID).toBe('lonelyquantum.dsh-vscode-agent')
 })
