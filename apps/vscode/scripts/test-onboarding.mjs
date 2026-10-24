@@ -52,19 +52,22 @@ export async function runOnboardingCheck({ browser, root, evaluate, request, wai
   await waitFor(() => readIfPresent(join(root, 'reloaded')))
   await waitFor(() => evaluate('return !!root?.querySelector("[data-composer-input]")'))
   const send = async marker => {
+    await waitFor(() => evaluate(`return root?.querySelector('[data-composer-input]')?.getAttribute('contenteditable') === 'true'
+      && !root.querySelector('[data-streaming=true]')`))
+    const previousRequests = provider.requests.length
     await evaluate('root.querySelector("[data-composer-input]").focus()')
     await request('Input.insertText', { text: marker })
     await request('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 })
     await request('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 })
-    await waitFor(() => evaluate('return root?.innerText.includes("NATIVE_ONBOARDING_DONE") && !root.querySelector("[data-streaming=true]")'))
+    await waitFor(async () => provider.requests.length > previousRequests && await evaluate(`return root
+      && [...root.querySelectorAll('[data-user-message]')].some(node => node.textContent.includes(${JSON.stringify(marker)}))
+      && root.innerText.includes('NATIVE_ONBOARDING_DONE') && !root.querySelector('[data-streaming=true]')`))
   }
   await send('Native onboarding first turn')
   assert.equal(provider.requests.at(-1)?.body?.model, 'deepseek-flash')
   assert.equal(provider.requests.at(-1)?.headers['x-api-key'], key)
   await configure('fixture-only-editor-rotated-key', true)
-  const count = provider.requests.length
   await send('Native onboarding rotated turn')
-  await waitFor(() => provider.requests.length > count)
   assert.equal(provider.requests.at(-1)?.body?.model, 'deepseek-flash')
   assert.equal(provider.requests.at(-1)?.headers['x-api-key'], 'fixture-only-editor-rotated-key')
   const { readSessionLog } = await import('../lib/session-log.mjs')
