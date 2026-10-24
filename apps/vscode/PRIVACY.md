@@ -14,6 +14,8 @@ Conversation logs and attachments can contain source code, local paths, tool out
 
 Sending a prompt can transmit messages, selected editor context, attachments, tool results and assembled agent context to the configured model provider. Capturing selected text or Problems alone does not send a model request; submission includes the captured snapshot. Tools and installed plugins can access files, run commands and contact external services according to configuration and permissions. The maintainer cannot control provider retention or guarantee that plugins redact private data.
 
+The official API-key route can request `GET https://api.deepseek.com/models` when its default model catalog is accessed. It sends the saved key for authentication and the client identifier, not prompts, editor snapshots or tool results. No key means no listing request. Custom API origins and customized model catalogs do not enable this listing. A metadata request is separate from an inference test; it can occur without sending a chat message. The [provider documentation](../../packages/llm/llm-deepseek-api-key/README.md) describes caching and failure behavior.
+
 <a id="optional-deepseek-searchfetch"></a>
 ### Optional DeepSeek Search/Fetch
 

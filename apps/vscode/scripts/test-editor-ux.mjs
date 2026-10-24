@@ -32,11 +32,16 @@ export async function runEditorUxCheck({ evaluate, request, waitFor }) {
   assert.equal(await evaluate('return root.querySelector("[data-composer-input]").innerText'), draft)
   assert.equal(await evaluate('return [...root.querySelectorAll("button")].some(button => ["History", "New conversation", "Attach file"].includes(button.textContent))'), false)
   await evaluate(`root.querySelector('[aria-label="Add files or run commands"]').click()`)
-  await waitFor(() => evaluate('return !!doc.querySelector("[data-trigger-menu]")'))
-  assert.equal(await evaluate(`const item = [...doc.querySelectorAll('[role=option]')].find(node => node.textContent.trim() === 'File');
-    if (!item) return false;
+  // The shell opens with pending groups; File follows the asynchronous Host command catalog.
+  await waitFor(() => evaluate(`return [...doc.querySelectorAll('[data-trigger-menu] [role=option]')]
+    .some(node => node.textContent.trim() === 'File')`))
+  const menuHit = await evaluate(`const item = [...doc.querySelectorAll('[role=option]')].find(node => node.textContent.trim() === 'File');
+    if (!item) return { accessible: false, options: [...doc.querySelectorAll('[data-trigger-menu] [role=option]')].map(node => node.textContent) };
     const box = item.getBoundingClientRect();
-    return item.contains(doc.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2))`), true)
+    const hit = doc.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+    return { accessible: item.contains(hit), box: box.toJSON(), viewport: [doc.defaultView.innerWidth, doc.defaultView.innerHeight],
+      hit: hit && { tag: hit.tagName, role: hit.getAttribute('role'), text: hit.textContent.slice(0, 160) } }`)
+  assert.equal(menuHit.accessible, true, JSON.stringify(menuHit))
   await key('Escape')
   await waitFor(() => evaluate('return !doc.querySelector("[data-trigger-menu]")'))
   assert.equal(await evaluate('return root.querySelector("[data-composer-input]").innerText'), draft)

@@ -89,6 +89,7 @@ kind: "package-reference"
 
 - 原生文件只允许在宿主的工作区内打开；捕获差异需要原始 Host 会话仍存活。
 - 不渲染独立设置面板；凭据配置使用宿主的原生命令。
+- Web 和 Desktop 的导航菜单不属于嵌入式 Conversation Factory；插件浏览与 Creator 菜单入口保留在对应客户端中，不在编辑器内增加第二侧栏。
 
 <a id="dev-note"></a>
 ### 开发备注

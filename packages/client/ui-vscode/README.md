@@ -89,6 +89,7 @@ The editor carrier defines the supported workspace types.
 
 - Native files are admitted only inside the carrier's workspace; captured diffs require the original live Host Session.
 - No independent settings panel is rendered; credential setup uses the carrier's native command.
+- Web and Desktop navigation menus are outside the embedded Conversation Factory; plugin browsing and Creator menu entries remain in those matching clients, not in a second editor sidebar.
 
 <a id="dev-note"></a>
 ### Dev Note

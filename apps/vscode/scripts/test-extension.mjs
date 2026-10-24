@@ -263,6 +263,8 @@ try {
       if (!logged) throw new Error(`Submitted editor snapshot was not found in the durable Session log (${logsRead} logs read)`)
       console.log('VSCODE_LIVE_CONTEXT_OK: model completed through the real Webview bridge')
       if (values.interactions) {
+        const { runDraftReturnCheck } = await import('./test-draft-return.mjs')
+        await runDraftReturnCheck({ evaluate, request, waitFor })
         const uploaded = await evaluate(`return (async () => {
           const win = doc.defaultView;
           const sessionId = win.__DSH_VSCODE__.lastSession();

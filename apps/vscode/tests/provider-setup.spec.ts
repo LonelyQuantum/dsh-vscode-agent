@@ -8,7 +8,12 @@ const copy = extensionCopy('en')
 const declaredModel = { id: 'fixture', name: 'Declared fixture', contextWindow: 64000,
   inputModalities: ['text', 'image'], systemPromptUpdate: 'in-history', toolUpdate: 'addition-only',
   reasoningEfforts: ['off', 'low', 'high'], defaultReasoningEffort: 'high' }
-function fixture(options: { configured?: boolean; catalog?: 'ready' | 'hidden' | 'empty'; models?: Record<string, unknown>[] } = {}) {
+function fixture(options: {
+  configured?: boolean
+  catalog?: 'ready' | 'hidden' | 'empty'
+  models?: Record<string, unknown>[]
+  discoveredModels?: Record<string, unknown>[]
+} = {}) {
   const writes: { method: string; args: object }[] = []
   const request = vi.fn(async (method: string, args: object): Promise<unknown> => {
     if (method === 'settings/describe') return { writable: true, namespaces: [
@@ -17,7 +22,7 @@ function fixture(options: { configured?: boolean; catalog?: 'ready' | 'hidden' |
     ] }
     if (method === 'llm/listConfigurableProviders') return [{ provider: 'fixture', displayName: 'Fixture', settingsNs: 'provider-entry', settingsPath: [] }]
     if (method === 'session/modelCatalog') return { groups: options.catalog === 'hidden' ? [] :
-      [{ id: 'fixture', models: options.catalog === 'empty' ? [] : [{ id: 'fixture', name: 'Fixture model' }] }] }
+      [{ id: 'fixture', models: options.catalog === 'empty' ? [] : options.discoveredModels ?? [{ id: 'fixture', name: 'Fixture model' }] }] }
     if (method === 'credentials/describe') return { FIXTURE_KEY: { writable: true, configured: options.configured ?? true } }
     writes.push({ method, args })
   })
@@ -92,6 +97,28 @@ it('uses directory-owned settings addresses, CAS revisions and native-only crede
   expect(JSON.stringify(f.writes.filter(row => row.method !== 'credentials/set'))).not.toContain('fixture-only-rotated-key')
   expect(JSON.stringify(vi.mocked(f.ui.pick).mock.calls)).not.toContain('fixture-only-rotated-key')
   expect(vi.mocked(f.ui.input).mock.calls.find(call => call[0] === copy.rotateKey)?.[2]).toBe(true)
+})
+
+it('offers the refreshed remote catalog and preserves its reasoning default without replacing declared models', async () => {
+  const model = { id: 'remote-model', name: 'Remote catalog model', reasoning: { defaultEffort: 'low' } }
+  const f = fixture({ discoveredModels: [model] })
+  const pick = f.ui.pick
+  f.ui.pick = async (title, choices) => {
+    if (title !== copy.model) return pick(title, choices)
+    expect(choices).toEqual([{ label: model.name, id: model.id }, { label: copy.customModel, id: '\u0000custom' }])
+    return model.id
+  }
+  expect(await setupSharedProvider(f.request, f.ui, copy, () => true)).toBe('saved')
+  expect(f.writes[0]?.args).toMatchObject({ ops: [
+    { op: 'set', path: ['apiKeyEnv'], value: 'FIXTURE_KEY' },
+    { op: 'set', path: ['baseURL'], value: 'https://example.test/new' },
+  ] })
+  expect(f.writes[2]?.args).toMatchObject({ ops: [
+    { op: 'set', path: ['provider'], value: 'fixture' },
+    { op: 'set', path: ['model'], value: model.id },
+    { op: 'set', path: ['reasoningEffort'], value: 'low' },
+  ] })
+  expect(f.request.mock.calls.filter(([method]) => method === 'session/modelCatalog')).toHaveLength(1)
 })
 
 it.each(['provider', 'endpoint', 'key', 'model', 'confirmation'])('cancels at %s without changing a provider or credential', async (stage) => {
