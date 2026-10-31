@@ -15,6 +15,7 @@ import { resolveInstallation } from './installation.ts'
 import { DesktopHomeError, resolveDesktopHome } from './desktop-home.ts'
 import { SharedHostError } from '@deepseek-ai/dsh-shared-host/client'
 import { SharedLaunchError } from './shared-launch.ts'
+import { collectPackageAssets } from './package-assets.ts'
 
 let stopExtension: (() => Promise<void>) | undefined
 
@@ -42,6 +43,7 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
   context.subscriptions.push(snapshots)
   let runtime: AgentRuntime | undefined
   let booting: Promise<RuntimeReady> | undefined
+  let assetRoots: string[] = []
   let panel: vscode.WebviewView | undefined
   let closeActive: (() => void) | undefined
   let proxy: HostProxy | undefined
@@ -121,6 +123,10 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
           : undefined
         if (isClosed() || !trusted()) return
         runtime = new AgentRuntime()
+        const isolatedHome = join(context.globalStorageUri.fsPath, 'homes', createHash('sha256').update(workspace).digest('hex').slice(0, 24))
+        assetRoots = [join(desktopHome ?? isolatedHome, 'profiles', shared ? 'desktop' : 'vscode', 'node_modules'),
+          join(installation.sharedRuntime, 'node_modules'),
+          join(installation.directory, '../../node_modules/.pnpm/node_modules')]
         const owner = runtime
         owner.onExit(() => {
           if (stopping || runtime !== owner) return
@@ -136,7 +142,7 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
           sharedRuntime: installation.sharedRuntime,
           entry: join(context.extensionPath, 'host.mjs'), workspace,
           ...(desktopHome === undefined ? apiKey === undefined ? {} : { apiKey } : { desktopHome }),
-          home: join(context.globalStorageUri.fsPath, 'homes', createHash('sha256').update(workspace).digest('hex').slice(0, 24)) })
+          home: isolatedHome })
       }
       const ready = await booting
       diagnostics.pid = ready.pid
@@ -149,9 +155,27 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
       proxy = activeProxy
       let capturing = false
       let reviewing = false
+      let collecting: Promise<Record<string, string>> | undefined
       const receive = current.webview.onDidReceiveMessage((message: unknown) => {
         if (lifetime.closed || !vscode.workspace.isTrusted) return
         if (typeof message === 'object' && message !== null && 'channel' in message && message.channel === CHANNEL) {
+          if ('kind' in message && message.kind === 'package-assets' && 'id' in message && Number.isSafeInteger(message.id)) {
+            collecting ??= collectPackageAssets(assetRoots, nativeLifetime.signal).then((files) => {
+              if (isClosed()) throw new Error('View closed')
+              const allowed = [...files.values()].map(path => vscode.Uri.file(path))
+              current.webview.options = { ...current.webview.options, localResourceRoots: [
+                ...['web', 'resources', 'carrier'].map(path => vscode.Uri.joinPath(context.extensionUri, path)), ...allowed] }
+              return Object.fromEntries([...files].map(([reference, path]) => [reference,
+                current.webview.asWebviewUri(vscode.Uri.file(path)).toString().replace(/[!'()*]/g,
+                  char => '%' + char.charCodeAt(0).toString(16).toUpperCase())]))
+            }).finally(() => { collecting = undefined })
+            void collecting.then((assets) => {
+              if (!isClosed()) void current.webview.postMessage({ channel: CHANNEL, id: message.id, kind: 'package-assets', assets })
+            }).catch(() => {
+              if (!isClosed()) void current.webview.postMessage({ channel: CHANNEL, id: message.id, kind: 'error', error: 'Package assets unavailable' })
+            })
+            return
+          }
           if ('kind' in message && message.kind === 'native-file' && 'path' in message && typeof message.path === 'string'
             && 'cwd' in message && typeof message.cwd === 'string' && message.cwd.length <= 4096
             && message.path.length <= 4096 && (!('line' in message) || message.line === undefined

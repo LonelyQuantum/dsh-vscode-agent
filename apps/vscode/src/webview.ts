@@ -1,5 +1,6 @@
 /** Webview carrier for the unmodified DSH Web entry and Gateway wire frames. */
 import { pluginEventFetch, pluginEventSource } from './plugin-events.ts'
+import { UPLOAD_CHUNK, UPLOAD_LIMIT, UPLOAD_PATH } from './upload.ts'
 
 declare function acquireVsCodeApi(): { postMessage(message: object): void; getState(): unknown; setState(state: object): void }
 const editor = acquireVsCodeApi()
@@ -33,19 +34,47 @@ async function proxyFetch(input: RequestInfo | URL, init?: RequestInit): Promise
   if (!url.pathname.startsWith('/api/') && !url.pathname.startsWith('/plugins/')) return nativeFetch(request)
   if (url.origin !== location.origin && url.origin !== 'http://dsh.internal') throw new Error('External DSH requests are not supported')
   request.signal.throwIfAborted()
-  const bytes = await request.arrayBuffer()
+  const upload = request.method === 'POST' && url.pathname === UPLOAD_PATH ? request.body?.getReader() : undefined
+  const uploading = upload !== undefined
+  const bytes = uploading ? new ArrayBuffer(0) : await request.arrayBuffer()
   if (bytes.byteLength > 8 * 1024 * 1024) throw new Error('Development bridge attachments are limited to 8 MiB')
   request.signal.throwIfAborted()
   const id = ++nextId
   return new Promise<Response>((resolve, reject) => {
     let stream: ReadableStreamDefaultController<Uint8Array> | undefined
+    let remainder = new Uint8Array(0)
+    let sent = 0
+    let sending: Promise<void> | undefined
     const cleanup = (): void => { listeners.delete(id); request.signal.removeEventListener('abort', aborted) }
-    const fail = (error: Error): void => { cleanup(); reject(error); stream?.error(error) }
+    const fail = (error: Error): void => {
+      cleanup(); reject(error); stream?.error(error)
+      void upload?.cancel(error).catch(() => {})
+    }
     const aborted = (): void => { send(id, 'cancel'); fail(new DOMException('Aborted', 'AbortError')) }
     request.signal.addEventListener('abort', aborted, { once: true })
     listeners.set(id, (message) => {
       switch (message.kind) {
+        case 'upload-pull': {
+          if (!upload || sending) { aborted(); break }
+          sending = (async () => {
+            if (!remainder.length) {
+              const next = await upload.read()
+              if (next.done) { send(id, 'upload-chunk', { data: null }); return }
+              remainder = next.value
+            }
+            request.signal.throwIfAborted()
+            const chunk = remainder.subarray(0, UPLOAD_CHUNK)
+            remainder = remainder.subarray(chunk.length)
+            sent += chunk.length
+            if (sent > UPLOAD_LIMIT) throw new Error('Attachments are limited to 50 MiB')
+            send(id, 'upload-chunk', { data: encode(chunk) })
+          })().catch((error: unknown) => {
+            send(id, 'cancel'); fail(error instanceof Error ? error : new Error('Attachment upload failed'))
+          }).finally(() => { sending = undefined })
+          break
+        }
         case 'headers': {
+          void upload?.cancel().catch(() => {})
           const body = message.body ? new ReadableStream<Uint8Array>({
             start(controller) { stream = controller },
             pull() { send(id, 'pull') },
@@ -62,7 +91,7 @@ async function proxyFetch(input: RequestInfo | URL, init?: RequestInit): Promise
     })
     send(id, 'fetch', { path: url.pathname + url.search, method: request.method,
       contentType: request.headers.get('content-type') ?? undefined,
-      ...(bytes.byteLength ? { body: encode(new Uint8Array(bytes)) } : {}) })
+      ...(uploading ? { upload: true } : bytes.byteLength ? { body: encode(new Uint8Array(bytes)) } : {}) })
   })
 }
 
@@ -127,7 +156,25 @@ class GatewaySocket extends EventTarget implements WebSocket {
   }
 }
 
+let packageAssets: Record<string, string> = {}
+let assetRefresh: Promise<void> | undefined
+function refreshAssets(): Promise<void> {
+  return assetRefresh ??= new Promise<void>((resolve, reject) => {
+    const id = ++nextId
+    listeners.set(id, (message) => {
+      listeners.delete(id)
+      if (message.kind !== 'package-assets' || typeof message.assets !== 'object' || message.assets === null) {
+        reject(new Error('Package assets unavailable')); return
+      }
+      packageAssets = message.assets as Record<string, string>
+      resolve()
+    })
+    send(id, 'package-assets')
+  }).finally(() => { assetRefresh = undefined })
+}
+
 async function loadBundle(path: string): Promise<void> {
+  await refreshAssets()
   const response = await proxyFetch(new URL(path, 'http://dsh.internal'))
   if (!response.ok) throw new Error(`DSH asset failed: ${response.status}`)
   const blob = URL.createObjectURL(new Blob([await response.text()], { type: 'text/javascript' }))
@@ -206,6 +253,11 @@ globalThis.WebSocket = GatewaySocket
 const PluginSource = pluginEventSource(proxyFetch)
 globalThis.EventSource = PluginSource
 Reflect.set(globalThis, '__DSH_TRANSPORT__', { fetch: pluginEventFetch(proxyFetch, PluginSource), loadBundle,
+  resolveAsset: (reference: string): string => {
+    const asset = packageAssets[reference]
+    if (typeof asset !== 'string') throw new Error('Package asset is not exported')
+    return asset
+  },
   ownsHost: true, streamBaseUrl: 'http://dsh.internal' })
 Reflect.set(globalThis, '__DSH_FILE_UPLOAD__', { fetch: proxyFetch })
 Reflect.set(globalThis, '__DSH_VSCODE__', {

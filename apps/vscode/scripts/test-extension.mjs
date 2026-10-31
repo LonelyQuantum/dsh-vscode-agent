@@ -190,7 +190,10 @@ try {
           const root = doc.querySelector('[data-vscode-conversation]');
           ${body}
         })()`, returnByValue: true, awaitPromise: true, allowUnsafeEvalBlockedByCSP: false })
-        if (result.exceptionDetails) throw new Error('Webview test DOM action failed')
+        if (result.exceptionDetails) {
+          await writeFile(join(app, 'lib/editor-dom-exception.json'), JSON.stringify(result.exceptionDetails, null, 2))
+          throw new Error('Webview test DOM action failed; see lib/editor-dom-exception.json')
+        }
         return result.result.value
       }
       await waitFor(() => evaluate('return !!root'))
@@ -198,6 +201,8 @@ try {
         const { runOnboardingCheck } = await import('./test-onboarding.mjs')
         await runOnboardingCheck({ browser, root, evaluate, request, waitFor, readIfPresent, endpoint: mockProvider.baseURL,
           provider: mockProvider, home: environment.DSH_HOME })
+        const { runDraftReturnCheck } = await import('./test-draft-return.mjs')
+        await runDraftReturnCheck({ evaluate, request, waitFor })
       } else if (values.security) {
         const { runSecurityCheck } = await import('./test-security.mjs')
         await runSecurityCheck({ evaluate, waitFor })

@@ -29,7 +29,7 @@ export async function resolveSharedLaunch(node: string, runtime: string, version
   let stdout: string
   try {
     ({ stdout } = await promisify(execFile)(node, ['--eval',
-      'const [major,minor]=process.versions.node.split(".").map(Number);if(!(major>=24||(major===22&&minor>=19)))process.exit(1);process.stdout.write(JSON.stringify(process.execPath))'],
+      'const [major,minor]=process.versions.node.split(".").map(Number);if(!(major>24||(major===24&&minor>=9)))process.exit(1);process.stdout.write(JSON.stringify(process.execPath))'],
     { env, windowsHide: true, timeout: 15_000, maxBuffer: 8192 }))
   } catch (_error) { throw new SharedLaunchError('node') }
   const executable: unknown = JSON.parse(stdout)

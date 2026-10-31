@@ -63,6 +63,21 @@ export class SharedDesktopHost {
     return { activeTasks: result.activeTasks, scheduledTasks: result.scheduledTasks }
   }
 
+  /** Authorize one native drag. @param address Session resource. @param signal Caller cancellation. @returns Authorized local resource. */
+  async resolveDragResource(address: string, signal?: AbortSignal): Promise<{ path: string; sha256: string; size: number } | null> {
+    signal?.throwIfAborted()
+    if (!this.client) throw new Error('Shared backend is unavailable')
+    const result = await this.client.control('resolve-file-drag', address)
+    signal?.throwIfAborted()
+    if (result === null) return null
+    if (typeof result !== 'object' || !('path' in result) || typeof result.path !== 'string'
+      || !('sha256' in result) || typeof result.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(result.sha256)
+      || !('size' in result) || typeof result.size !== 'number' || !Number.isSafeInteger(result.size) || result.size < 0) {
+      throw new Error('Invalid file drag resource')
+    }
+    return { path: result.path, sha256: result.sha256, size: result.size }
+  }
+
   /** Release the Desktop lease. @param exclusive Require sole ownership for installation. @returns Socket and pending-start cleanup. */
   stop(exclusive = false): Promise<void> {
     this.closed = true

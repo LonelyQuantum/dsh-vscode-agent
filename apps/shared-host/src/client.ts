@@ -104,8 +104,13 @@ export class SharedHostClient {
     })
   }
 
-  /** Send a fixed lifecycle control. @param action Allowed control. @returns Host-owned result, validated by its native consumer. */
-  async control(action: ControlAction): Promise<unknown> {
+  /**
+   * Send a fixed native control.
+   * @param action Allowed control.
+   * @param address Desktop-only file reference.
+   * @returns Host-owned result, validated by its native consumer.
+   */
+  async control(action: ControlAction, address?: string): Promise<unknown> {
     if (this.socket.readyState !== WebSocket.OPEN) throw new SharedHostError('Shared backend is disconnected')
     const id = this.nextId++
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -113,7 +118,7 @@ export class SharedHostClient {
       return await new Promise((resolve, reject) => {
         this.pending.set(id, { resolve, reject })
         timer = setTimeout(() => { reject(new SharedHostError('Shared backend control timed out')) }, 15_000)
-        this.socket.send(JSON.stringify({ type: 'control', id, action }), (error) => { if (error) reject(error) })
+        this.socket.send(JSON.stringify({ type: 'control', id, action, address }), (error) => { if (error) reject(error) })
       })
     } finally { clearTimeout(timer); this.pending.delete(id) }
   }

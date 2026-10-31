@@ -6,7 +6,7 @@ import { createRequire } from 'node:module'
 
 async function main() {
   const [major, minor] = process.versions.node.split('.').map(Number)
-  if (!(major >= 24 || (major === 22 && minor >= 19))) throw new Error('DSH requires Node 22.19+ or Node 24+. Configure dsh.nodePath.')
+  if (!(major > 24 || (major === 24 && minor >= 9))) throw new Error('DSH requires Node 24.9+. Configure dsh.nodePath.')
   if (!process.connected) throw new Error('VS Code runtime requires its owning IPC channel')
   const installation = process.argv[2]
   const version = process.argv[3]
@@ -55,7 +55,7 @@ async function run(installation, home, require) {
     else if (message?.type === 'read-boot' && Number.isSafeInteger(message.id)) {
       void application.then(({ ctx }) => {
         if (!stopping && process.connected) process.send({ type: 'boot', id: message.id,
-          injections: ctx.webServer.collectIndexInjections() }, () => { /* Parent disconnect owns profile shutdown. */ })
+          injections: ctx.webServer.collectIndexInjections(ctx.connection.browserPeer) }, () => { /* Parent disconnect owns profile shutdown. */ })
       }).catch(() => {
         if (process.connected) process.send({ type: 'boot', id: message.id }, () => { /* Parent disconnect owns profile shutdown. */ })
       })
@@ -66,7 +66,7 @@ async function run(installation, home, require) {
   const { ctx } = await application
   if (!stopping && process.connected) process.send({ type: 'ready',
     url: ctx.connection.authenticatedUrl(`http://127.0.0.1:${ctx.webServer.port}`),
-    injections: ctx.webServer.collectIndexInjections() })
+    injections: ctx.webServer.collectIndexInjections(ctx.connection.browserPeer) })
   await stopped
 }
 

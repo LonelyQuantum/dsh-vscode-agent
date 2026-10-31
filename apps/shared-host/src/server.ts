@@ -16,6 +16,8 @@ export interface SharedApplication {
   shutdown(): Promise<void>
   inspectQuit(): Promise<{ activeTasks: boolean; scheduledTasks: boolean }>
   updateTasks(action: 'inspect' | 'lock' | 'unlock'): Promise<boolean>
+  /** Optional native Desktop file authorization; reads have a product-owned deadline. */
+  resolveDragResource?(address: string): Promise<unknown>
 }
 
 /** Backend lease owner's immutable inputs. */
@@ -26,7 +28,7 @@ export interface ServeSharedHost {
   start(publishPlatform: (session: unknown) => void): Promise<SharedApplication>
 }
 
-const actions = new Set<ControlAction>(['read-boot', 'inspect-quit', 'inspect-update', 'lock-update', 'unlock-update', 'release', 'release-exclusive'])
+const actions = new Set<ControlAction>(['read-boot', 'inspect-quit', 'inspect-update', 'lock-update', 'unlock-update', 'release', 'release-exclusive', 'resolve-file-drag'])
 
 /**
  * Own one Harness home until its last native lease is released and the application stops.
@@ -139,6 +141,11 @@ export async function serveSharedHost(options: ServeSharedHost): Promise<void> {
           if (role !== 'desktop') throw new Error('Only Desktop may control backend updates')
           let result: unknown
           switch (action) {
+            case 'resolve-file-drag':
+              if (typeof message.address !== 'string' || message.address.length > 8192
+                || running.resolveDragResource === undefined) throw new Error('File drag unavailable')
+              result = await running.resolveDragResource(message.address)
+              break
             case 'inspect-quit':
               result = clients.size > 1 ? { activeTasks: false, scheduledTasks: false } : await running.inspectQuit()
               break

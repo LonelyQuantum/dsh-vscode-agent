@@ -10,7 +10,7 @@
     "partial": "Some shared settings were saved, but setup did not finish. Reopen Configure API to check the current provider and model before sending a message. No request was automatically retried.",
     "shared": "Shared backend",
     "isolated": "Isolated backend",
-    "node": "DSH needs Node ^22.19.0 or >=24.0.0. Select a compatible Node executable, then reconnect.",
+    "node": "DSH needs Node >=24.9.0. Select a compatible Node executable, then reconnect.",
     "home": "The shared Harness home is not a usable directory. Select an existing or empty local folder; history is not moved."
   },
   "zh-CN": {
@@ -24,7 +24,7 @@
     "partial": "部分共享设置已保存，但配置尚未完成。发送消息前请重新配置 API，检查当前提供方和模型。不会自动重试请求。",
     "shared": "共享后台",
     "isolated": "独立后台",
-    "node": "DSH 需要 Node ^22.19.0 或 >=24.0.0。请选择兼容的 Node 可执行文件，然后重新连接。",
+    "node": "DSH 需要 Node >=24.9.0。请选择兼容的 Node 可执行文件，然后重新连接。",
     "home": "共享 Harness 主目录不是可用目录。请选择已有或空的本地文件夹；不会移动聊天记录。"
   }
 }

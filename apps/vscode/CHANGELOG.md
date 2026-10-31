@@ -4,6 +4,9 @@ English | [中文](CHANGELOG.zh.md)
 
 ## Unreleased
 
+- Adapt to DSH `0.2.2-alpha.2` as extension `0.0.2-alpha.2`, requiring external Node 24.9 or newer.
+- Resolve exported Client images through exact native resource permissions and stream raw attachments up to 50 MiB without enlarging ordinary RPC frames.
+- Preserve shared startup and read-only Auto teardown across the new Peer, Session and permission lifecycles.
 - Adapt the Alpha development line to DSH `0.2.1-alpha.5`, retaining independent extension versioning and the RC release line.
 - Show Host release changes in the editor and reload current Client startup data without stopping the shared backend.
 - Preserve command labels and argument text when attaching editor context at the composer caret.

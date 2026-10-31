@@ -35,7 +35,7 @@ function fixture(state: 'ready' | 'loading' | 'error' = 'ready', blank = false) 
     capture: vi.fn(),
     inputActions: { captureInsertion: vi.fn(() => ({ start: 1, end: 3, draftRev: 9 })), insertText: vi.fn(() => true),
       setDraft: vi.fn(), persistDraft: vi.fn(), addAttachments: vi.fn(() => true), removeAttachment: vi.fn(),
-      pruneAttachments: vi.fn(), submit: vi.fn() },
+      pruneAttachments: vi.fn(), insertQuote: vi.fn(), submit: vi.fn() },
   }
   const view = render(<Conversation {...props} />)
   return { props, factory, view }

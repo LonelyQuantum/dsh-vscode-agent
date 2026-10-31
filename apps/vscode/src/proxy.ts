@@ -1,6 +1,7 @@
 /** Authenticated, route-limited byte transport between one Webview and its owned DSH Host. */
 import WebSocket from 'ws'
 import { randomUUID } from 'node:crypto'
+import { UploadBody, UPLOAD_PATH } from './upload.ts'
 
 /** Native configuration calls never forward their replies or secret inputs to the Webview. */
 export type NativeMethod = 'settings/describe' | 'settings/mutate' | 'credentials/describe' | 'credentials/set'
@@ -14,10 +15,10 @@ export class NativeRequestError extends Error {
 
 /** Shared envelope marker prevents accidental handling of unrelated editor messages. */
 export const CHANNEL = 'dsh-vscode'
-/** Development upload limit; larger attachments fail explicitly before forwarding. */
+/** Ordinary buffered HTTP and Gateway frame bound. */
 export const MAX_BODY_BYTES = 8 * 1024 * 1024
 type Send = (message: object) => PromiseLike<boolean>
-interface Transfer { controller: AbortController; reader?: ReadableStreamDefaultReader<Uint8Array>; reading: boolean }
+interface Transfer { controller: AbortController; reader?: ReadableStreamDefaultReader<Uint8Array>; reading: boolean; upload?: UploadBody }
 
 /**
  * Validate a path without allowing an arbitrary authority or traversal.
@@ -158,6 +159,9 @@ export class HostProxy {
         const method = message.method
         if (typeof method !== 'string' || !['GET', 'HEAD', 'POST', 'PUT', 'DELETE'].includes(method)) throw new Error('Invalid method')
         if (path.startsWith('/plugins/') && method !== 'GET') throw new Error('Read-only assets')
+        if (this.transfers.has(id)) throw new Error('Duplicate request')
+        const streaming = message.upload === true
+        if (streaming && (method !== 'POST' || path.split('?')[0] !== UPLOAD_PATH || message.body !== undefined)) throw new Error('Invalid upload route')
         if (message.body !== undefined && (typeof message.body !== 'string' || message.body.length > Math.ceil(MAX_BODY_BYTES / 3) * 4)) {
           throw new Error('Upload too large')
         }
@@ -165,11 +169,13 @@ export class HostProxy {
         if (typeof message.contentType === 'string') headers.set('content-type', message.contentType)
         const controller = new AbortController()
         const transfer: Transfer = { controller, reading: false }
+        if (streaming) transfer.upload = new UploadBody(() => this.reply(id, 'upload-pull'), controller.signal)
         this.transfers.set(id, transfer)
         try {
           const response = await fetch(new URL(path, this.origin), {
             method, headers, redirect: 'manual', signal: controller.signal,
-            ...(typeof message.body === 'string' ? { body: Buffer.from(message.body, 'base64') } : {}),
+            ...(transfer.upload ? { body: transfer.upload.stream, duplex: 'half' as const }
+              : typeof message.body === 'string' ? { body: Buffer.from(message.body, 'base64') } : {}),
           })
           if (response.status >= 300 && response.status < 400) throw new Error('Redirects are not forwarded')
           if (response.body) transfer.reader = response.body.getReader()
@@ -181,6 +187,13 @@ export class HostProxy {
           await this.reply(id, 'headers', { status: response.status, headers: outgoing, body: transfer.reader !== undefined })
           if (!transfer.reader) this.transfers.delete(id)
         } catch (error) { this.transfers.delete(id); controller.abort(); throw error }
+        return
+      }
+      case 'upload-chunk': {
+        const transfer = this.transfers.get(id)
+        if (!transfer?.upload) throw new Error('Upload unavailable')
+        try { transfer.upload.accept(message.data) }
+        catch (error) { this.transfers.delete(id); transfer.controller.abort(); throw error }
         return
       }
       case 'pull': {
