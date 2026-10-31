@@ -1,6 +1,7 @@
 /** Admit only a Client package's explicitly exported image files to the native Webview. */
-import { lstat, readdir, readFile, realpath } from 'node:fs/promises'
-import { isAbsolute, join, relative, sep } from 'node:path'
+import { lstat, mkdir, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises'
+import { extname, isAbsolute, join, relative, sep } from 'node:path'
+import { createHash, randomBytes } from 'node:crypto'
 
 const extensions = /\.(svg|png|webp|jpg|jpeg)$/i
 const inside = (root: string, path: string): boolean => {
@@ -68,4 +69,56 @@ export async function collectPackageAssets(roots: readonly string[], signal: Abo
     }
   }
   return result
+}
+
+/** Own a bounded image-only directory: VS Code excludes the resource root itself from admission. */
+export class PackageAssetCache {
+  readonly directory: string
+  private readonly lifetime = new AbortController()
+  private readonly signal: AbortSignal
+  private readonly files = new Set<string>()
+  private bytes = 0
+  private work = Promise.resolve()
+  private cleanup: Promise<void> | undefined
+
+  /** @param parent Extension-owned storage. @param signal View lifetime. */
+  constructor(parent: string, signal: AbortSignal) {
+    this.directory = join(parent, 'public-assets-' + randomBytes(16).toString('hex'))
+    this.signal = AbortSignal.any([signal, this.lifetime.signal])
+  }
+
+  /** @param sources Validated public images. @returns References to copies below the private image root. */
+  publish(sources: ReadonlyMap<string, string>): Promise<Map<string, string>> {
+    const operation = this.work.then(async () => {
+      this.signal.throwIfAborted()
+      await mkdir(this.directory, { recursive: true })
+      const published = new Map<string, string>()
+      for (const [reference, source] of sources) {
+        this.signal.throwIfAborted()
+        const stat = await lstat(source)
+        if (!stat.isFile() || stat.size > 8 * 1024 * 1024 || !extensions.test(source)) throw new Error('Invalid public image')
+        const bytes = await readFile(source, { signal: this.signal })
+        if (bytes.length > 8 * 1024 * 1024) throw new Error('Public image grew beyond its bound')
+        const name = createHash('sha256').update(bytes).digest('hex') + extname(source).toLowerCase()
+        const target = join(this.directory, name)
+        if (!this.files.has(name)) {
+          if (this.files.size >= 4096 || this.bytes + bytes.length > 64 * 1024 * 1024) throw new Error('Public image cache is full')
+          await writeFile(target, bytes, { signal: this.signal, flag: 'wx' })
+          this.files.add(name)
+          this.bytes += bytes.length
+        }
+        published.set(reference, target)
+      }
+      this.signal.throwIfAborted()
+      return published
+    })
+    this.work = operation.then(() => {}, () => {})
+    return operation
+  }
+
+  /** Cancel copies, await their settlement and remove only this view's owned directory. @returns Quiescent cleanup. */
+  dispose(): Promise<void> {
+    this.lifetime.abort()
+    return this.cleanup ??= this.work.then(() => rm(this.directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }))
+  }
 }

@@ -15,7 +15,7 @@ import { resolveInstallation } from './installation.ts'
 import { DesktopHomeError, resolveDesktopHome } from './desktop-home.ts'
 import { SharedHostError } from '@deepseek-ai/dsh-shared-host/client'
 import { SharedLaunchError } from './shared-launch.ts'
-import { collectPackageAssets } from './package-assets.ts'
+import { collectPackageAssets, PackageAssetCache } from './package-assets.ts'
 
 let stopExtension: (() => Promise<void>) | undefined
 
@@ -91,11 +91,15 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
     diagnostics = { boot: false, rpc: 0, assets: 0, socket: false, clientFailure: false }
     const lifetime = { closed: false }
     const nativeLifetime = new AbortController()
+    const assetCache = new PackageAssetCache(context.globalStorageUri.fsPath, nativeLifetime.signal)
     const isClosed = (): boolean => lifetime.closed || panel !== current || !trusted()
     const bindings: vscode.Disposable[] = []
     closeActive = () => {
       lifetime.closed = true
       nativeLifetime.abort()
+      const assetCleanup = assetCache.dispose()
+      pendingDisposals.add(assetCleanup)
+      void assetCleanup.finally(() => pendingDisposals.delete(assetCleanup))
       disposeProxy(proxy)
       proxy = undefined
       for (const binding of bindings) binding.dispose()
@@ -160,15 +164,16 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
         if (lifetime.closed || !vscode.workspace.isTrusted) return
         if (typeof message === 'object' && message !== null && 'channel' in message && message.channel === CHANNEL) {
           if ('kind' in message && message.kind === 'package-assets' && 'id' in message && Number.isSafeInteger(message.id)) {
-            collecting ??= collectPackageAssets(assetRoots, nativeLifetime.signal).then((files) => {
-              if (isClosed()) throw new Error('View closed')
-              const allowed = [...files.values()].map(path => vscode.Uri.file(path))
-              current.webview.options = { ...current.webview.options, localResourceRoots: [
-                ...['web', 'resources', 'carrier'].map(path => vscode.Uri.joinPath(context.extensionUri, path)), ...allowed] }
-              return Object.fromEntries([...files].map(([reference, path]) => [reference,
-                current.webview.asWebviewUri(vscode.Uri.file(path)).toString().replace(/[!'()*]/g,
-                  char => '%' + char.charCodeAt(0).toString(16).toUpperCase())]))
-            }).finally(() => { collecting = undefined })
+            collecting ??= collectPackageAssets(assetRoots, nativeLifetime.signal)
+              .then(files => assetCache.publish(files)).then((files) => {
+                if (isClosed()) throw new Error('View closed')
+                current.webview.options = { ...current.webview.options, localResourceRoots: [
+                  ...['web', 'resources', 'carrier'].map(path => vscode.Uri.joinPath(context.extensionUri, path)),
+                  vscode.Uri.file(assetCache.directory)] }
+                return Object.fromEntries([...files].map(([reference, path]) => [reference,
+                  current.webview.asWebviewUri(vscode.Uri.file(path)).toString().replace(/[!'()*]/g,
+                    char => '%' + char.charCodeAt(0).toString(16).toUpperCase())]))
+              }).finally(() => { collecting = undefined })
             void collecting.then((assets) => {
               if (!isClosed()) void current.webview.postMessage({ channel: CHANNEL, id: message.id, kind: 'package-assets', assets })
             }).catch(() => {

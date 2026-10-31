@@ -1,8 +1,8 @@
-import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
+import { access, mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, it, onTestFinished } from 'vitest'
-import { collectPackageAssets } from '../src/package-assets.ts'
+import { collectPackageAssets, PackageAssetCache } from '../src/package-assets.ts'
 
 it('admits only public Client images, preserves resolver priority and refuses linked private content', async () => {
   const root = await mkdtemp(join(tmpdir(), 'dsh-public-assets-'))
@@ -33,4 +33,42 @@ it('admits only public Client images, preserves resolver priority and refuses li
   expect(files.values().next().value?.replaceAll('\\', '/')).toBe(join(assets, 'image (a).svg').replaceAll('\\', '/'))
   const abort = new AbortController(); abort.abort()
   await expect(collectPackageAssets([modules], abort.signal)).rejects.toMatchObject({ name: 'AbortError' })
+})
+
+it('publishes only image bytes into an owned root and closes it without pending writes', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-image-cache-'))
+  onTestFinished(() => rm(root, { recursive: true, force: true }))
+  const image = join(root, 'original.svg')
+  await writeFile(image, '<svg/>')
+  const cache = new PackageAssetCache(join(root, 'storage'), new AbortController().signal)
+  onTestFinished(() => cache.dispose())
+  const copies = await cache.publish(new Map([['plugins/test/assets/original.svg', image]]))
+  const target = copies.get('plugins/test/assets/original.svg')
+  if (!target) throw new Error('Missing public image')
+  expect(target.startsWith(cache.directory)).toBe(true)
+  expect(await readFile(target, 'utf8')).toBe('<svg/>')
+  expect((await readdir(cache.directory)).length).toBe(1)
+  const other = new PackageAssetCache(join(root, 'storage'), new AbortController().signal)
+  onTestFinished(() => other.dispose())
+  const others = await other.publish(new Map([['plugins/test/assets/original.svg', image]]))
+  const oversized = join(root, 'oversized.png')
+  await writeFile(oversized, Buffer.alloc(8 * 1024 * 1024 + 1))
+  await expect(cache.publish(new Map([['plugins/test/assets/oversized.png', oversized]]))).rejects.toThrow('Invalid public image')
+  await cache.dispose()
+  await expect(access(cache.directory)).rejects.toMatchObject({ code: 'ENOENT' })
+  expect(await readFile(others.get('plugins/test/assets/original.svg') ?? '', 'utf8')).toBe('<svg/>')
+  await expect(cache.publish(new Map())).rejects.toMatchObject({ name: 'AbortError' })
+})
+
+it('cancels a queued copy before disposal removes its root', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-image-cancel-'))
+  onTestFinished(() => rm(root, { recursive: true, force: true }))
+  const image = join(root, 'image.svg')
+  await writeFile(image, '<svg/>')
+  const cache = new PackageAssetCache(join(root, 'storage'), new AbortController().signal)
+  const pending = cache.publish(new Map([['plugins/test/assets/image.svg', image]]))
+  const cancelled = expect(pending).rejects.toMatchObject({ name: 'AbortError' })
+  await cache.dispose()
+  await cancelled
+  await expect(access(cache.directory)).rejects.toMatchObject({ code: 'ENOENT' })
 })
