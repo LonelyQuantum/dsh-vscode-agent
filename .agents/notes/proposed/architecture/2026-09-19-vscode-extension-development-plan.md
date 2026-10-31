@@ -8,7 +8,7 @@ English | [中文](2026-09-19-vscode-extension-development-plan.zh.md)
 
 The fork needs a VS Code extension with an editor-centered, Codex-style conversation, explicit file and selection context, tool progress, approvals, and change review. ProleCoder supplies an existing interaction reference. DSH must remain the owner of agent execution, sessions, and permissions so the extension can follow upstream without maintaining parallel implementations.
 
-Maintain separate alpha and RC development lines, targeting official `dsh-v0.2.1-alpha.5` and `dsh-v0.2.1-rc.3`. Both contain the editor implementation. The [VS Code preview](../../../../apps/vscode/README.md) implements development items across P0–P4. The latest adaptation record below governs current qualification; dated earlier records do not establish acceptance of a rebuilt shared-backend artifact.
+Maintain separate alpha and RC development lines, targeting official `dsh-v0.2.1-alpha.5` and `dsh-v0.2.1-rc.5`. Both contain the editor implementation. The [VS Code preview](../../../../apps/vscode/README.md) implements development items across P0–P4. The latest adaptation record below governs current qualification; dated earlier records do not establish acceptance of a rebuilt shared-backend artifact.
 
 ## Proposal
 
@@ -21,7 +21,7 @@ Keep two plugin development lines so upstream API adaptation can proceed before 
 | Branch | Selected official baseline | Responsibility |
 |---|---|---|
 | `develop/vscode-alpha` | [`dsh-v0.2.1-alpha.5`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.1-alpha.5) | Adapt new APIs and develop plugin features against the latest published alpha tag. |
-| `develop/vscode-rc` | [`dsh-v0.2.1-rc.3`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.1-rc.3) | Maintain the latest published RC baseline and qualify selectively ported features for the default community release candidate. |
+| `develop/vscode-rc` | [`dsh-v0.2.1-rc.5`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.1-rc.5) | Maintain the latest published RC baseline and qualify selectively ported features for the default community release candidate. |
 | `master` | Fetched `upstream/master` | Mirror official mainline without plugin commits; it is not the RC integration source. |
 
 Adapt each line against its selected release. Alpha qualification supplies reference evidence for transferable plugin changes, not RC acceptance. RC can contain newer upstream behavior than the latest alpha; compare ancestry rather than ordering by channel name. `master` mirrors upstream only. Push the long-lived branches only after qualification and an unchanged-remote lease check; previously published tags and release assets remain unchanged.
@@ -32,6 +32,14 @@ Adapt each line against its selected release. Alpha qualification supplies refer
 4. Fix urgent security or blocking defects on RC when necessary, then carry the fix to alpha with its source recorded. Published long-lived lines prefer merge-forward updates through reviewed integration branches; history rewrites require explicit authorization, a retained tip, and exact lease protection. Upstream PRs still use separate branches against official `master`.
 
 Use separate temporary Harness homes and installation/artifact directories for the two lines. Do not run alpha and RC writers against the same home or use an alpha-written home as an RC downgrade test. Qualify Desktop sharing only within a matching runtime/protocol set. Each artifact records its line, DSH tag, and checksum; neither line borrows the other's installed acceptance. Follow the [release checklist and independent channel versions](../../../../apps/vscode/RELEASING.md); ordinary commits do not increment the extension version.
+
+### RC5 adaptation — 2026-10-31
+
+RC merges official `dsh-v0.2.1-rc.5` forward from RC3 and advances the extension to `0.0.2-rc.2`. The shared reasoning renderer supplies original `rawText` and display-ready `text`; the editor keeps its embedded Conversation Factory. View tooltip and ACP stdout fixes follow upstream. Node `^22.19.0 || >=24.0.0` and pnpm `11.28.5` requirements remain unchanged. Released tags and assets are not replaced.
+
+The artifact build and both aggregate checks pass, as do full lint, 43 documentation gates, constraints, rescope idempotency and 354 NodeNext declaration consumers. Focused editor/shared-host/reasoning/provider/protocol tests pass 247 cases across 34 files. Seven read-only Edge cases across four files include both reasoning formats; two ACP stdout regressions pass. The browser fixture honors the existing explicit executable-path setting, leaving the default browser unchanged. Eleven packaged-runtime mock scenarios across six files pass without retry.
+
+The Windows x64 artifact `dsh-vscode-agent-0.0.2-rc.2-dsh-0.2.1-rc.5-win32-x64.vsix` contains 28,624 entries and 165,836,313 bytes; SHA-256 is `ef5ee5f60b5d83b8310dfc9a6200a2de8696c66d5d85aa3286081e298eb7944b`. Release-file verification and the full decompressed archive plus 117 owned-history scan find no selected managed key, current user/repository path or forbidden state/debug file. Nine serial installed runs on VS Code `1.142.0` pass startup/restart/crash cleanup, native onboarding and key rotation, draft/reference retention, keyboard/attachment UX, two-peer security, Workspace Trust, authorized real-model interactions and all six fault probes. Real-model tests use only temporary fixture data and the previously authorized official endpoint. Historical Auto timeout, conflicting native approval UI and unsupported-platform gaps remain outside this acceptance.
 
 ### RC3 adaptation — 2026-10-24
 
