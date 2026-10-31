@@ -52,16 +52,29 @@ export async function runOnboardingCheck({ browser, root, evaluate, request, wai
   await waitFor(() => readIfPresent(join(root, 'reloaded')))
   await waitFor(() => evaluate('return !!root?.querySelector("[data-composer-input]")'))
   const send = async marker => {
-    await waitFor(() => evaluate(`return root?.querySelector('[data-composer-input]')?.getAttribute('contenteditable') === 'true'
-      && !root.querySelector('[data-streaming=true]')`))
+    const before = await waitFor(() => evaluate(`
+      if (root?.querySelector('[data-composer-input]')?.getAttribute('contenteditable') !== 'true'
+        || root.querySelector('[data-streaming=true]')) return null
+      return { completions: root.innerText.split('NATIVE_ONBOARDING_DONE').length - 1 }
+    `))
     const previousRequests = provider.requests.length
     await evaluate('root.querySelector("[data-composer-input]").focus()')
     await request('Input.insertText', { text: marker })
     await request('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 })
     await request('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 })
-    await waitFor(async () => provider.requests.length > previousRequests && await evaluate(`return root
-      && [...root.querySelectorAll('[data-user-message]')].some(node => node.textContent.includes(${JSON.stringify(marker)}))
-      && root.innerText.includes('NATIVE_ONBOARDING_DONE') && !root.querySelector('[data-streaming=true]')`))
+    try {
+      await waitFor(async () => provider.requests.slice(previousRequests).some(row => row.outcome === 'completed') && await evaluate(`return root
+        && [...root.querySelectorAll('[data-user-message]')].some(node => node.textContent.includes(${JSON.stringify(marker)}))
+        && root.innerText.split('NATIVE_ONBOARDING_DONE').length - 1 > ${before.completions}
+        && !root.querySelector('[data-streaming=true]')`))
+    } catch (error) {
+      const view = await evaluate(`return { text: root?.innerText, session: doc.defaultView.__DSH_VSCODE__?.lastSession(),
+        input: root?.querySelector('[data-composer-input]')?.outerHTML, active: doc.activeElement?.outerHTML }`)
+      await writeFile(new URL('../lib/onboarding-failure.json', import.meta.url), JSON.stringify({ marker, previousRequests,
+        requests: provider.requests.map(row => ({ model: row.body?.model, outcome: row.outcome, chunksSent: row.chunksSent,
+          rotated: row.headers['x-api-key'] === 'fixture-only-editor-rotated-key' })), view }, null, 2))
+      throw error
+    }
   }
   await send('Native onboarding first turn')
   assert.equal(provider.requests.at(-1)?.body?.model, 'deepseek-flash')

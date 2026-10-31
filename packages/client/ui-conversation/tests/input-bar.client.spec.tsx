@@ -15,6 +15,7 @@ import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { createPortal } from 'react-dom'
+import { useLayoutEffect } from 'react'
 import { $getRoot, $isTextNode } from 'lexical'
 import {
   allowAllAccess, bindSnapshotSelector, conversationSnapshot as conversationFixture, makeTranslate, RemoteError,
@@ -290,6 +291,25 @@ function writeDraft(shell: SessionInputShell, text: string): void {
 }
 
 describe('composer focus handoff', () => {
+  it('accepts Enter when an editable composer commits before passive effects', async () => {
+    const { view, props, shell, sink } = bench()
+    view.unmount()
+    writeDraft(shell, 'send at the editable boundary')
+    function EnterAtCommit() {
+      useLayoutEffect(() => {
+        const input = document.querySelector('[data-composer-input]')
+        if (!(input instanceof HTMLElement)) throw new Error('Composer did not commit')
+        expect(editableOf(input)).toBe(true)
+        fireEvent.keyDown(input, { key: 'Enter', code: 'Enter', keyCode: 13 })
+      }, [])
+      return <InputBar {...props} />
+    }
+    render(<EnterAtCommit />)
+    await act(async () => {})
+    expect(sink).toHaveBeenCalledOnce()
+    expect(sink.mock.calls[0]?.[0]).toBe('send at the editable boundary')
+  })
+
   it.each(['hero', 'composer'] as const)('focuses the %s editor when its card background is pressed', (variant) => {
     const { view, shell, textarea } = bench({ variant })
     writeDraft(shell, 'draft text')
