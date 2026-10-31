@@ -8,7 +8,7 @@ English | [中文](2026-09-19-vscode-extension-development-plan.zh.md)
 
 The fork needs a VS Code extension with an editor-centered, Codex-style conversation, explicit file and selection context, tool progress, approvals, and change review. ProleCoder supplies an existing interaction reference. DSH must remain the owner of agent execution, sessions, and permissions so the extension can follow upstream without maintaining parallel implementations.
 
-Maintain separate alpha and RC development lines, targeting official `dsh-v0.2.1-alpha.5` and `dsh-v0.2.1-rc.5`. Both contain the editor implementation. The [VS Code preview](../../../../apps/vscode/README.md) implements development items across P0–P4. The latest adaptation record below governs current qualification; dated earlier records do not establish acceptance of a rebuilt shared-backend artifact.
+Maintain separate alpha and RC development lines, targeting official `dsh-v0.2.2-alpha.2` and `dsh-v0.2.1-rc.5`. Both contain the editor implementation. The [VS Code preview](../../../../apps/vscode/README.md) implements development items across P0–P4. The latest adaptation record below governs current qualification; dated earlier records do not establish acceptance of a rebuilt shared-backend artifact.
 
 ## Proposal
 
@@ -20,7 +20,7 @@ Keep two plugin development lines so upstream API adaptation can proceed before 
 
 | Branch | Selected official baseline | Responsibility |
 |---|---|---|
-| `develop/vscode-alpha` | [`dsh-v0.2.1-alpha.5`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.1-alpha.5) | Adapt new APIs and develop plugin features against the latest published alpha tag. |
+| `develop/vscode-alpha` | [`dsh-v0.2.2-alpha.2`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.2-alpha.2) | Adapt new APIs and develop plugin features against the latest published alpha tag. |
 | `develop/vscode-rc` | [`dsh-v0.2.1-rc.5`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.2.1-rc.5) | Maintain the latest published RC baseline and qualify selectively ported features for the default community release candidate. |
 | `master` | Fetched `upstream/master` | Mirror official mainline without plugin commits; it is not the RC integration source. |
 
@@ -39,7 +39,13 @@ RC merges official `dsh-v0.2.1-rc.5` forward from RC3 and advances the extension
 
 The artifact build and both aggregate checks pass, as do full lint, 43 documentation gates, constraints, rescope idempotency and 354 NodeNext declaration consumers. Focused editor/shared-host/reasoning/provider/protocol tests pass 247 cases across 34 files. Seven read-only Edge cases across four files include both reasoning formats; two ACP stdout regressions pass. The browser fixture honors the existing explicit executable-path setting, leaving the default browser unchanged. Eleven packaged-runtime mock scenarios across six files pass without retry.
 
-The Windows x64 artifact `dsh-vscode-agent-0.0.2-rc.2-dsh-0.2.1-rc.5-win32-x64.vsix` contains 28,624 entries and 165,836,313 bytes; SHA-256 is `ef5ee5f60b5d83b8310dfc9a6200a2de8696c66d5d85aa3286081e298eb7944b`. Release-file verification and the full decompressed archive plus 117 owned-history scan find no selected managed key, current user/repository path or forbidden state/debug file. Nine serial installed runs on VS Code `1.142.0` pass startup/restart/crash cleanup, native onboarding and key rotation, draft/reference retention, keyboard/attachment UX, two-peer security, Workspace Trust, authorized real-model interactions and all six fault probes. Real-model tests use only temporary fixture data and the previously authorized official endpoint. Historical Auto timeout, conflicting native approval UI and unsupported-platform gaps remain outside this acceptance.
+The composer and native-fixture safeguards are selected from Alpha without importing its baseline or lockfile. The old RC code fails a deterministic immediate-Enter test; layout-phase keymap binding passes it and 173 related tests. Native setup requires a newly completed request and transcript reply, and malformed scenario arguments fail before editor launch. Both artifact/compiler aggregates and all 43 documentation gates pass after the port; the rebuilt archive's eleven packaged shared-runtime scenarios pass without retry.
+
+The rebuilt Windows x64 artifact `dsh-vscode-agent-0.0.2-rc.2-dsh-0.2.1-rc.5-win32-x64.vsix` contains 28,472 entries and 165,601,378 bytes; SHA-256 is `1f8988ce6ff14e16f36af88e72475c4d3de48e1183b201e23cd5fc3b907cd0b6`. Release-file verification and the complete decompressed archive plus own-history scan find no selected managed key, current user/repository path or forbidden state/debug file. All nine serial installed scenarios pass on VS Code `1.142.0`, completed on 2026-11-01: startup/restart/crash cleanup, native setup and key rotation, draft/reference retention, keyboard/attachment UX, two-peer security, Workspace Trust, real-model interaction and all six fault probes. Real-model tests use only temporary fixture data and the previously authorized official endpoint. Historical RC Auto timeout, conflicting native approval UI and unsupported-platform gaps remain outside this acceptance.
+
+### Alpha2 reference — 2026-11-01
+
+Alpha independently integrates official `dsh-v0.2.2-alpha.2` as extension `0.0.2-alpha.2`, with external Node 24.9 or newer. It adapts the owner Peer, passive Session reads, explicit activation, private public-image cache, bounded raw uploads and same-file revision redirects; these newer contracts do not change RC's baseline. Its frozen Windows archive SHA-256 is `405c16bb0e7a9c1dbb13e79378f5259d33fa453820f26919b4c13995d474484f`. It passes 141 editor/shared-host tests, 187 related composer tests, six browser replay checks, eleven packaged shared-runtime scenarios, nine serial installed scenarios and five specialized installed checks for migration, Auto removal, compaction, timed questions and reminders. Full lint with focused follow-ups, all 43 documentation gates, final 21 quick gates, both compiler aggregates, 380 NodeNext consumers and the decompressed security scan pass. The Alpha qualification supplies reference evidence; each line retains its own home, artifact and acceptance. This adaptation creates no new public tag or Release.
 
 ### RC3 adaptation — 2026-10-24
 
