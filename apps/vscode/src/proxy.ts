@@ -33,6 +33,24 @@ export function admittedPath(path: string): string {
   return path
 }
 
+/**
+ * Admit only the file route's canonical version redirect, without changing its authority or file.
+ * @param current Current authenticated request URL.
+ * @param location Server Location header.
+ * @returns Same-file version URL; all other redirects fail closed.
+ */
+export function fileRevisionRedirect(current: URL, location: string | null): URL {
+  if (current.pathname !== '/api/file' || location === null) throw new Error('Redirect refused')
+  const next = new URL(location, current)
+  const path = current.searchParams.get('path')
+  if (next.origin !== current.origin || next.pathname !== current.pathname || next.username || next.password || next.hash
+    || !path || current.searchParams.getAll('path').length !== 1
+    || next.searchParams.getAll('path').length !== 1 || next.searchParams.get('path') !== path
+    || next.searchParams.getAll('v').length !== 1 || !next.searchParams.get('v')
+    || [...next.searchParams.keys()].some(key => key !== 'path' && key !== 'v')) throw new Error('Redirect refused')
+  return next
+}
+
 /** One panel's proxy. Closing a panel releases its requests but not the shared runtime. */
 export class HostProxy {
   private readonly transfers = new Map<number, Transfer>()
@@ -172,12 +190,18 @@ export class HostProxy {
         if (streaming) transfer.upload = new UploadBody(() => this.reply(id, 'upload-pull'), controller.signal)
         this.transfers.set(id, transfer)
         try {
-          const response = await fetch(new URL(path, this.origin), {
-            method, headers, redirect: 'manual', signal: controller.signal,
+          let url = new URL(path, this.origin)
+          const options = { method, headers, redirect: 'manual' as const, signal: controller.signal,
             ...(transfer.upload ? { body: transfer.upload.stream, duplex: 'half' as const }
               : typeof message.body === 'string' ? { body: Buffer.from(message.body, 'base64') } : {}),
-          })
-          if (response.status >= 300 && response.status < 400) throw new Error('Redirects are not forwarded')
+          }
+          let response = await fetch(url, options)
+          for (let hops = 0; response.status >= 300 && response.status < 400; hops++) {
+            await response.body?.cancel()
+            if (hops >= 2 || method !== 'GET' && method !== 'HEAD') throw new Error('Redirect refused')
+            url = fileRevisionRedirect(url, response.headers.get('location'))
+            response = await fetch(url, options)
+          }
           if (response.body) transfer.reader = response.body.getReader()
           const outgoing: Record<string, string> = {}
           for (const key of ['content-type', 'content-disposition']) {
