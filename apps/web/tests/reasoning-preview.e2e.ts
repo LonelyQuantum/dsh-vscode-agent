@@ -49,7 +49,8 @@ it('shows completed paragraph first lines across blank lines with a right-edge f
   try {
     scaffold.ctx.effect(() => scaffold.ctx.llm.registerAdapter(['reasoning-preview-test'], adapter))
     await scaffold.ctx.agentDefaultModel.saveSelection({ provider: 'reasoning-preview-test', model: 'paused' })
-    const browser = await chromium.launch()
+    const executablePath = process.env.DSH_PLAYWRIGHT_EXECUTABLE_PATH
+    const browser = await chromium.launch(executablePath === undefined ? {} : { executablePath })
     try {
       const page = await newEnglishPage(browser)
       const console = watchConsole(page)
