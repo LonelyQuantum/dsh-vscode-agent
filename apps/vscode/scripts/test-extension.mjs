@@ -11,9 +11,10 @@ import * as yaml from 'js-yaml'
 import { EXTENSION_ID } from './extension-identity.mjs'
 import { selectRecoveredSession } from './session-restoration.mjs'
 
-const { positionals: [executable], values } = parseArgs({ allowPositionals: true,
+const { positionals: [executable, ...extraPositionals], values } = parseArgs({ allowPositionals: true,
   options: { vsix: { type: 'string' }, 'fresh-shared': { type: 'boolean' }, 'shared-home': { type: 'string' }, 'live-home': { type: 'string' }, onboarding: { type: 'boolean' }, interactions: { type: 'boolean' }, faults: { type: 'boolean' }, 'fault-case': { type: 'string' }, 'compat-case': { type: 'string' }, ux: { type: 'boolean' }, security: { type: 'boolean' }, trust: { type: 'boolean' } } })
 if (!executable) throw new Error('Pass the absolute VS Code executable path, not its shell wrapper')
+if (extraPositionals.length) throw new Error('Pass only one VS Code executable; select scenarios with named options')
 if (values['fresh-shared'] && values['shared-home']) {
   throw new Error('--fresh-shared cannot select an existing shared home')
 }

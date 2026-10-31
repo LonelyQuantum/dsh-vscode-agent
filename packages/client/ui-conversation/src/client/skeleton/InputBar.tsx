@@ -264,7 +264,8 @@ export const InputBar = memo(function InputBar({
     return installDraftFilePicker(keyboard, gate, fileInputRef)
   }, [keyboard])
 
-  useEffect(() => {
+  // The editable DOM is visible at commit; Enter must be bound before passive effects.
+  useLayoutEffect(() => {
     if (editor === null || keyboard === undefined) return
     return installDraftKeymap(editor, keyboard, gate)
   }, [editor, keyboard])
