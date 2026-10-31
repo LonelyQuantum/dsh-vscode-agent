@@ -114,13 +114,15 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
       const before = await stat(source, { bigint: true })
       await restart()
       phase = 'list V3 without publishing V4'
-      assert.ok((await rpc('session/list', { _request: {} })).items.some(row => row.sessionId === id))
+      const cold = (await rpc('session/list', { _request: {} })).items.find(row => row.sessionId === id)
+      assert.equal(cold?.agentAvailable, false)
+      assert.equal(cold?.formatStatus, 'migration-required')
       assert.deepEqual(await readdir(dirname(source)), ['session.v3.jsonl.zstd'])
       phase = 'activate historical Session through the bridge'
-      const { workspace: current } = await rpc('workspace/create', { request: { path: workspace } })
-      await rpc('session/create', { request: { sessionId: id, workspaceId: current.workspaceId } })
-      await waitFor(() => evaluate('return [...root.querySelectorAll("nav button")].some(button => button.textContent === "V3 migration qualification")'))
-      await click('V3 migration qualification')
+      const catalog = await rpc('session/modelCatalog', {})
+      await rpc('session/selectModel', { request: { sessionId: id, ...catalog.default } })
+      await waitFor(() => evaluate(`const row = [...root.querySelectorAll('nav button[data-session-id]')]
+        .find(button => button.dataset.sessionId === ${JSON.stringify(id)}); row?.click(); return !!row`))
       await waitFor(() => evaluate('return root.innerText.includes("LEGACY_CONTEXT_42")'))
       phase = 'continue migrated history with the real model'
       await send('What exact project code did I ask you to remember? Reply with that code followed by MIGRATION_DONE. Do not call tools.')
@@ -166,6 +168,9 @@ export async function runCompatibilityCheck({ root, workspace, evaluate, request
       await waitFor(() => readIfPresent(join(root, 'crashed')))
       await restart(expectedSession)
       assert.equal(await evaluate('return doc.defaultView.__DSH_VSCODE__.lastSession()'), expectedSession, 'The reviewed Session must reopen from the list after restart')
+      phase = 'explicitly activate the restored Session before live reviewer removal'
+      const catalog = await rpc('session/modelCatalog', {})
+      await rpc('session/selectModel', { request: { sessionId: expectedSession, ...catalog.default } })
       await waitFor(() => evaluate(`return root.querySelector('[aria-label^="Access mode"]')?.getAttribute('aria-label').includes('Auto review')`))
       phase = 'preserve Auto review during a graceful runtime restart'
       await restart(expectedSession)
