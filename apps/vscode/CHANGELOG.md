@@ -4,6 +4,9 @@ English | [中文](CHANGELOG.zh.md)
 
 ## Unreleased
 
+- Adapt RC to DSH `0.2.1-rc.5` with extension version `0.0.2-rc.2`; preserve released tags and assets.
+- Follow upstream reasoning display text and raw-output separation, view-tooltip fixes and clean ACP protocol output.
+
 ## 0.0.2-rc.1 — 2026-10-24
 
 - Adapt RC to DSH `0.2.1-rc.3` with extension version `0.0.2-rc.1`; retain existing published artifacts unchanged.
