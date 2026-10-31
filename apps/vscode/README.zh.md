@@ -54,11 +54,11 @@ pnpm.cmd run dev:vscode
 
 `dsh.backend = isolated` 保留原有模式：每个规范化工作区在扩展全局存储中使用带单写入器锁的私有 `vscode` profile。两种模式都不会移动或删除历史。[共享后台库](../shared-host/README.zh.md)负责认证租约、版本检查、冷启动、崩溃恢复及 Desktop 独占更新。
 
-后台监听临时 IPv4 回环端口。共享模式通过认证控制 socket 传送原生启动数据；独立模式使用私有子进程 IPC。Extension Host 用启动 token 交换 HTTP-only cookie。限制路由的 Webview 适配器不接收 URL 或 cookie。Gateway 保留流分帧。HTTP 响应逐步读取；拒绝超过 8 MiB 的缓冲上传。
+后台监听临时 IPv4 回环端口。共享模式通过认证控制 socket 传送原生启动数据；独立模式使用私有子进程 IPC。Extension Host 用启动 token 交换 HTTP-only cookie。限制路由的 Webview 适配器不接收 URL 或 cookie。Gateway 保留流分帧。HTTP 响应逐步读取。仅原始附件路由接收至多 50 MiB 的按需分块上传，每块不超过 64 KiB；普通缓冲 HTTP 和 Gateway 帧保留 8 MiB 限制。
 
 插件图事件使用 `eventsource` 库经同一带认证的 Fetch 桥接传输，仅允许 `/plugins/events`。同一事件源也为上游 HMR Fetch 流提供数据，保留流错误或 EOF 后的重连；关闭任一消费方时中止请求并取消待执行的重试。Fetch 适配器将缓冲的事件字节限制为 16 MiB。不可恢复的 HTTP 拒绝或缓冲溢出会明确使流失败，需要重新加载视图；普通 API 和文件请求保留既有传输方式。认证保留在 Extension Host。SSE 解析和重试语义由该库负责，扩展不维护独立事件解析器。
 
-静态资源限定于 `web/`、`resources/` 和 `carrier/`；工作区、Host 入口及打包运行时都不属于 Webview 资源根目录。CSP 拒绝未列出的来源、任意内联脚本、动态字符串编译（`eval` 和 `Function`）、外部连接/图片、基础 URL 更改、表单、frame 和 object。插件脚本和生成的 style 元素携带页面 nonce；blob worker 仍可使用。共享 Loader 只在求值时编译受信任的 Host 配置表达式，因此仅含字面值的 Client 启动不需要 `unsafe-eval`。共享布局与数学公式渲染仍通过 `style-src-attr 'unsafe-inline'` 使用内联样式属性；不带 nonce 的内联 style 元素会被阻止。这不是 XSS 安全保证，也不代表已完成 Marketplace 发行加固：已安装的 Cordis 插件属于受信任代码，启用前必须审查。
+静态资源包括 `web/`、`resources/`、`carrier/`，以及通过精确的 `./assets/*` 导出声明的单个公共 Client 图片。资源路径会规范化，资源根目录下的链接会被拒绝。工作区与运行时目录仍不属于 Webview 资源根目录；仅准入的图片文件获得原生资源 URI。CSP 拒绝未列出的来源、任意内联脚本、动态字符串编译（`eval` 和 `Function`）、外部连接/图片、基础 URL 更改、表单、frame 和 object。插件脚本和生成的 style 元素携带页面 nonce；blob worker 仍可使用。共享 Loader 只在求值时编译受信任的 Host 配置表达式，因此仅含字面值的 Client 启动不需要 `unsafe-eval`。共享布局与数学公式渲染仍通过 `style-src-attr 'unsafe-inline'` 使用内联样式属性；不带 nonce 的内联 style 元素会被阻止。这不是 XSS 安全保证，也不代表已完成 Marketplace 发行加固：已安装的 Cordis 插件属于受信任代码，启用前必须审查。
 
 manifest（元数据清单）在受限模式中禁用 DSH。启动过程在异步读取工作区、凭据和安装信息后再次检查信任。授予信任后扩展可用；撤销信任会重启 Extension Host，释放所属运行时，并使 DSH 保持禁用。原生操作在接纳页面消息前也检查信任。真实编辑器信任检查使用独立观察扩展，不使用扩展测试生命周期，使 VS Code 能执行正常的宿主重启。
 

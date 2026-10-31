@@ -203,6 +203,10 @@ try {
           provider: mockProvider, home: environment.DSH_HOME })
         const { runDraftReturnCheck } = await import('./test-draft-return.mjs')
         await runDraftReturnCheck({ evaluate, request, waitFor })
+          if (values.vsix) {
+            const { runPackageTransportCheck } = await import('./test-package-transport.mjs')
+            await runPackageTransportCheck({ evaluate, extensionPath })
+          }
       } else if (values.security) {
         const { runSecurityCheck } = await import('./test-security.mjs')
         await runSecurityCheck({ evaluate, waitFor })
