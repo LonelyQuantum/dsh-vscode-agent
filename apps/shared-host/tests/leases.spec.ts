@@ -20,13 +20,16 @@ async function fixture(pauseBoot = false) {
   const clients: SharedHostClient[] = []
   const boot = Promise.withResolvers<undefined>()
   let publishAccount: ((session: unknown) => void) | undefined
+  let publishOperation: ((record: unknown) => void) | undefined
   if (!pauseBoot) boot.resolve(undefined)
-  const serving = serveSharedHost({ home, version: 'fixture', start: async (publish) => {
+  const serving = serveSharedHost({ home, version: 'fixture', start: async (publish, operation) => {
     publishAccount = publish
+    publishOperation = operation
     await boot.promise
     publish({ token: 'fixture-only-private-account' })
     return { get ready() { return { url: 'http://127.0.0.1:49152/?token=fixture-only', injections, pid: process.pid } },
-      shutdown, inspectQuit: async () => ({ activeTasks: true, scheduledTasks: true }), updateTasks: updates }
+      shutdown, inspectQuit: async () => ({ activeTasks: true, scheduledTasks: true }), updateTasks: updates,
+      resolveDragResource: async address => ({ address, path: '/synthetic/file', sha256: 'a'.repeat(64), size: 4 }) }
   } })
   let failure: unknown
   void serving.catch((error: unknown) => { failure = error })
@@ -47,15 +50,17 @@ async function fixture(pauseBoot = false) {
     endpoint = parseEndpoint(JSON.parse(await readFile(join(home, '.shared-host/endpoint.json'), 'utf8')))
     expect(endpoint).toBeDefined()
   }, { timeout: 15_000 })
-  const attach = async (role: 'desktop' | 'vscode', version = 'fixture', platform?: (value: unknown) => void) => {
-    const client = await SharedHostClient.connect(endpoint, version, role, platform)
+  const attach = async (role: 'desktop' | 'vscode', version = 'fixture', platform?: (value: unknown) => void,
+    operation?: (value: unknown) => void) => {
+    const client = await SharedHostClient.connect(endpoint, version, role, platform, operation)
     if (!client) throw new Error('Fixture endpoint was not listening')
     clients.push(client)
     return client
   }
   return { home, shutdown, updates, serving, attach, endpoint, completeBoot: () => { boot.resolve(undefined) },
     setInjections: (value: unknown[]) => { injections = value },
-    publishAccount: (value: unknown) => { publishAccount?.(value) } }
+    publishAccount: (value: unknown) => { publishAccount?.(value) },
+    publishOperation: (value: unknown) => { publishOperation?.(value) } }
 }
 
 it('reads fresh boot data for either native role without releasing leases or exposing account tokens', async () => {
@@ -74,6 +79,29 @@ it('reads fresh boot data for either native role without releasing leases or exp
   await desktop.close()
   await f.serving
   expect(f.shutdown).toHaveBeenCalledOnce()
+})
+
+it('keeps file drag authorization on the native Desktop control channel', async () => {
+  const f = await fixture()
+  const editor = await f.attach('vscode')
+  const desktop = await f.attach('desktop')
+  await expect(editor.control('resolve-file-drag', 'dsh-resource://file/session/test/file')).rejects.toThrow()
+  expect(await desktop.control('resolve-file-drag', 'dsh-resource://file/session/test/file')).toMatchObject({ size: 4 })
+  await expect(desktop.control('resolve-file-drag', 'x'.repeat(8193))).rejects.toThrow()
+  await expect(desktop.control('resolve-file-drag')).rejects.toThrow()
+})
+
+it('delivers operation diagnostics only to ready native Desktop leases', async () => {
+  const f = await fixture()
+  const editorEvents: unknown[] = []
+  const desktopEvents: unknown[] = []
+  const editor = await f.attach('vscode', 'fixture', undefined, (value) => { editorEvents.push(value) })
+  const desktop = await f.attach('desktop', 'fixture', undefined, (value) => { desktopEvents.push(value) })
+  f.publishOperation({ operation: 'synthetic' })
+  // A response on each ordered socket is a barrier after the publication.
+  await Promise.all([editor.control('read-boot'), desktop.control('read-boot')])
+  expect(editorEvents).toEqual([])
+  expect(desktopEvents).toEqual([{ operation: 'synthetic' }])
 })
 
 it('delivers account events only after the native readiness handshake', async () => {

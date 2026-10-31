@@ -2,6 +2,7 @@
 import { acquireSharedHost, type SharedLaunch, type SharedHostClient } from '@deepseek-ai/dsh-shared-host/client'
 import type { PlatformSession } from '@deepseek-ai/dsh-deepseek-account'
 import { isDesktopHostEvent, type DesktopHostReady, type DesktopQuitInspection } from './host-process.ts'
+import { parsePluginOperationRecord, type PluginOperationRecord } from '@deepseek-ai/dsh-plugin-manager/diagnostic'
 
 /** Desktop supplies its runtime and optional Office payload when it starts the shared profile. */
 export interface SharedDesktopOptions {
@@ -14,6 +15,7 @@ export interface SharedDesktopOptions {
   prepare(): Promise<void>
   failure(error: Error): void
   platformSession(session: PlatformSession | null): void
+  pluginOperation?(record: PluginOperationRecord): void
 }
 
 /** Releasing the Desktop lease preserves backend work while VS Code is attached. */
@@ -37,6 +39,11 @@ export class SharedDesktopHost {
           options.failure(new Error('Shared backend sent an invalid platform session')); return
         }
         if (!this.closed) options.platformSession(event.session)
+      }, pluginOperation: (record) => {
+        const parsed = parsePluginOperationRecord(record)
+        if (this.closed || parsed === undefined) return
+        try { options.pluginOperation?.(parsed) }
+        catch (_error) { console.error('Desktop operation journal rejected a diagnostic record') }
       } })
     const client = await this.pending
     this.client = client

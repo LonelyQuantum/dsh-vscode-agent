@@ -67,12 +67,14 @@ async function installOffice(ctx: Awaited<ReturnType<typeof runProfile>>['ctx'])
   })
 }
 
-async function bootShared(publishPlatform: (session: unknown) => void): Promise<SharedApplication> {
+async function bootShared(publishPlatform: (session: unknown) => void,
+  publishOperation: (record: unknown) => void, runId: PluginOperationRunId): Promise<SharedApplication> {
   const running = await startApplication(true)
   try {
     const { ctx } = running
     if (process.argv[4] !== '') await installOffice(ctx)
     installPlatformSessionPublisher(ctx, publishPlatform)
+    installOperationDiagnostics(ctx, (record) => { publishOperation(record); return Promise.resolve() }, 32, runId)
     return { get ready() { return { url: ctx.connection.authenticatedUrl(`http://127.0.0.1:${String(ctx.webServer.port)}`),
       injections: ctx.webServer.collectIndexInjections(ctx.connection.browserPeer), pid: process.pid } },
     shutdown: () => running.shutdown.shutdown(0),
@@ -87,9 +89,9 @@ async function main(): Promise<void> {
   if (process.env.DSH_SHARED_HOST === '1') {
     const version = process.env.DSH_SHARED_VERSION
     if (!version) throw new Error('Shared Desktop Host needs a product version')
-    await serveSharedHost({ home: resolveDshHome(), version, start: async (publish) => {
+    await serveSharedHost({ home: resolveDshHome(), version, start: async (publish, publishOperation) => {
       const timeout = setTimeout(() => { process.exit(1) }, 120_000)
-      try { return await bootShared(publish) } finally { clearTimeout(timeout) }
+      try { return await bootShared(publish, publishOperation, runId) } finally { clearTimeout(timeout) }
     } })
     return
   }

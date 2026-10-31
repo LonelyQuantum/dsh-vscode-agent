@@ -39,6 +39,8 @@ For a new community profile, `initializeCommunityProfile` from `./profile` seeds
 <details>
 <summary>Implementation internals — click to expand</summary>
 
+Only ready native Desktop leases receive plugin-operation diagnostics. Desktop validates each record before its bounded operation journal accepts it; the editor and Webview do not receive this private stream. Desktop can also resolve a file-drag resource through the product's Session and filesystem authorization, with a ten-second read deadline. Editor control requests cannot invoke that operation.
+
 The home-private `.shared-host` directory stores a credential-free launcher and an ephemeral authenticated endpoint. POSIX permissions and Windows owner-only access rules protect discovery data. The startup file lock serializes native launchers; the backend's writer lock remains held through profile shutdown. The existing lock implementation refuses ambiguous owners and recovers dead processes.
 
 A cold launcher passes its environment only to the child process, never to discovery records. Desktop waits for login-shell environment preparation before acquisition. Both clients set `DSH_CLIENT_VERSION` to the selected runtime version so Desktop-profile analytics and its exporter can initialize without Electron. Connecting to an existing backend does not replace its environment.

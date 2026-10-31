@@ -526,6 +526,12 @@ async function main(): Promise<void> {
         primaryRuntime, pnpm: resources.pnpm, nodeBin: resources.nodeBin },
       prepare: () => manager.applyRelease(), failure: onFailure,
       platformSession: (next) => { platformView.setSession(next) },
+      pluginOperation: (record) => {
+        operationJournal ??= new OperationJournal(join(app.getPath('userData'), 'plugin-operations'), {
+          segmentBytes: 256 * 1024, recordBytes: 4096, queuedBytes: 64 * 1024,
+        })
+        operationJournal.enqueue(JSON.stringify(record))
+      },
     })
     return {
       start: async () => {

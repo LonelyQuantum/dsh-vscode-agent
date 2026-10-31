@@ -25,7 +25,7 @@ export interface ServeSharedHost {
   home: string
   version: string
   /** Boot must use the normal dsh profile runner. */
-  start(publishPlatform: (session: unknown) => void): Promise<SharedApplication>
+  start(publishPlatform: (session: unknown) => void, publishOperation: (record: unknown) => void): Promise<SharedApplication>
 }
 
 const actions = new Set<ControlAction>(['read-boot', 'inspect-quit', 'inspect-update', 'lock-update', 'unlock-update', 'release', 'release-exclusive', 'resolve-file-drag'])
@@ -62,6 +62,13 @@ export async function serveSharedHost(options: ServeSharedHost): Promise<void> {
     const publishPlatform = (session: unknown): void => {
       platformSession = session
       for (const [socket, role] of clients) if (role === 'desktop' && readyClients.has(socket)) send(socket, { type: 'platform-session', session })
+    }
+    const publishOperation = (operation: unknown): void => {
+      for (const [socket, role] of clients) {
+        if (role !== 'desktop' || !readyClients.has(socket)) continue
+        if (socket.bufferedAmount > MAX_CONTROL_BYTES) { socket.terminate(); continue }
+        send(socket, { type: 'plugin-operation', record: operation })
+      }
     }
     const stop = (): Promise<void> => shuttingDown ??= (async () => {
       const running = await application?.catch(() => undefined)
@@ -180,7 +187,7 @@ export async function serveSharedHost(options: ServeSharedHost): Promise<void> {
       })
       const address = server.address()
       if (!address || typeof address === 'string') throw new Error('Shared backend listener has no port')
-      application = options.start(publishPlatform)
+      application = options.start(publishPlatform, publishOperation)
       void application.catch(() => { void stop().then(finish, finish) })
       await writeRecord(join(directory, 'endpoint.json'), { protocol: SHARED_PROTOCOL, version: options.version,
         pid: process.pid, port: address.port, token })

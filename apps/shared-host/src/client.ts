@@ -21,7 +21,8 @@ export class SharedHostClient {
   private readonly closed: Promise<void>
   private readonly failures = new Set<() => void>()
   private constructor(private readonly socket: WebSocket, readonly ready: SharedReady,
-    private readonly platformSession?: (value: unknown) => void) {
+    private readonly platformSession?: (value: unknown) => void,
+    private readonly pluginOperation?: (value: unknown) => void) {
     this.closed = new Promise((resolve) => { socket.once('close', () => {
       for (const pending of this.pending.values()) pending.reject(new SharedHostError('Shared backend connection closed'))
       this.pending.clear()
@@ -35,6 +36,7 @@ export class SharedHostClient {
       try { value = JSON.parse(controlText(data)) } catch (_error) { socket.terminate(); return }
       if (!record(value)) { socket.terminate(); return }
       if (value.type === 'platform-session') { this.platformSession?.(value.session); return }
+      if (value.type === 'plugin-operation') { this.pluginOperation?.(value.record); return }
       if (value.type !== 'response' || typeof value.id !== 'number') return
       const pending = this.pending.get(value.id)
       if (!pending) return
@@ -55,10 +57,11 @@ export class SharedHostClient {
    * @param version Exact expected product version.
    * @param role Native client type.
    * @param platformSession Desktop-only private account callback.
+   * @param pluginOperation Desktop-only private management diagnostic callback.
    * @returns Live client, or undefined when no listener accepts connections.
    */
   static async connect(endpoint: Endpoint | undefined, version: string, role: ClientRole,
-    platformSession?: (value: unknown) => void): Promise<SharedHostClient | undefined> {
+    platformSession?: (value: unknown) => void, pluginOperation?: (value: unknown) => void): Promise<SharedHostClient | undefined> {
     if (!endpoint) return undefined
     const socket = new WebSocket(`ws://127.0.0.1:${endpoint.port}/lease`, {
       headers: { authorization: `Bearer ${endpoint.token}`, 'x-dsh-version': version,
@@ -96,7 +99,8 @@ export class SharedHostClient {
         if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || !url.port || url.username || url.password) {
           finish(new SharedHostError('Invalid shared backend address')); return
         }
-        finish(undefined, new SharedHostClient(socket, { url: value.url, injections: value.injections, pid: value.pid }, platformSession))
+        finish(undefined, new SharedHostClient(socket, { url: value.url, injections: value.injections, pid: value.pid },
+          platformSession, pluginOperation))
       }
       socket.on('error', failed)
       socket.on('message', message)
@@ -158,6 +162,7 @@ export interface AcquireSharedHost {
   /** Runs under the startup lock only when no backend is listening. */
   prepare?: () => Promise<void>
   platformSession?: (value: unknown) => void
+  pluginOperation?: (value: unknown) => void
 }
 
 /**
@@ -171,7 +176,8 @@ export async function acquireSharedHost(options: AcquireSharedHost): Promise<Sha
   const home = await realpath(options.home)
   const directory = await controlDirectory(home)
   const connect = async (): Promise<SharedHostClient | undefined> => SharedHostClient.connect(
-    parseEndpoint(await readRecord(join(directory, 'endpoint.json'))), options.version, options.role, options.platformSession)
+    parseEndpoint(await readRecord(join(directory, 'endpoint.json'))), options.version, options.role,
+    options.platformSession, options.pluginOperation)
   return await withFileLock(join(directory, 'startup'), async () => {
     const existing = await connect()
     if (existing) return existing

@@ -39,6 +39,8 @@ Desktop 和 VS Code 为每个规范化 Harness 主目录连接同一个 Desktop 
 <details>
 <summary>实现细节——点击展开</summary>
 
+仅就绪的原生 Desktop 租约接收插件操作诊断。Desktop 验证每条记录后交给有容量限制的操作日志；编辑器和 Webview 不接收此私有流。Desktop 也可通过产品的会话及文件系统授权解析文件拖放资源，读取期限为十秒。编辑器控制请求不能调用此操作。
+
 主目录中的私有 `.shared-host` 目录保存不含凭据的启动器和临时认证端点。POSIX 权限和 Windows 仅所有者访问规则保护发现数据。启动文件锁串行化原生启动器；后台写入锁持续到 profile 关闭。现有锁实现拒绝不明确的所有者，并恢复已退出进程持有的锁。
 
 冷启动器仅向子进程传递环境，不写入发现记录。Desktop 在取得租约前等待登录 shell 环境准备。两端均将 `DSH_CLIENT_VERSION` 设置为所选运行时版本，使 Desktop profile 的产品分析及导出器无需 Electron 也可初始化。连接已有后端不会替换其环境。
