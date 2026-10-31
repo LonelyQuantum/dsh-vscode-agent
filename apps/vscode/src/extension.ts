@@ -99,7 +99,10 @@ export function activate(context: vscode.ExtensionContext): { diagnostics(): Pre
       nativeLifetime.abort()
       const assetCleanup = assetCache.dispose()
       pendingDisposals.add(assetCleanup)
-      void assetCleanup.finally(() => pendingDisposals.delete(assetCleanup))
+      void assetCleanup.then(() => pendingDisposals.delete(assetCleanup), () => {
+        pendingDisposals.delete(assetCleanup)
+        console.warn('DSH public image cache cleanup failed')
+      })
       disposeProxy(proxy)
       proxy = undefined
       for (const binding of bindings) binding.dispose()
